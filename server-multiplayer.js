@@ -77,8 +77,8 @@ function gamePayload(room) {
     windowBoards: game.windowBoards,
     // Keep the network snapshot gameplay-only. Animation and model variation
     // are generated independently by each client.
-    zombies: game.zombies.map(({ id, x, y, z, vx, vy, vz, speed, hp, state }) => ({
-      id, x, y, z, vx, vy, vz, speed, hp, state,
+    zombies: game.zombies.map(({ id, x, y, z, vx, vy, vz, speed, yaw, moving, attacking, attackKind, hp, state }) => ({
+      id, x, y, z, vx, vy, vz, speed, yaw, moving, attacking, attackKind, hp, state,
     })),
     revision: game.revision,
     players: Object.values(room.players).map(p => ({
@@ -347,6 +347,13 @@ io.on('connection', socket => {
         vx: previous ? clamp((x - previous.x) / elapsed, -12, 12) : 0,
         vy: previous ? clamp((y - previous.y) / elapsed, -12, 12) : 0,
         vz: previous ? clamp((zz - previous.z) / elapsed, -12, 12) : 0,
+        yaw: Number.isFinite(z.yaw)
+          ? Math.atan2(Math.sin(z.yaw), Math.cos(z.yaw))
+          : (previous ? previous.yaw : 0),
+        moving: typeof z.moving === 'boolean' ? z.moving : !!(previous && previous.moving),
+        attacking: z.attacking === true,
+        attackKind: Number.isInteger(z.attackKind) && z.attackKind >= 0 && z.attackKind <= 3
+          ? z.attackKind : (previous ? previous.attackKind : 0),
         speed: clamp(finite(z.speed, previous ? previous.speed : 1), 0, 10),
         hp: clamp(z.hp, 0, 100000), state: z.state,
         updatedAt: now,
