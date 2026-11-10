@@ -75,7 +75,11 @@ function gamePayload(room) {
     nextRoundIn: game.nextRoundIn,
     doors: game.doors.slice(),
     windowBoards: game.windowBoards,
-    zombies: game.zombies,
+    // Keep the network snapshot gameplay-only. Animation and model variation
+    // are generated independently by each client.
+    zombies: game.zombies.map(({ id, x, y, z, vx, vy, vz, speed, hp, state }) => ({
+      id, x, y, z, vx, vy, vz, speed, hp, state,
+    })),
     revision: game.revision,
     players: Object.values(room.players).map(p => ({
       id: p.id, name: p.name, x: p.x, y: p.y, z: p.z,
@@ -232,6 +236,22 @@ io.on('connection', socket => {
     sendGame(room);
   });
 
+  socket.on('zombieAttack', ({ playerId, zombieId } = {}) => {
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || ctx.room.hostId !== socket.id || !ctx.room.game.started ||
+        typeof playerId !== 'string' || typeof zombieId !== 'string') return;
+    const room = ctx.room;
+    const target = room.players[playerId];
+    const zombie = room.game.zombies.find(z => z.id === zombieId);
+    if (!target || !target.active || !zombie || zombie.state === 'dying') return;
+    const now = Date.now();
+    if (now - (zombie.lastAttackAt || 0) < 750 ||
+        Math.hypot(target.x - zombie.x, target.z - zombie.z) > 1.5 ||
+        Math.abs((target.y - 1.7) - zombie.y) > 1.8) return;
+    zombie.lastAttackAt = now;
+    io.to(playerId).emit('playerHurt', { playerId, zombieId, damage: 25 });
+  });
+
   socket.on('windowBoardAction', ({ action, index } = {}) => {
     const ctx = roomAndPlayer(socket);
     index = Number(index);
@@ -311,19 +331,26 @@ io.on('connection', socket => {
     const allowed = new Set(['window', 'tear', 'enter', 'vault', 'chase', 'dying']);
     const seen = new Set();
     const incoming = [];
+    const now = Date.now();
     for (const z of snapshot.zombies) {
       if (!z || typeof z.id !== 'string' || z.id.length > 80 || seen.has(z.id)) continue;
-      if (![z.x, z.y, z.z, z.yaw, z.hp].every(Number.isFinite) || !allowed.has(z.state)) continue;
+      if (![z.x, z.y, z.z, z.hp].every(Number.isFinite) || !allowed.has(z.state)) continue;
       seen.add(z.id);
       const previous = room.game.zombies.find(old => old.id === z.id);
+      const x = clamp(z.x, -100, 100);
+      const y = clamp(z.y, -5, 20);
+      const zz = clamp(z.z, -100, 100);
+      const elapsed = previous && previous.updatedAt
+        ? clamp((now - previous.updatedAt) / 1000, 0.05, 0.5) : 0.1;
       const current = {
-        id: z.id, x: clamp(z.x, -100, 100), y: clamp(z.y, -5, 20),
-        z: clamp(z.z, -100, 100), yaw: z.yaw,
+        id: z.id, x, y, z: zz,
+        vx: previous ? clamp((x - previous.x) / elapsed, -12, 12) : 0,
+        vy: previous ? clamp((y - previous.y) / elapsed, -12, 12) : 0,
+        vz: previous ? clamp((zz - previous.z) / elapsed, -12, 12) : 0,
+        speed: clamp(finite(z.speed, previous ? previous.speed : 1), 0, 10),
         hp: clamp(z.hp, 0, 100000), state: z.state,
-        phase: finite(z.phase), gait: typeof z.gait === 'string' ? z.gait.slice(0, 16) : 'shamble',
-        speed: clamp(finite(z.speed, 1), 0, 10), seed: finite(z.seed),
-        window: Number.isInteger(z.window) ? clamp(z.window, -1, 20) : -1,
-        headTilt: finite(z.headTilt), headDrop: finite(z.headDrop),
+        updatedAt: now,
+        lastAttackAt: previous ? previous.lastAttackAt || 0 : 0,
       };
       // A host snapshot that was in flight before a server hit cannot undo it.
       if (previous && finite(snapshot.revision, -1) < room.game.revision) {
