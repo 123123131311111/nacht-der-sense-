@@ -2504,6 +2504,7 @@ function spawnZombie(mp, network = false) {
     if (window.MP && MP.active && MP.isAuthority) z.mpId = `${MP.socket.id}:${++mpZombieSeq}`;
   }
   scene.add(z.g); zombies.push(z);
+  return z;
 }
 function zombieMeshes() { const a = []; for (const z of zombies) if (z.state !== 'dying') a.push(...z.meshes); return a; }
 let hsTO = 0;
