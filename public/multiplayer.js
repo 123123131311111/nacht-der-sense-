@@ -196,10 +196,20 @@
     });
   }
 
+  const NETWORK_CORPSE_HIDE_MS = 2200;
+  function scheduleNetworkCorpseHide(z) {
+    if (!z || z.networkCorpseTimer) return;
+    z.networkCorpseTimer = setTimeout(() => {
+      z.networkCorpseTimer = null;
+      if (z.state === 'dying' && zombies.includes(z)) z.g.visible = false;
+    }, NETWORK_CORPSE_HIDE_MS);
+  }
+
   function applyNetworkZombies(list) {
     const received = new Set();
+    const keep = new Set();
     for (const data of list) {
-      if (!data || typeof data.id !== 'string' ||
+      if (!data || typeof data.id !== 'string' || received.has(data.id) ||
           ![data.x, data.y, data.z].every(Number.isFinite)) continue;
       received.add(data.id);
       let z = zombies.find(item => item.mpId === data.id);
@@ -209,6 +219,7 @@
         z.g.position.set(data.x, data.y, data.z);
         z.networkRemote = true;
       }
+      keep.add(z);
       z.networkTarget = {
         x: data.x, y: data.y, z: data.z,
         vx: Number.isFinite(data.vx) ? data.vx : 0,
@@ -222,6 +233,7 @@
       // stay local so the same zombie can look different on every machine.
       if (typeof data.state === 'string') z.state = data.state;
       z.menu = false;
+      if (z.state === 'dying') scheduleNetworkCorpseHide(z);
       if (z.state === 'dying' && !z.rd) {
         z.dt = 0;
         z.eyes.forEach(e => e.visible = false);
@@ -232,7 +244,8 @@
       const z = zombies[i];
       // The host snapshot is the complete zombie list for guests. Remove any
       // local/menu zombie as well as stale network replicas.
-      if (received.has(z.mpId)) continue;
+      if (keep.has(z)) continue;
+      if (z.networkCorpseTimer) clearTimeout(z.networkCorpseTimer);
       scene.remove(z.g);
       z.mats.forEach(m => m.dispose());
       zombies.splice(i, 1);
@@ -252,6 +265,7 @@
         z.state = 'dying'; z.dt = 0;
         z.eyes.forEach(e => e.visible = false);
         startRagdoll(z, !!hit.head, 0);
+        scheduleNetworkCorpseHide(z);
         if (typeof kills === 'number') kills++;
       }
       const dir = new THREE.Vector3(0, 0, 1);
