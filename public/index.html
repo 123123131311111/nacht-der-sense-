@@ -2859,7 +2859,11 @@ function updateGame(dt) {
   hurtEl.style.opacity = Math.min(1, hurtFlash + (1 - hp / 100) * 0.55);
   hpFill.style.width = hp + '%'; hpFill.parentNode.classList.toggle('low', hp < 30);
   const multiplayer = window.MP && MP.active;
-  const simulateZombies = !multiplayer || MP.isAuthority;
+  const networkGame = !!(window.MP && MP.inMultiplayerGame);
+  // A guest never runs its own zombie AI or spawner, even during a reconnect.
+  const simulateZombies = networkGame
+    ? !!(multiplayer && MP.isAuthority)
+    : !multiplayer;
   const zombieTargets = getZombieTargets(multiplayer);
   if (started && simulateZombies) {
     if (roundActive) {

@@ -230,7 +230,9 @@
     }
     for (let i = zombies.length - 1; i >= 0; i--) {
       const z = zombies[i];
-      if (!z.networkRemote || received.has(z.mpId)) continue;
+      // The host snapshot is the complete zombie list for guests. Remove any
+      // local/menu zombie as well as stale network replicas.
+      if (received.has(z.mpId)) continue;
       scene.remove(z.g);
       z.mats.forEach(m => m.dispose());
       zombies.splice(i, 1);
@@ -469,6 +471,7 @@
   window.MP = {
     get socket() { return socket; },
     get active() { return mode === 'multi' && !!roomCode && !!socket && socket.connected; },
+    get inMultiplayerGame() { return mode === 'multi' && entered; },
     get selfId() { return selfId; },
     get isAuthority() { return !!roomCode && !!selfId && selfId === hostId; },
     get remote() { return remote; },
