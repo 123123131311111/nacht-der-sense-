@@ -77,6 +77,10 @@
     socket.on('playerLeft', removeAvatar);
     socket.on('gameState', receiveGameState);
     socket.on('zombieHit', applyNetworkHit);
+    socket.on('playerHurt', hit => {
+      if (!hit || hit.playerId !== selfId || !Number.isFinite(hit.damage)) return;
+      if (typeof hurtPlayer === 'function') hurtPlayer(hit.damage);
+    });
     socket.on('purchaseCommitted', applyNetworkPurchase);
     socket.on('windowBoardAction', action => {
       if (!action || action.actorId === selfId || action.action !== 'repair') return;
@@ -165,7 +169,8 @@
     placeAtSpawn();
     for (let i = zombies.length - 1; i >= 0; i--) {
       const z = zombies[i];
-      if (!z.menu) continue;
+      // A guest must never keep menu/solo zombies alongside the host's world.
+      if (z.mpId) continue;
       scene.remove(z.g);
       z.mats.forEach(m => m.dispose());
       zombies.splice(i, 1);
@@ -194,26 +199,28 @@
   function applyNetworkZombies(list) {
     const received = new Set();
     for (const data of list) {
-      if (!data || typeof data.id !== 'string') continue;
+      if (!data || typeof data.id !== 'string' ||
+          ![data.x, data.y, data.z].every(Number.isFinite)) continue;
       received.add(data.id);
       let z = zombies.find(item => item.mpId === data.id);
       if (!z) {
         z = spawnZombie({ x: data.x, y: data.y, z: data.z }, true);
         z.mpId = data.id;
         z.g.position.set(data.x, data.y, data.z);
-        z.g.rotation.y = data.yaw || 0;
         z.networkRemote = true;
       }
-      z.networkTarget = { x: data.x, y: data.y, z: data.z, yaw: data.yaw || 0 };
-      z.hp = data.hp;
-      z.phase = data.phase || 0;
-      z.gait = data.gait || z.gait;
-      z.speed = data.speed || z.speed;
-      z.seed = data.seed || 0;
-      z.headTilt = data.headTilt || 0;
-      z.headDrop = data.headDrop || 0;
-      z.state = data.state || z.state;
-      z.w = Number.isInteger(data.window) && data.window >= 0 ? WIN[data.window] : null;
+      z.networkTarget = {
+        x: data.x, y: data.y, z: data.z,
+        vx: Number.isFinite(data.vx) ? data.vx : 0,
+        vy: Number.isFinite(data.vy) ? data.vy : 0,
+        vz: Number.isFinite(data.vz) ? data.vz : 0,
+        speed: Number.isFinite(data.speed) ? data.speed : z.speed,
+        receivedAt: performance.now(),
+      };
+      if (Number.isFinite(data.hp)) z.hp = data.hp;
+      // Only gameplay state is shared. Gait, pose, head details and timing
+      // stay local so the same zombie can look different on every machine.
+      if (typeof data.state === 'string') z.state = data.state;
       z.menu = false;
       if (z.state === 'dying' && !z.rd) {
         z.dt = 0;
@@ -223,9 +230,7 @@
     }
     for (let i = zombies.length - 1; i >= 0; i--) {
       const z = zombies[i];
-      // The host snapshot is authoritative for guests. Clear menu/local or
-      // stale network zombies too, not just objects previously created here.
-      if (received.has(z.mpId)) continue;
+      if (!z.networkRemote || received.has(z.mpId)) continue;
       scene.remove(z.g);
       z.mats.forEach(m => m.dispose());
       zombies.splice(i, 1);
@@ -302,6 +307,12 @@
   function requestHit(zombie, head, shotId) {
     if (!socket || !socket.connected || !roomCode || !zombie || !zombie.mpId || !shotId) return;
     socket.emit('zombieHit', { zombieId: zombie.mpId, head: !!head, shotId });
+  }
+
+  function requestPlayerHit(playerId, zombieId) {
+    if (!socket || !socket.connected || !roomCode || !window.MP.isAuthority ||
+        typeof playerId !== 'string' || typeof zombieId !== 'string') return;
+    socket.emit('zombieAttack', { playerId, zombieId });
   }
 
   function showShotTrace(shot) {
@@ -401,10 +412,7 @@
       zombies: zombies.filter(z => !z.menu && z.mpId).map(z => ({
         id: z.mpId,
         x: z.g.position.x, y: z.g.position.y, z: z.g.position.z,
-        yaw: z.g.rotation.y, hp: z.hp, state: z.state,
-        phase: z.phase, gait: z.gait, speed: z.speed, seed: z.seed,
-        window: z.w ? WIN.indexOf(z.w) : -1,
-        headTilt: z.headTilt, headDrop: z.headDrop,
+        hp: z.hp, state: z.state, speed: z.speed,
       })),
     });
   }, 100);
@@ -461,12 +469,20 @@
   window.MP = {
     get socket() { return socket; },
     get active() { return mode === 'multi' && !!roomCode && !!socket && socket.connected; },
+    get selfId() { return selfId; },
     get isAuthority() { return !!roomCode && !!selfId && selfId === hostId; },
     get remote() { return remote; },
+    get players() {
+      if (!gameState || !Array.isArray(gameState.players)) return [];
+      return gameState.players.map(p => p.id === selfId
+        ? { ...p, x: pos.x, y: pos.y, z: pos.z, active: entered }
+        : p);
+    },
     publishWorld,
     registerShot,
     requestPurchase,
     requestHit,
+    requestPlayerHit,
     requestWindowRepair(index) {
       if (socket && socket.connected && roomCode) socket.emit('windowBoardAction', { action: 'repair', index });
     },
