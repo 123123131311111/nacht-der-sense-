@@ -2795,7 +2795,13 @@ function updateNetworkZombieVisual(z, dt) {
     z.speed = Number.isFinite(target.speed) ? target.speed : z.speed;
   }
   z.t += dt;
-  if (z.state === 'dying') { updateRagdoll(z, dt); return; }
+  if (z.state === 'dying') {
+    updateRagdoll(z, dt);
+    // Keep the replica until the host removes its ID from the authoritative
+    // snapshot, but hide the finished corpse in the meantime.
+    if (z.gone) z.g.visible = false;
+    return;
+  }
   z.phase += dt * (z.gait === 'run' ? 7.5 : z.gait === 'limp' ? 2.7 : 3.4);
   const swing = Math.sin(z.phase), moving = target &&
     (Math.hypot(target.x - z.g.position.x, target.z - z.g.position.z) > 0.025 ||
