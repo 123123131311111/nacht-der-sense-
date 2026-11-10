@@ -2787,8 +2787,11 @@ function updateNetworkZombieVisual(z, dt) {
     z.g.position.z += dz * k;
     const vx = Math.abs(target.vx) + Math.abs(target.vz) > 0.1 ? target.vx : dx;
     const vz = Math.abs(target.vx) + Math.abs(target.vz) > 0.1 ? target.vz : dz;
-    if (Math.hypot(vx, vz) > 0.02) {
-      let dy = Math.atan2(vx, vz) - z.g.rotation.y;
+    const desiredYaw = Number.isFinite(target.yaw)
+      ? target.yaw
+      : (Math.hypot(vx, vz) > 0.02 ? Math.atan2(vx, vz) : z.g.rotation.y);
+    if (Math.hypot(vx, vz) > 0.02 || Number.isFinite(target.yaw)) {
+      let dy = desiredYaw - z.g.rotation.y;
       dy = Math.atan2(Math.sin(dy), Math.cos(dy));
       z.g.rotation.y += dy * k;
     }
@@ -2804,19 +2807,23 @@ function updateNetworkZombieVisual(z, dt) {
   }
   z.phase += dt * (z.gait === 'run' ? 7.5 : z.gait === 'limp' ? 2.7 : 3.4);
   const swing = Math.sin(z.phase), moving = target &&
-    (Math.hypot(target.x - z.g.position.x, target.z - z.g.position.z) > 0.025 ||
-      Math.hypot(target.vx, target.vz) > 0.1);
+    (target.moving === true || (target.moving !== false &&
+      (Math.hypot(target.x - z.g.position.x, target.z - z.g.position.z) > 0.025 ||
+        Math.hypot(target.vx, target.vz) > 0.1)));
   const amp = moving
     ? (z.gait === 'run' ? 0.9 : 0.48) * Math.max(0.55, Math.min(1.2, z.speed / 2.4))
     : 0.06;
   z.lLeg.rotation.x = swing * amp; z.rLeg.rotation.x = -swing * amp;
   z.lLeg.kn.rotation.x = Math.max(0, -Math.cos(z.phase)) * amp;
   z.rLeg.kn.rotation.x = Math.max(0, Math.cos(z.phase)) * amp;
-  z.lArm.rotation.x = -1.35 + Math.sin(z.phase + 1) * amp * 0.35;
-  z.rArm.rotation.x = -1.35 + Math.sin(z.phase + 2) * amp * 0.35;
+  const attacking = !!(target && target.attacking);
+  const attackPulse = attacking ? (0.5 + 0.5 * Math.sin(z.t * 18)) : 0;
+  const attackReach = attacking ? (target.attackKind === 1 ? 0.85 : target.attackKind === 3 ? 0.35 : 0.6) : 0;
+  z.lArm.rotation.x = -1.35 + Math.sin(z.phase + 1) * amp * 0.35 - attackReach * attackPulse;
+  z.rArm.rotation.x = -1.35 + Math.sin(z.phase + 2) * amp * 0.35 - attackReach * attackPulse;
   z.lArm.el.rotation.x = z.rArm.el.rotation.x = -0.35;
-  z.body.rotation.x = 0.12 + (moving ? 0.08 : 0);
-  z.body.position.y = Math.sin(z.phase * 2) * 0.025;
+  z.body.rotation.x = 0.12 + (moving ? 0.08 : 0) + attackPulse * (attacking ? 0.16 : 0);
+  z.body.position.y = Math.sin(z.phase * 2) * 0.025 + attackPulse * (attacking ? -0.025 : 0);
   z.head.rotation.z = z.headTilt + Math.sin(z.t * 1.4 + z.phase * 0.2) * 0.1;
   z.head.rotation.x = z.headDrop;
 }
@@ -2903,7 +2910,15 @@ function updateGame(dt) {
       if (d < 0.6 && d > 0.001) { const k = (0.6 - d) * 0.5 / d; zMove(a, dx * k, dz * k); zMove(c, -dx * k, -dz * k); }
     }
   } else {
-    for (const z of zombies) updateNetworkZombieVisual(z, dt);
+    // Remote zombies are advanced by updateNetworkZombies() in the render loop,
+    // including while the guest has released Pointer Lock.
+  }
+}
+
+function updateNetworkZombies(dt) {
+  if (!window.MP || !MP.active || !MP.inMultiplayerGame || MP.isAuthority || menuOn) return;
+  for (const z of zombies) {
+    if (z.networkRemote) updateNetworkZombieVisual(z, dt);
   }
 }
 
@@ -2966,6 +2981,7 @@ function loop() {
   requestAnimationFrame(loop);
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   if (controls.isLocked && !dead) { update(dt); updateGame(dt); updateProjs(dt); } else if (menuOn) menuUpdate(dt, t);
+  updateNetworkZombies(dt);
   updateBoardFx(dt); updateBooms(dt);
   if (!dead) updateBullets(dt);
   updateBlood(dt);

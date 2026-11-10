@@ -50,7 +50,7 @@
   $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName() }); };
   $('bJoin').onclick = () => { showErr(); socket.emit('joinRoom', { code: $('mpCode').value, name: myName() }); };
   $('bGo').onclick = () => startGame();
-  $('bLeave').onclick = () => { socket.emit('leaveRoom'); clearRemote(); roomCode = null; gameState = null; setView('mp'); };
+  $('bLeave').onclick = () => { socket.emit('leaveRoom'); clearRemote(); clearNetworkZombies(); roomCode = null; gameState = null; setView('mp'); };
 
   // ------------------------------------------------------------------
   //  2) ПОДКЛЮЧЕНИЕ К СЕРВЕРУ (только при выборе «Мультиплеер»)
@@ -61,14 +61,14 @@
 
     socket.on('connect_error', () => showErr('Нет связи с сервером (на бесплатном Render он может просыпаться ~1 мин)'));
     socket.on('connect', () => { selfId = socket.id; showErr(); });
-    socket.on('disconnect', () => { clearRemote(); roomCode = null; if (menuOn) { setView('mp'); showErr('Соединение потеряно'); } });
+    socket.on('disconnect', () => { clearRemote(); clearNetworkZombies(); roomCode = null; if (menuOn) { setView('mp'); showErr('Соединение потеряно'); } });
     socket.on('joinError', showErr);
 
     // Мы вошли в лобби.
     socket.on('joined', ({ selfId: id, code, slot, players }) => {
       selfId = id; roomCode = code; mySlot = slot; entered = false;
       gameState = null; worldRevision = 0;
-      clearRemote();
+      clearRemote(); clearNetworkZombies();
       Object.values(players).forEach(p => { if (p.id !== selfId) createAvatar(p); });
       setView('lobby');
     });
@@ -196,6 +196,16 @@
     });
   }
 
+  function clearNetworkZombies() {
+    for (let i = zombies.length - 1; i >= 0; i--) {
+      const z = zombies[i];
+      if (!z.mpId && !z.networkRemote) continue;
+      scene.remove(z.g);
+      z.mats.forEach(m => m.dispose());
+      zombies.splice(i, 1);
+    }
+  }
+
   function applyNetworkZombies(list) {
     const received = new Set();
     for (const data of list) {
@@ -204,9 +214,10 @@
       received.add(data.id);
       let z = zombies.find(item => item.mpId === data.id);
       if (!z) {
-        z = spawnZombie({ x: data.x, y: data.y, z: data.z }, true);
+        z = spawnZombie({ x: data.x, y: data.y, z: data.z, yaw: data.yaw }, true);
         z.mpId = data.id;
         z.g.position.set(data.x, data.y, data.z);
+        if (Number.isFinite(data.yaw)) z.g.rotation.y = data.yaw;
         z.networkRemote = true;
       }
       z.networkTarget = {
@@ -215,6 +226,10 @@
         vy: Number.isFinite(data.vy) ? data.vy : 0,
         vz: Number.isFinite(data.vz) ? data.vz : 0,
         speed: Number.isFinite(data.speed) ? data.speed : z.speed,
+        yaw: Number.isFinite(data.yaw) ? data.yaw : null,
+        moving: typeof data.moving === 'boolean' ? data.moving : null,
+        attacking: data.attacking === true,
+        attackKind: Number.isInteger(data.attackKind) ? data.attackKind : 0,
         receivedAt: performance.now(),
       };
       if (Number.isFinite(data.hp)) z.hp = data.hp;
@@ -403,7 +418,7 @@
   }, 1000 / SEND_RATE);
 
   setInterval(() => {
-    if (!window.MP.active || !window.MP.isAuthority || !entered || menuOn || !controls.isLocked || !started) return;
+    if (!window.MP.active || !window.MP.isAuthority || !entered || menuOn || !started) return;
     publishWorld({
       started: true,
       round,
@@ -414,10 +429,14 @@
       zombies: zombies.filter(z => !z.menu && z.mpId).map(z => ({
         id: z.mpId,
         x: z.g.position.x, y: z.g.position.y, z: z.g.position.z,
+        yaw: z.g.rotation.y,
+        moving: z.moved > 0.0005 || z.state === 'vault',
+        attacking: z.atkT > 0,
+        attackKind: z.atkKind,
         hp: z.hp, state: z.state, speed: z.speed,
       })),
     });
-  }, 100);
+  }, 1000 / SEND_RATE);
 
   // ------------------------------------------------------------------
   //  5) АВАТАРЫ ДРУГИХ ИГРОКОВ
