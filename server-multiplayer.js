@@ -304,7 +304,10 @@ io.on('connection', socket => {
     const ctx = roomAndPlayer(socket);
     if (!ctx || ctx.room.hostId !== socket.id || !ctx.room.game.started || !snapshot) return;
     const { room } = ctx;
-    if (!Array.isArray(snapshot.zombies) || snapshot.zombies.length > 24) return;
+    // The gameplay cap limits living zombies, but dead ragdolls remain in the
+    // host's snapshot briefly. Allow those alongside the living cap instead of
+    // dropping the entire world update and leaving guests with stale zombies.
+    if (!Array.isArray(snapshot.zombies) || snapshot.zombies.length > 64) return;
     const allowed = new Set(['window', 'tear', 'enter', 'vault', 'chase', 'dying']);
     const seen = new Set();
     const incoming = [];
