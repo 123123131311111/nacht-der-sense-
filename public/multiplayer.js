@@ -157,8 +157,12 @@
       }
       interEl.textContent = roundActive ? '' : `ROUND ${round + 1} IN ${Math.ceil(state.nextRoundIn || 0)}`;
       if (!window.MP.isAuthority && entered && !menuOn) {
-        if (Array.isArray(state.zombies)) applyNetworkZombies(state.zombies);
-        if (Array.isArray(state.windowBoards)) applyNetworkWindows(state.windowBoards);
+        if (Array.isArray(state.zombies)) {
+          try { applyNetworkZombies(state.zombies); } catch (err) { console.warn('[MP] zombies', err); }
+        }
+        if (Array.isArray(state.windowBoards)) {
+          try { applyNetworkWindows(state.windowBoards); } catch (err) { console.warn('[MP] windows', err); }
+        }
       }
     }
   }
@@ -215,6 +219,7 @@
       let z = zombies.find(item => item.mpId === data.id);
       if (!z) {
         z = spawnZombie({ x: data.x, y: data.y, z: data.z, yaw: data.yaw }, true);
+        if (!z) continue;
         z.mpId = data.id;
         z.g.position.set(data.x, data.y, data.z);
         if (Number.isFinite(data.yaw)) z.g.rotation.y = data.yaw;
@@ -240,7 +245,7 @@
       if (z.state === 'dying' && !z.rd) {
         z.dt = 0;
         z.eyes.forEach(e => e.visible = false);
-        startRagdoll(z, false, 0);
+        try { startRagdoll(z, false, 0); } catch (err) { console.warn('[MP] ragdoll', err); }
       }
     }
     for (let i = zombies.length - 1; i >= 0; i--) {
