@@ -152,6 +152,16 @@ body.menu #cross,body.menu #knife,body.menu #ammo,body.menu #round,body.menu #po
 #knife.cd{color:#e55}#knife .kb{display:inline-block;width:70px;height:6px;background:#300;margin-left:8px;vertical-align:middle}#knife .kb i{display:block;height:100%;background:#7dff6a}
 body.touch #knife{bottom:32px}
 #tKnife{right:calc(env(safe-area-inset-right) + var(--u)*214px);bottom:calc(env(safe-area-inset-bottom) + var(--u)*48px);width:calc(var(--u)*56px);height:calc(var(--u)*56px);font-size:calc(var(--u)*12px)}
+/* ===== мультиплеер: выбор режима и лобби ===== */
+#menu[data-view=mode] #mainBtns,#menu[data-view=mp] #mainBtns,#menu[data-view=lobby] #mainBtns{display:none}
+#menu[data-view=mode] #pMode,#menu[data-view=mp] #pMp,#menu[data-view=lobby] #pLobby{display:block}
+#mpName,#mpCode{box-sizing:border-box;padding:12px 14px;font:700 18px "Courier New",monospace;letter-spacing:.12em;color:#eee;background:rgba(20,10,10,.8);border:1px solid #3a1a1a;border-left:4px solid #6a1414;outline:0}
+#mpName{width:100%;margin:0 0 12px}#mpCode{width:120px;text-transform:uppercase;text-align:center}
+#mpErr{min-height:20px;margin:6px 0;font:13px "Courier New",monospace;color:#f66}
+#lobCode{color:#fff;letter-spacing:.4em;margin-left:10px}
+#lobList{margin:0 0 14px}.lp{display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:6px;font:700 16px "Courier New",monospace;color:#ddd;background:rgba(20,10,10,.72);border-left:4px solid #6a1414}
+.lp i{width:14px;height:14px;border-radius:50%}.lp small{color:#888;font-weight:400}.lc{font:13px "Courier New",monospace;color:#999;margin:8px 0}
+.hint{font:13px "Courier New",monospace;color:#9a948c;margin:0 0 14px}
 </style>
 </head>
 <body class="menu">
@@ -169,6 +179,21 @@ body.touch #knife{bottom:32px}
 <label class="row" id="sensBox"><span>Чувствительность</span><input type="range" id="sens" min="40" max="220" value="100"><b id="sensV"></b></label>
 <label class="row"><span>Громкость</span><input type="range" id="vol" min="0" max="100" value="100"><b id="volV"></b></label>
 <button class="mb back" data-back>← НАЗАД</button></div>
+<div class="panel" id="pMode"><h2>РЕЖИМ ИГРЫ</h2>
+<button class="mb big" id="bSolo">ОДИНОЧНАЯ ИГРА</button>
+<button class="mb" id="bMulti">ОНЛАЙН · МУЛЬТИПЛЕЕР</button>
+<button class="mb back" id="bModeBack">← НАЗАД</button></div>
+<div class="panel" id="pMp"><h2>МУЛЬТИПЛЕЕР</h2>
+<input id="mpName" maxlength="16" placeholder="Твоё имя">
+<button class="mb big" id="bCreate">+ СОЗДАТЬ ЛОББИ</button>
+<div class="row"><input id="mpCode" maxlength="4" placeholder="КОД"><button class="mb" id="bJoin" style="width:auto;margin:0">ВОЙТИ ПО КОДУ</button></div>
+<div id="mpErr"></div>
+<button class="mb back" id="bMpBack">← НАЗАД</button></div>
+<div class="panel" id="pLobby"><h2>ЛОББИ<span id="lobCode"></span></h2>
+<div id="lobList"></div>
+<p class="hint">Отправь код друзьям. До 4 игроков. Заходи, когда все собрались.</p>
+<button class="mb big" id="bGo">▶ В ИГРУ</button>
+<button class="mb back" id="bLeave">← ВЫЙТИ ИЗ ЛОББИ</button></div>
 <div class="panel" id="pHelp"><h2>ПОМОЩЬ</h2><div id="helpPc"><p>WASD — движение · Shift — бег · Space — прыжок · ЛКМ — стрельба · R — перезарядка · V — нож (перезарядка 2 с, убивает всех перед вами) · Esc — пауза</p><p>Инвентарь: 2 слота. 1 / 2 / колёсико мыши — смена оружия. Новое оружие при полном инвентаре заменяет то, что в руках.</p><p>Зелёный автомат Speed Cola в стартовой комнате: E — купить (4000) — перезарядка вдвое быстрее</p><p>Красный автомат Double Tap на 2 этаже (северо-запад): E — купить (2500) — двойной урон всего оружия</p><p>Зомби ломают доски на окнах и лезут внутрь. Цельтесь в голову!</p><p>E (удерживать) у закрытой двери — открыть проход (1000). Зомби лезут только в окна уже открытых комнат</p><p>F / E (удерживать) — чинить доски · E (удерживать) у стены — купить Thompson (1000) · E у сундука — Mystery Box (950)</p></div><div id="helpTouch"><p>Левый палец — стик движения (выведите палец за круг — бег) · правый палец — поворот камеры</p><p>ОГОНЬ — стрельба (держите кнопку и ведите пальцем — камера поворачивается) · ПРЫЖОК · ПЕРЕЗАР. · СМЕНА — смена оружия · ⏸ — пауза · НОЖ — удар ножом (раз в 2 с, убивает всех перед вами)</p><p>КУПИТЬ (удерживать) у Mystery Box, двери, стены с оружием; Speed Cola — нажать · ЧИНИТЬ (удерживать) у окна — ставить доски</p><p>Зомби ломают доски на окнах и лезут внутрь. Цельтесь в голову!</p></div><button class="mb back" data-back>← НАЗАД</button></div>
 </div></div>
 <div id="rotmsg">Поверните телефон горизонтально</div>

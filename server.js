@@ -1,7 +1,7 @@
 // =====================================================================
-//  server.js — мультиплеерный сервер (Express + Socket.io)
-//  Запуск локально:  npm install && npm start   → http://localhost:3000
-//  На Render:        Build Command: npm install | Start Command: npm start
+//  server.js — мультиплеерный сервер с ЛОББИ (Express + Socket.io)
+//  Локально:  npm install && npm start   → http://localhost:3000
+//  Render:    Build: npm install | Start: npm start
 // =====================================================================
 const express = require('express');
 const http = require('http');
@@ -10,95 +10,114 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
+const PORT = process.env.PORT || 3000;           // Render задаёт порт сам
 
-// Render сам выдаёт порт через process.env.PORT. Локально — 3000.
-const PORT = process.env.PORT || 3000;
-
-// Socket.io. CORS открыт, чтобы можно было хостить клиент отдельно (например, GitHub Pages).
-// Для продакшена лучше заменить "*" на адрес своего сайта.
-const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
-});
-
-// Раздаём игру (папка public) — клиент и сервер живут на одном адресе.
+const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Эндпоинт для проверки "жив ли сервер" (Render health check / будилка для free-плана).
-app.get('/health', (req, res) => res.json({ ok: true, players: Object.keys(players).length }));
+const MAX_PLAYERS = 4;                            // максимум игроков в лобби
 
-// ---------------------------------------------------------------------
-//  Состояние игроков в памяти: { socketId: { id, name, color, x,y,z, yaw, pitch } }
-//  Если сервер перезапустится — список обнулится (для игры этого достаточно).
-// ---------------------------------------------------------------------
-const players = {};
-const MAX_PLAYERS = 8;                 // лимит комнаты
-const SPAWN = { x: -9.5, y: 1.7, z: 9.5 }; // та же точка, что SPAWN в игре
+// rooms:  { 'ABCD': { code, hostId, players: { socketId: {id,name,color,slot,x,y,z,yaw,pitch,active} } } }
+const rooms = {};
+// Вспомогательная таблица: в какой комнате сидит сокет.
+const roomOf = {};
 
-// Простая проверка, что пришло нормальное число (защита от мусора и NaN).
-const num = (v, fallback = 0) => (Number.isFinite(v) ? v : fallback);
+app.get('/health', (req, res) => res.json({ ok: true, rooms: Object.keys(rooms).length }));
 
-// Случайный цвет для аватара игрока.
-const randomColor = () => '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
+// ---------- утилиты ----------
+const num = (v, d = 0) => (Number.isFinite(v) ? v : d);
+const COLORS = ['#e04040', '#3a8ee6', '#46c46a', '#e6c83a'];   // цвет по номеру слота
+
+function makeCode() {                              // код лобби из 4 букв (без похожих O/0, I/1)
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let code;
+  do { code = Array.from({ length: 4 }, () => abc[Math.floor(Math.random() * abc.length)]).join(''); }
+  while (rooms[code]);
+  return code;
+}
+function freeSlot(room) {                          // самый маленький свободный слот 0..3 (определяет точку спавна)
+  const used = new Set(Object.values(room.players).map(p => p.slot));
+  for (let i = 0; i < MAX_PLAYERS; i++) if (!used.has(i)) return i;
+  return -1;
+}
+const cleanName = (n, id) => (typeof n === 'string' && n.trim() ? n.trim().slice(0, 16) : 'Игрок ' + id.slice(0, 3));
+
+// Рассылка актуального списка игроков лобби всем в комнате.
+function sendLobby(room) {
+  io.to(room.code).emit('lobby', {
+    code: room.code,
+    hostId: room.hostId,
+    players: Object.values(room.players).map(p => ({ id: p.id, name: p.name, color: p.color, slot: p.slot })),
+  });
+}
+
+function addToRoom(socket, room, name) {
+  const slot = freeSlot(room);
+  const player = { id: socket.id, name: cleanName(name, socket.id), color: COLORS[slot], slot,
+                   x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0, active: false };
+  room.players[socket.id] = player;
+  roomOf[socket.id] = room.code;
+  socket.join(room.code);
+  // Новому игроку: его данные и все, кто уже в комнате.
+  socket.emit('joined', { selfId: socket.id, code: room.code, slot, players: room.players });
+  socket.to(room.code).emit('playerJoined', player);
+  sendLobby(room);
+}
+
+function leaveRoom(socket) {
+  const code = roomOf[socket.id];
+  if (!code) return;
+  const room = rooms[code];
+  delete roomOf[socket.id];
+  socket.leave(code);
+  if (!room) return;
+  delete room.players[socket.id];
+  io.to(code).emit('playerLeft', socket.id);
+  const ids = Object.keys(room.players);
+  if (ids.length === 0) { delete rooms[code]; return; }          // пустую комнату удаляем
+  if (room.hostId === socket.id) room.hostId = ids[0];           // хоста передаём следующему
+  sendLobby(room);
+}
 
 io.on('connection', (socket) => {
-  // socket.id — уникальный ID, генерируется Socket.io автоматически.
-  if (Object.keys(players).length >= MAX_PLAYERS) {
-    socket.emit('serverFull');
-    socket.disconnect(true);
-    return;
-  }
+  console.log('[+]', socket.id);
 
-  // 1) Создаём запись нового игрока.
-  players[socket.id] = {
-    id: socket.id,
-    name: 'Игрок ' + socket.id.slice(0, 4),
-    color: randomColor(),
-    ...SPAWN,
-    yaw: 0,
-    pitch: 0,
-  };
-  console.log(`[+] ${socket.id} подключился (всего: ${Object.keys(players).length})`);
-
-  // 2) Новому игроку — его ID и список всех, кто уже в игре.
-  socket.emit('init', { selfId: socket.id, players });
-
-  // 3) Остальным — «к нам зашёл новый».
-  socket.broadcast.emit('playerJoined', players[socket.id]);
-
-  // 4) Игрок сообщил своё имя (необязательно).
-  socket.on('setName', (name) => {
-    const p = players[socket.id];
-    if (!p || typeof name !== 'string') return;
-    p.name = name.trim().slice(0, 16) || p.name;
-    io.emit('playerRenamed', { id: p.id, name: p.name });
+  // Создать лобби.
+  socket.on('createRoom', ({ name } = {}) => {
+    leaveRoom(socket);
+    const code = makeCode();
+    rooms[code] = { code, hostId: socket.id, players: {} };
+    addToRoom(socket, rooms[code], name);
   });
 
-  // 5) Игрок двигается: клиент шлёт позицию + поворот камеры.
-  socket.on('move', (data) => {
-    const p = players[socket.id];
-    if (!p || !data) return;
-    p.x = num(data.x, p.x);
-    p.y = num(data.y, p.y);
-    p.z = num(data.z, p.z);
-    p.yaw = num(data.yaw, p.yaw);
-    p.pitch = num(data.pitch, p.pitch);
-    // volatile — если пакет не успел, он просто теряется (для позиций это нормально).
-    socket.broadcast.volatile.emit('playerMoved', {
-      id: p.id, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch,
-    });
+  // Войти в лобби по коду.
+  socket.on('joinRoom', ({ code, name } = {}) => {
+    code = String(code || '').toUpperCase().trim();
+    const room = rooms[code];
+    if (!room) return socket.emit('joinError', 'Лобби с таким кодом не найдено');
+    if (Object.keys(room.players).length >= MAX_PLAYERS) return socket.emit('joinError', 'Лобби заполнено (макс. 4)');
+    leaveRoom(socket);
+    addToRoom(socket, room, name);
   });
 
-  // 6) Выстрел (чтобы другие видели вспышку/слышали звук). Урон тут не считается.
+  socket.on('leaveRoom', () => leaveRoom(socket));
+
+  // Позиция/поворот. Первое сообщение делает игрока «активным» (он вошёл в игру).
+  socket.on('move', (d) => {
+    const room = rooms[roomOf[socket.id]];
+    const p = room && room.players[socket.id];
+    if (!p || !d) return;
+    p.x = num(d.x, p.x); p.y = num(d.y, p.y); p.z = num(d.z, p.z);
+    p.yaw = num(d.yaw, p.yaw); p.pitch = num(d.pitch, p.pitch); p.active = true;
+    socket.to(room.code).volatile.emit('playerMoved', { id: p.id, x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch });
+  });
+
   socket.on('shoot', () => {
-    socket.broadcast.emit('playerShot', { id: socket.id });
+    const code = roomOf[socket.id];
+    if (code) socket.to(code).emit('playerShot', { id: socket.id });
   });
 
-  // 7) Отключение: удаляем игрока и сообщаем остальным.
-  socket.on('disconnect', () => {
-    delete players[socket.id];
-    io.emit('playerLeft', socket.id);
-    console.log(`[-] ${socket.id} вышел (всего: ${Object.keys(players).length})`);
-  });
+  socket.on('disconnect', () => { leaveRoom(socket); console.log('[-]', socket.id); });
 });
 
-server.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
+server.listen(PORT, () => console.log('Сервер запущен на порту ' + PORT));
