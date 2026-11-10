@@ -1634,6 +1634,7 @@ function ensureAC() {
       MASTER.connect(comp); comp.connect(AC.destination);
       NBUF = AC.createBuffer(1, AC.sampleRate, AC.sampleRate); // 1 с белого шума, переиспользуется
       const d = NBUF.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      loadShotBufs();
     }
     if (AC.state === 'suspended') AC.resume();
   } catch (e) {}
@@ -1655,9 +1656,36 @@ function noise(dur, vol, type, f0, f1, at = 0, q = 1) {
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   s.connect(f); f.connect(g); g.connect(MASTER); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
 }
+// записанные выстрелы (папка /sounds): 0 — M1911, 1 — Thompson (4 варианта одиночного выстрела, чередуются)
+const SHOT_FILES = {
+  0: ['sounds/m1911-shot.wav'],
+  1: ['sounds/thompson-shot-1.wav', 'sounds/thompson-shot-2.wav', 'sounds/thompson-shot-3.wav', 'sounds/thompson-shot-4.wav'],
+};
+const SHOT_GAIN = { 0: 0.9, 1: 0.7 };
+const shotBufs = {}, shotLast = {};
+function loadShotBufs() {
+  if (!AC) return;
+  for (const k in SHOT_FILES) {
+    shotBufs[k] = [];
+    SHOT_FILES[k].forEach(src => fetch(src).then(r => r.arrayBuffer())
+      .then(b => new Promise((ok, no) => AC.decodeAudioData(b, ok, no)))
+      .then(buf => shotBufs[k].push(buf)).catch(() => {}));   // не загрузилось — сработает синтезированный звук
+  }
+}
+function playShotFile(i) {
+  const arr = shotBufs[i]; if (!arr || !arr.length) return false;
+  let n = 0;
+  if (arr.length > 1) { n = (((shotLast[i] | 0) + 1 + Math.floor(Math.random() * (arr.length - 1))) % arr.length); shotLast[i] = n; }   // не повторяем один и тот же подряд
+  const s = AC.createBufferSource(), g = AC.createGain();
+  s.buffer = arr[n]; s.playbackRate.value = 0.97 + Math.random() * 0.06;   // лёгкий разброс высоты, чтобы очередь не звучала «роботом»
+  g.gain.value = SHOT_GAIN[i] || 1;
+  s.connect(g); g.connect(MASTER); s.start();
+  return true;
+}
 // выстрелы: 0 пистолет, 1 автомат, 2 дробовик, 3 винтовка, 4 Гаранд, 5 Ray Gun
 function shotSnd(i) {
   ensureAC(); if (!AC) return;
+  if ((i === 0 || i === 1) && playShotFile(i)) return;
   if (i === 0) { noise(0.14, 0.5, 'bandpass', 2200, 500, 0, 0.8); tone(240, 0.12, 'triangle', 0.35, 60); }
   else if (i === 1) { noise(0.08, 0.4, 'bandpass', 3000, 900, 0, 0.7); tone(180, 0.08, 'square', 0.12, 70); }
   else if (i === 2) { noise(0.45, 0.8, 'lowpass', 2500, 180); noise(0.1, 0.5, 'highpass', 1500, 1500); tone(100, 0.3, 'sine', 0.6, 35); }
@@ -2974,6 +3002,51 @@ controls.addEventListener('lock', () => {   // старт игры: убирае
   for (let i = zombies.length - 1; i >= 0; i--) if (zombies[i].menu) { scene.remove(zombies[i].g); zombies[i].mats.forEach(m => m.dispose()); zombies.splice(i, 1); }
   pos.copy(SPAWN); camera.rotation.set(0, 0, 0);
 });
+// ---------- вступление при начале катки: затемнение 3 с + два звука из /sounds ----------
+const INTRO_SOUNDS = ['sounds/intro-1-ominous.mp3', 'sounds/intro-2-demonic.mp3'], INTRO_GAP = 1000;   // 2-й звук — через 1 с после старта 1-го
+const introAudio = INTRO_SOUNDS.map(src => { const a = new Audio(src); a.preload = 'auto'; return a; });
+let introDone = false, introTimer = 0, introFade = 0;
+const introEl = document.createElement('div');
+introEl.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:9999;transition:opacity .5s ease-out';
+document.body.appendChild(introEl);
+function playIntro() {
+  if (introDone) return; introDone = true;
+  clearTimeout(introTimer); clearTimeout(introFade);
+  introEl.style.transition = 'none'; introEl.style.opacity = '1';       // экран сразу чёрный
+  void introEl.offsetWidth; introEl.style.transition = 'opacity .5s ease-out';
+  introFade = setTimeout(() => { introEl.style.opacity = '0'; }, 2500);  // 2.5 с чёрный + 0.5 с плавно = 3 с
+  const [a, b] = introAudio;
+  a.currentTime = 0; a.play().catch(() => {});
+  introTimer = setTimeout(() => { b.currentTime = 0; b.play().catch(() => {}); }, INTRO_GAP);
+}
+function resetIntro() { introDone = false; }   // вызывается мультиплеером при входе в новую комнату
+controls.addEventListener('lock', playIntro);   // срабатывает только один раз за катку (пауза/продолжить — не считается)
+// ---------- музыка главного меню (хоррор-амбиент, бесшовный луп) ----------
+// Стартует после первого действия игрока (правило браузеров), плавно гаснет, когда начинается катка.
+const MENU_MUSIC = 'sounds/menu-horror.mp3', MENU_VOL = 0.55;
+let menuBuf = null, menuSrc = null, menuGain = null, menuGesture = false, menuLoading = false;
+function loadMenuMusic() {
+  if (menuLoading || !AC) return; menuLoading = true;
+  fetch(MENU_MUSIC).then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => AC.decodeAudioData(b, ok, no)))
+    .then(buf => { menuBuf = buf; }).catch(() => { menuLoading = false; });
+}
+function startMenuMusic() {
+  if (menuSrc || !menuBuf || !AC) return;
+  const t0 = AC.currentTime;
+  menuSrc = AC.createBufferSource(); menuSrc.buffer = menuBuf; menuSrc.loop = true;
+  menuGain = AC.createGain(); menuGain.gain.setValueAtTime(0.0001, t0); menuGain.gain.linearRampToValueAtTime(MENU_VOL, t0 + 3);   // медленное «всплытие»
+  menuSrc.connect(menuGain); menuGain.connect(MASTER); menuSrc.start();
+}
+function stopMenuMusic(fade = 1.2) {
+  if (!menuSrc) return;
+  const s = menuSrc, g = menuGain, t0 = AC.currentTime; menuSrc = menuGain = null;
+  g.gain.cancelScheduledValues(t0); g.gain.setValueAtTime(g.gain.value, t0); g.gain.linearRampToValueAtTime(0, t0 + fade);
+  s.stop(t0 + fade + 0.05);
+}
+['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => {
+  if (menuGesture) return; menuGesture = true; ensureAC(); loadMenuMusic();
+}, { passive: true }));
+setInterval(() => { if (menuOn && menuGesture) startMenuMusic(); else if (!menuOn) stopMenuMusic(); }, 250);
 menuInit();
 
 // ---------- цикл ----------

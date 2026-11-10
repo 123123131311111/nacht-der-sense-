@@ -67,6 +67,7 @@
     // Мы вошли в лобби.
     socket.on('joined', ({ selfId: id, code, slot, players }) => {
       selfId = id; roomCode = code; mySlot = slot; entered = false;
+      if (typeof resetIntro === 'function') resetIntro();   // новая катка — вступление сыграет снова
       gameState = null; worldRevision = 0;
       clearRemote(); clearNetworkZombies();
       Object.values(players).forEach(p => { if (p.id !== selfId) createAvatar(p); });
@@ -144,24 +145,30 @@
     }
     if (state.started) {
       started = true;
-      const previousRound = round;
-      round = state.round || round;
-      roundActive = !!state.roundActive;
-      toSpawn = state.toSpawn || 0;
-      roundEl.textContent = round ? 'ROUND ' + round : '';
-      if (typeof state.nextRoundIn === 'number') nextRoundAt = gtime + state.nextRoundIn;
-      if (round > previousRound && entered && !menuOn) {
-        annEl.textContent = 'ROUND ' + round;
-        annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
-        sfx('round');
-      }
-      interEl.textContent = roundActive ? '' : `ROUND ${round + 1} IN ${Math.ceil(state.nextRoundIn || 0)}`;
-      if (!window.MP.isAuthority && entered && !menuOn) {
-        if (Array.isArray(state.zombies)) {
-          try { applyNetworkZombies(state.zombies); } catch (err) { console.warn('[MP] zombies', err); }
+      // Хост — источник правды по раундам. Эхо сервера всегда чуть устарело, и если
+      // применить его на хосте, оно откатывает round/toSpawn/таймер назад
+      // (таймер замедляется, «ROUND N» всплывает по несколько раз). Поэтому
+      // раунды, таймер и мир применяют только гости.
+      if (!window.MP.isAuthority) {
+        const previousRound = round;
+        round = state.round || round;
+        roundActive = !!state.roundActive;
+        toSpawn = state.toSpawn || 0;
+        roundEl.textContent = round ? 'ROUND ' + round : '';
+        if (typeof state.nextRoundIn === 'number') nextRoundAt = gtime + state.nextRoundIn;
+        if (round > previousRound && entered && !menuOn) {
+          annEl.textContent = 'ROUND ' + round;
+          annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
+          sfx('round');
         }
-        if (Array.isArray(state.windowBoards)) {
-          try { applyNetworkWindows(state.windowBoards); } catch (err) { console.warn('[MP] windows', err); }
+        interEl.textContent = roundActive ? '' : `ROUND ${round + 1} IN ${Math.ceil(state.nextRoundIn || 0)}`;
+        if (entered && !menuOn) {
+          if (Array.isArray(state.zombies)) {
+            try { applyNetworkZombies(state.zombies); } catch (err) { console.warn('[MP] zombies', err); }
+          }
+          if (Array.isArray(state.windowBoards)) {
+            try { applyNetworkWindows(state.windowBoards); } catch (err) { console.warn('[MP] windows', err); }
+          }
         }
       }
     }
