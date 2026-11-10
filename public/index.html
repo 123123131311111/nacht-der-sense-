@@ -1266,13 +1266,13 @@ function muzzleWorld(zms) {   // дуло видно в weaponCam: перено�
   if (zh) d = Math.min(d, Math.max(0.05, zh.distance - 0.03));
   return camera.position.clone().addScaledVector(dir, d);
 }
-function launchBullet(w, from, aim) {
+function launchBullet(w, from, aim, shotId) {
   const D = aim.clone().sub(from), L = Math.max(D.length(), 0.5), t = L / w.bv, v = D.divideScalar(t);
   v.y += 0.5 * B_G * t;   // компенсация падения
   const grp = new THREE.Group(), mat = trMat.clone();
   grp.add(new THREE.Mesh(trGeoA, mat), new THREE.Mesh(trGeoB, mat)); grp.visible = false; scene.add(grp);
   const core = new THREE.Mesh(coreGeo, coreMat); core.position.copy(from); scene.add(core);
-  bullets.push({ p: from.clone(), v, dir: v.clone().normalize(), grp, core, mat, dist: 0, tl: w.tl, width: w.pellets ? 0.03 : 0.05, dmgB: w.body, dmgH: w.head, pellet: !!w.pellets, dead: false, fade: 0 });
+  bullets.push({ p: from.clone(), v, dir: v.clone().normalize(), grp, core, mat, dist: 0, tl: w.tl, width: w.pellets ? 0.03 : 0.05, dmgB: w.body, dmgH: w.head, pellet: !!w.pellets, shotId, dead: false, fade: 0 });
 }
 function updateBullets(dt) {
   for (let i = bullets.length - 1; i >= 0; i--) {
@@ -1293,7 +1293,7 @@ function updateBullets(dt) {
       if (zh && (!h || zh.distance < h.distance)) {
         b.p.copy(zh.point); b.dist += zh.distance; b.dead = true;
         const head = !!zh.object.userData.head;
-        hitZombie(zh.object.userData.z, head, head ? b.dmgH : b.dmgB, { stagger: head ? 0.2 : 0.1 });
+        hitZombie(zh.object.userData.z, head, head ? b.dmgH : b.dmgB, { stagger: head ? 0.2 : 0.1, shotId: b.shotId });
         bloodHit(zh.point, _bd, head, b.pellet);
       } else if (h) {
         b.p.copy(h.point); b.dist += h.distance; b.dead = true;
@@ -1368,17 +1368,18 @@ function shoot() {
   if (!controls.isLocked || dead || reloading || swapT > 0 || knifeT > 0 || now - lastShot < w.interval) return;
   if (w.mag <= 0) { if (w.reserve > 0) startReload(); else { lastShot = now; sfx('dry'); } return; }
   lastShot = now; w.mag--; ANIM.t = 0; ANIM.ej = false; ANIM.clip = (cur === 4 && w.mag === 0); recoil = 1; flashT = FLASH_T; flashS = (w.fs || 1) * (0.85 + Math.random() * 0.4); updateHUD(); camShoot(w); weaponKick(w);
+  const shotId = window.MP && MP.active ? MP.registerShot(cur) : null;
   flash.rotation.z = Math.random() * 6.28;
   shotSnd(cur);
   const sp0 = AIM.cur; AIM.bloom = Math.min(w.bmax, AIM.bloom + w.bloom);   // текущий разброс = то, что показывает прицел
-  if (w.proj) { fireProj(w); return; }
+  if (w.proj) { fireProj(w, shotId); return; }
   const zms = zombieMeshes(), mz = muzzleWorld(zms);
   for (let k = 0, n = w.pellets || 1; k < n; k++) {   // дробовик: несколько дробин за выстрел
     { const a = Math.random() * 6.2832, r = Math.sqrt(Math.random()) * sp0; ray.setFromCamera({ x: Math.cos(a) * r * innerHeight / innerWidth, y: Math.sin(a) * r }, camera); }
     ray.far = 60;
     const h = ray.intersectObjects(worldMeshes, false)[0], zh = ray.intersectObjects(zms, false)[0];
     let dist = 60; if (h) dist = h.distance; if (zh && zh.distance < dist) dist = zh.distance;
-    launchBullet(w, mz, ray.ray.origin.clone().addScaledVector(ray.ray.direction, Math.max(dist, 1.5)));   // летит из дула в точку прицеливания
+    launchBullet(w, mz, ray.ray.origin.clone().addScaledVector(ray.ray.direction, Math.max(dist, 1.5)), shotId);   // летит из дула в точку прицеливания
   }
 }
 function startReload() {
@@ -1578,13 +1579,14 @@ function knifeAttack() {
 }
 function knifeStrike() {
   camera.getWorldDirection(_d); _d.y = 0; _d.normalize();
+  const shotId = window.MP && MP.active ? MP.registerShot(-1) : null;
   let n = 0;
   for (const z of zombies) {
     if (z.state === 'dying' || z.menu) continue;
     const c = z.g.position, dx = c.x - pos.x, dz = c.z - pos.z, d = Math.hypot(dx, dz);
     if (d > KNIFE_RANGE || Math.abs(c.y - (pos.y - H)) > 1.4) continue;
     if (d > 0.9 && (dx * _d.x + dz * _d.z) / d < KNIFE_ARC) continue;   // зона удара: полукруг перед игроком (~140°)
-    hitZombie(z, false, 1e9, { stagger: 0 }); bloodHit(new THREE.Vector3(c.x, c.y + 1.2, c.z), _d, false, false); n++;
+    hitZombie(z, false, 1e9, { stagger: 0, shotId }); bloodHit(new THREE.Vector3(c.x, c.y + 1.2, c.z), _d, false, false); n++;
   }
   CF.kickV -= 1.2; sfx(n ? 'thud' : 'knock');
 }
@@ -1612,6 +1614,7 @@ let dead = false, started = false, gtime = 0, roundActive = false, nextRoundAt =
 let hp = 100, lastHurt = -99, hurtFlash = 0, kills = 0, pvisT = 0;
 let PX = 0, PZ = 0, PF = 0, PVIS = [];
 const zombies = [], ZR = 0.25; // маленький хитбокс
+let mpZombieSeq = 0;
 const $ = id => document.getElementById(id);
 const roundEl = $('round'), annEl = $('announce'), interEl = $('inter'), hurtEl = $('hurt'), hpFill = $('hpbar').firstChild, overEl = $('over'), crossEl = $('cross');
 overEl.addEventListener('click', () => location.reload());
@@ -1912,8 +1915,14 @@ function pop(txt, cls) {
   d.style.left = (Math.random() * 50 | 0) + 'px'; popsEl.appendChild(d); setTimeout(() => d.remove(), 1200);
   while (popsEl.children.length > 8) popsEl.firstChild.remove();
 }
-function addPoints(n, cls, label) { points += n; updatePoints(); pop('+' + n + (label ? ' ' + label : ''), cls); }
-function spend(n) { points -= n; updatePoints(); pop('-' + n, 'neg'); }
+function addPoints(n, cls, label) {
+  if (window.MP && MP.active) return;
+  points += n; updatePoints(); pop('+' + n + (label ? ' ' + label : ''), cls);
+}
+function spend(n) {
+  if (window.MP && MP.active) return;
+  points -= n; updatePoints(); pop('-' + n, 'neg');
+}
 updatePoints();
 updateHUD();
 controls.addEventListener('unlock', () => { promptEl.textContent = ''; mouseDown = false; repT = buyT = 0; });
@@ -2025,8 +2034,8 @@ for (let i = 1; i <= 5; i++) {
   wr.add(md); wr.scale.setScalar(1.9); wr.visible = false; token.add(wr); boxModels[i] = wr;
 }
 function showBoxModel(i) { for (let k = 1; k <= 5; k++) boxModels[k].visible = k === i; }
-const boxS = { on: false, t: 0, tick: 0, shown: 1, final: 1 };
-function boxStart() { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = 1 + (Math.random() * 5 | 0); sfx('buy'); }
+const boxS = { on: false, t: 0, tick: 0, shown: 1, final: 1, reward: true };
+function boxStart(finalWeapon, reward = true) { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = finalWeapon || (1 + (Math.random() * 5 | 0)); boxS.reward = reward; sfx('buy'); }
 // оружие из Mystery Box: если оно уже есть — пополняем патроны; иначе equip (пустой слот или замена удерживаемого)
 function giveWeapon(i) {
   const w = WEAPONS[i]; w.mag = w.magSize; w.reserve = w.fullRes;
@@ -2043,7 +2052,7 @@ function boxUpdate(dt) {
     if (boxS.tick <= 0) { boxS.tick = 0.11; boxS.shown = 1 + (Math.random() * 5 | 0); showBoxModel(boxS.shown); sfx('tick'); }
   } else {
     boxS.shown = boxS.final; showBoxModel(boxS.final);
-    if (boxS.t >= 3.6) { boxS.on = false; giveWeapon(boxS.final); pop(WEAPONS[boxS.final].name, 'head'); sfx('buy'); }
+    if (boxS.t >= 3.6) { boxS.on = false; if (boxS.reward) giveWeapon(boxS.final); pop(WEAPONS[boxS.final].name, 'head'); sfx('buy'); }
   }
 }
 
@@ -2052,20 +2061,20 @@ const projs = [], pray = new THREE.Raycaster();
 const pGeo = new THREE.SphereGeometry(0.1, 12, 12), pGlowGeo = new THREE.SphereGeometry(0.26, 12, 12);
 const pMat = new THREE.MeshBasicMaterial({ color: 0x9dff9d });
 const pGlowMat = new THREE.MeshBasicMaterial({ color: 0x22ff44, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false });
-function fireProj(w) {
+function fireProj(w, shotId) {
   const m = new THREE.Mesh(pGeo, pMat); m.add(new THREE.Mesh(pGlowGeo, pGlowMat));
   const d = new THREE.Vector3(), o = new THREE.Vector3();
   camera.getWorldDirection(d); camera.getWorldPosition(o); o.addScaledVector(d, 0.3);
-  m.position.copy(o); scene.add(m); projs.push({ m, d, life: 2, dmg: w.dmg });
+  m.position.copy(o); scene.add(m); projs.push({ m, d, life: 2, dmg: w.dmg, shotId });
 }
 const RAY_R = 3.6, booms = [];
 const boomLight = new THREE.PointLight(0x40ff60, 0, 12, 2); scene.add(boomLight);
 const boomGeo = new THREE.SphereGeometry(1, 16, 12);
-function rayBoom(pt, dmg) {   // взрыв: полный урон всем зомби в радиусе
+function rayBoom(pt, dmg, shotId) {   // взрыв: полный урон всем зомби в радиусе
   for (const zb of zombies) {
     if (zb.state === 'dying' || zb.menu) continue;
     const c = zb.g.position, dx = c.x - pt.x, dz = c.z - pt.z, dy = c.y + 0.9 - pt.y;
-    if (dx * dx + dz * dz + dy * dy < RAY_R * RAY_R) hitZombie(zb, false, dmg, { stagger: 0.2 });
+    if (dx * dx + dz * dz + dy * dy < RAY_R * RAY_R) hitZombie(zb, false, dmg, { stagger: 0.2, shotId });
   }
   const m = new THREE.Mesh(boomGeo, new THREE.MeshBasicMaterial({ color: 0x40ff60, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
   m.position.copy(pt); m.scale.setScalar(0.3); scene.add(m); booms.push({ m, age: 0 });
@@ -2089,8 +2098,8 @@ function updateProjs(dt) {
     pray.set(p.m.position, p.d); pray.far = step + 0.15;
     const h = pray.intersectObjects(worldMeshes, false)[0], zh = pray.intersectObjects(zms, false)[0];
     let kill = false;
-    if (zh && (!h || zh.distance < h.distance)) { rayBoom(zh.point, p.dmg); kill = true; }
-    else if (h) { rayBoom(h.point, p.dmg); kill = true; }
+    if (zh && (!h || zh.distance < h.distance)) { rayBoom(zh.point, p.dmg, p.shotId); kill = true; }
+    else if (h) { rayBoom(h.point, p.dmg, p.shotId); kill = true; }
     else p.m.position.addScaledVector(p.d, step);
     if (kill || p.life <= 0) { scene.remove(p.m); projs.splice(i, 1); }
   }
@@ -2231,6 +2240,12 @@ function nearBrokenWindow() {
   return best;
 }
 const bar = f => '█'.repeat(Math.round(f * 10)) + '░'.repeat(10 - Math.round(f * 10));
+function requestMPBuy(kind, doorIndex) {
+  if (!window.MP || !MP.active) return false;
+  buyLock = true;
+  MP.requestPurchase(kind, doorIndex);
+  return true;
+}
 function updateInteract(dt) {
   const T = WEAPONS[1], holdE = !!keys.KeyE, holdR = !!(keys.KeyF || keys.KeyE);
   if (!holdE) buyLock = false;
@@ -2239,7 +2254,7 @@ function updateInteract(dt) {
     if (boxS.on) promptEl.innerHTML = `MYSTERY BOX: <span class="ok">${WEAPONS[boxS.shown].name}</span>`;
     else {
       const can = points >= BOX_PRICE;
-      if (holdE && can && !buyLock) { buyT += dt; if (buyT >= BUY_TIME) { buyT = 0; buyLock = true; spend(BOX_PRICE); boxStart(); } } else buyT = 0;
+      if (holdE && can && !buyLock) { buyT += dt; if (buyT >= BUY_TIME) { buyT = 0; if (!requestMPBuy('box')) { buyLock = true; spend(BOX_PRICE); boxStart(); } } } else buyT = 0;
       promptEl.innerHTML = `Зажмите ${KE()} — Mystery Box за ${BOX_PRICE} очков` + (can ? '' : ' <span class="no">— не хватает очков</span>') + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
     }
     repT = 0; return;
@@ -2248,7 +2263,7 @@ function updateInteract(dt) {
     if (speedCola) promptEl.innerHTML = '<span class="ok">Speed Cola — куплено</span>';
     else {
       const can = points >= COLA_PRICE;
-      if (holdE && can && !buyLock) { buyLock = true; spend(COLA_PRICE); speedCola = true; perkMsg(); }
+      if (holdE && can && !buyLock) { if (!requestMPBuy('cola')) { buyLock = true; spend(COLA_PRICE); speedCola = true; perkMsg(); } }
       promptEl.innerHTML = `Нажмите ${KE()}: Купить Speed Cola [${COLA_PRICE} очков]` + (can ? '' : ' <span class="no">— не хватает очков</span>');
     }
     repT = 0; buyT = 0; return;
@@ -2257,7 +2272,7 @@ function updateInteract(dt) {
     if (doubleTap) promptEl.innerHTML = '<span class="ok">Double Tap — куплено</span>';
     else {
       const can = points >= DTAP_PRICE;
-      if (holdE && can && !buyLock) { buyLock = true; spend(DTAP_PRICE); doubleTap = true; perkMsg('dtap'); }
+      if (holdE && can && !buyLock) { if (!requestMPBuy('doubleTap')) { buyLock = true; spend(DTAP_PRICE); doubleTap = true; perkMsg('dtap'); } }
       promptEl.innerHTML = `Нажмите ${KE()}: Купить Double Tap [${DTAP_PRICE} очков]` + (can ? '' : ' <span class="no">— не хватает очков</span>');
     }
     repT = 0; buyT = 0; return;
@@ -2270,10 +2285,13 @@ function updateInteract(dt) {
     if (holdE && can && !buyLock) {
       buyT += dt;
       if (buyT >= BUY_TIME) {
-        buyT = 0; buyLock = true; spend(price);
-        if (!T.own) { T.mag = T.magSize; T.reserve = T.maxReserve - T.magSize; equip(1); }
-        else { T.mag = T.magSize; T.reserve = T.maxReserve - T.magSize; updateHUD(); }
-        sfx('buy');
+        buyT = 0;
+        if (!requestMPBuy('thompson')) {
+          buyLock = true; spend(price);
+          if (!T.own) { T.mag = T.magSize; T.reserve = T.maxReserve - T.magSize; equip(1); }
+          else { T.mag = T.magSize; T.reserve = T.maxReserve - T.magSize; updateHUD(); }
+          sfx('buy');
+        }
       }
     } else buyT = 0;
     promptEl.innerHTML = `Зажмите ${KE()}, чтобы купить ${what} очков` + (can ? '' : (points < price ? ' <span class="no">— не хватает очков</span>' : ' <span class="no">— патроны полные</span>')) + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
@@ -2284,7 +2302,13 @@ function updateInteract(dt) {
     const full = !S.own && slots.indexOf(-1) < 0, what = S.own ? `патроны для дробовика за ${price}` : `дробовик за ${price}` + (full ? ` (заменит ${WEAPONS[cur].name})` : '');
     if (holdE && can && !buyLock) {
       buyT += dt;
-      if (buyT >= BUY_TIME) { buyT = 0; buyLock = true; spend(price); S.mag = S.magSize; S.reserve = S.maxReserve - S.magSize; if (!S.own) equip(2); else updateHUD(); sfx('buy'); }
+      if (buyT >= BUY_TIME) {
+        buyT = 0;
+        if (!requestMPBuy('shotgun')) {
+          buyLock = true; spend(price); S.mag = S.magSize; S.reserve = S.maxReserve - S.magSize;
+          if (!S.own) equip(2); else updateHUD(); sfx('buy');
+        }
+      }
     } else buyT = 0;
     promptEl.innerHTML = `Зажмите ${KE()}, чтобы купить ${what} очков` + (can ? '' : (points < price ? ' <span class="no">— не хватает очков</span>' : ' <span class="no">— патроны полные</span>')) + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
     repT = 0; return;
@@ -2292,7 +2316,10 @@ function updateInteract(dt) {
   const dr = nearDoor();
   if (dr) {
     const can = points >= DOOR_PRICE;
-    if (holdE && can && !buyLock) { buyT += dt; if (buyT >= BUY_TIME) { buyT = 0; buyLock = true; spend(DOOR_PRICE); openDoor(dr); } } else buyT = 0;
+    if (holdE && can && !buyLock) {
+      buyT += dt;
+      if (buyT >= BUY_TIME) { buyT = 0; if (!requestMPBuy('door', DOORS.indexOf(dr))) { buyLock = true; spend(DOOR_PRICE); openDoor(dr); } }
+    } else buyT = 0;
     promptEl.innerHTML = `Зажмите ${KE()} — открыть дверь за ${DOOR_PRICE} очков` + (can ? '' : ' <span class="no">— не хватает очков</span>') + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
     repT = 0; return;
   }
@@ -2302,7 +2329,13 @@ function updateInteract(dt) {
   if (w) {
     if (holdR) {
       repT += dt;
-      if (repT >= REPAIR_TIME) { repT = 0; if (repairBoard(w)) addPoints(10, 'kill'); }
+      if (repT >= REPAIR_TIME) {
+        repT = 0;
+        if (repairBoard(w)) {
+          if (window.MP && MP.active) MP.requestWindowRepair(windows.indexOf(w));
+          else addPoints(10, 'kill');
+        }
+      }
     } else repT = 0;
     promptEl.innerHTML = `Удерживайте ${KF()}, чтобы починить баррикаду` + (repT > 0 ? `<br><span class="ok">${bar(repT / REPAIR_TIME)}</span>` : '');
   } else { repT = 0; promptEl.textContent = ''; }
@@ -2454,7 +2487,7 @@ function makeZombie() {
   const h = rnd(0.94, 1.08), wd = rnd(0.9, 1.15); g.scale.set(wd, h, wd);
   return z;
 }
-function spawnZombie(mp) {
+function spawnZombie(mp, network = false) {
   const w = mp ? null : activeWin[Math.random() * activeWin.length | 0], z = makeZombie(); // только окна открытых комнат
   const run = round >= 5 && Math.random() < Math.min(0.85, 0.2 + 0.1 * (round - 5));
   z.run = run;
@@ -2464,12 +2497,16 @@ function spawnZombie(mp) {
   z.speed = (run ? Math.min(5.5, 3.4 + 0.1 * round) : Math.min(2.4, 1.2 + 0.1 * (round - 1))) * (0.9 + Math.random() * 0.2);
   if (z.gait === 'limp') z.speed *= 1.25;
   z.hp = Math.round(100 * Math.pow(1.15, round));
-  Object.assign(z, { w, state: mp ? 'menu' : 'window', t: 0, phase: Math.random() * 6, mv: 0, flash: 0, stagger: 0, atkCd: 0.5, atkT: 0, planT: 0, wp: null, stuck: 0, stuckTot: 0, nT: 0, moved: 0, torn: 0, apT: 0, ghost: true });
-  if (mp) { z.g.position.set(mp.x, 0, mp.z); z.g.rotation.y = Math.random() * 6.28; z.menu = true; }
+  Object.assign(z, { w, state: network ? 'chase' : (mp ? 'menu' : 'window'), t: 0, phase: Math.random() * 6, mv: 0, flash: 0, stagger: 0, atkCd: 0.5, atkT: 0, planT: 0, wp: null, stuck: 0, stuckTot: 0, nT: 0, moved: 0, torn: 0, apT: 0, ghost: true });
+  if (network) {
+    z.g.position.set(mp.x, mp.y || 0, mp.z); z.g.rotation.y = mp.yaw || 0;
+    z.menu = false; z.networkRemote = true;
+  } else if (mp) { z.g.position.set(mp.x, 0, mp.z); z.g.rotation.y = Math.random() * 6.28; z.menu = true; }
   else {
     const lat = (Math.random() - 0.5) * 0.6; // SpawnPoint снаружи у окна
     z.g.position.set(w.spawn.x + Math.abs(w.dir.z) * lat, 0, w.spawn.z + Math.abs(w.dir.x) * lat);
     z.g.rotation.y = Math.atan2(-w.dir.x, -w.dir.z);
+    if (window.MP && MP.active && MP.isAuthority) z.mpId = `${MP.socket.id}:${++mpZombieSeq}`;
   }
   scene.add(z.g); zombies.push(z);
 }
@@ -2477,6 +2514,13 @@ function zombieMeshes() { const a = []; for (const z of zombies) if (z.state !==
 let hsTO = 0;
 function hitZombie(z, head, dmg, fx) {
   if (z.state === 'dying') return;
+  if (window.MP && MP.active && !z.menu) {
+    MP.requestHit(z, head, fx && fx.shotId);
+    sfx('hit');
+    crossEl.classList.add('hit'); setTimeout(() => crossEl.classList.remove('hit'), 110);
+    if (head) { crossEl.classList.add('hs'); clearTimeout(hsTO); hsTO = setTimeout(() => crossEl.classList.remove('hs'), 50); }
+    return;
+  }
   const wp = WEAPONS[cur]; z.hp -= (dmg != null ? dmg : (head ? wp.head : wp.body)) * (doubleTap ? 2 : 1); z.flash = 1; z.stagger = fx && fx.stagger != null ? fx.stagger : 0.25; sfx('hit');   // fx — только у пуль (Ray Gun без изменений)
   crossEl.classList.add('hit'); setTimeout(() => crossEl.classList.remove('hit'), 110);
   if (head) { crossEl.classList.add('hs'); clearTimeout(hsTO); hsTO = setTimeout(() => crossEl.classList.remove('hs'), 50); }   // крестик на 0.05 c
@@ -2716,6 +2760,34 @@ function updateZombie(z, dt) {
   z.head.rotation.z = z.headTilt + Math.sin(z.t * 1.4 + z.phase * 0.2) * 0.1; z.head.rotation.x = z.headDrop;
 }
 
+function updateNetworkZombieVisual(z, dt) {
+  const target = z.networkTarget;
+  if (target) {
+    const k = Math.min(1, dt * 14);
+    z.g.position.x += (target.x - z.g.position.x) * k;
+    z.g.position.y += (target.y - z.g.position.y) * k;
+    z.g.position.z += (target.z - z.g.position.z) * k;
+    let dy = target.yaw - z.g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    z.g.rotation.y += dy * k;
+  }
+  z.t += dt;
+  if (z.state === 'dying') { updateRagdoll(z, dt); return; }
+  z.phase += dt * (z.gait === 'run' ? 7.5 : z.gait === 'limp' ? 2.7 : 3.4);
+  const swing = Math.sin(z.phase), moving = z.networkTarget &&
+    Math.hypot(z.networkTarget.x - z.g.position.x, z.networkTarget.z - z.g.position.z) > 0.025;
+  const amp = moving ? (z.gait === 'run' ? 0.9 : 0.48) : 0.06;
+  z.lLeg.rotation.x = swing * amp; z.rLeg.rotation.x = -swing * amp;
+  z.lLeg.kn.rotation.x = Math.max(0, -Math.cos(z.phase)) * amp;
+  z.rLeg.kn.rotation.x = Math.max(0, Math.cos(z.phase)) * amp;
+  z.lArm.rotation.x = -1.35 + Math.sin(z.phase + 1) * amp * 0.35;
+  z.rArm.rotation.x = -1.35 + Math.sin(z.phase + 2) * amp * 0.35;
+  z.lArm.el.rotation.x = z.rArm.el.rotation.x = -0.35;
+  z.body.rotation.x = 0.12 + (moving ? 0.08 : 0);
+  z.body.position.y = Math.sin(z.phase * 2) * 0.025;
+  z.head.rotation.z = z.headTilt + Math.sin(z.t * 1.4 + z.phase * 0.2) * 0.1;
+  z.head.rotation.x = z.headDrop;
+}
+
 // ---------- раунды ----------
 function startRound() {
   round++; roundActive = true; toSpawn = Math.round(6 + 3 * (round - 1) + 0.2 * (round - 1) * (round - 1)); spawnTimer = 0;
@@ -2731,7 +2803,9 @@ function updateGame(dt) {
   hurtFlash = Math.max(0, hurtFlash - dt * 1.8);
   hurtEl.style.opacity = Math.min(1, hurtFlash + (1 - hp / 100) * 0.55);
   hpFill.style.width = hp + '%'; hpFill.parentNode.classList.toggle('low', hp < 30);
-  if (started) {
+  const multiplayer = window.MP && MP.active;
+  const simulateZombies = !multiplayer || MP.isAuthority;
+  if (started && simulateZombies) {
     if (roundActive) {
       interEl.textContent = '';
       const alive = zombies.filter(z => z.state !== 'dying').length;
@@ -2744,15 +2818,19 @@ function updateGame(dt) {
     }
   }
   pvisT -= dt; if (pvisT <= 0) { pvisT = 0.3; updatePVis(); }
-  for (let i = zombies.length - 1; i >= 0; i--) {
-    const z = zombies[i]; updateZombie(z, dt);
-    if (z.state === 'dying' && z.gone) { scene.remove(z.g); z.mats.forEach(m => m.dispose()); zombies.splice(i, 1); }
-  }
-  for (let i = 0; i < zombies.length; i++) for (let j = i + 1; j < zombies.length; j++) { // расталкивание
-    const a = zombies[i], c = zombies[j];
-    if (a.state === 'dying' || c.state === 'dying') continue;
-    const dx = a.g.position.x - c.g.position.x, dz = a.g.position.z - c.g.position.z, d = Math.hypot(dx, dz);
-    if (d < 0.6 && d > 0.001) { const k = (0.6 - d) * 0.5 / d; zMove(a, dx * k, dz * k); zMove(c, -dx * k, -dz * k); }
+  if (simulateZombies) {
+    for (let i = zombies.length - 1; i >= 0; i--) {
+      const z = zombies[i]; updateZombie(z, dt);
+      if (z.state === 'dying' && z.gone) { scene.remove(z.g); z.mats.forEach(m => m.dispose()); zombies.splice(i, 1); }
+    }
+    for (let i = 0; i < zombies.length; i++) for (let j = i + 1; j < zombies.length; j++) { // расталкивание
+      const a = zombies[i], c = zombies[j];
+      if (a.state === 'dying' || c.state === 'dying') continue;
+      const dx = a.g.position.x - c.g.position.x, dz = a.g.position.z - c.g.position.z, d = Math.hypot(dx, dz);
+      if (d < 0.6 && d > 0.001) { const k = (0.6 - d) * 0.5 / d; zMove(a, dx * k, dz * k); zMove(c, -dx * k, -dz * k); }
+    }
+  } else {
+    for (const z of zombies) updateNetworkZombieVisual(z, dt);
   }
 }
 

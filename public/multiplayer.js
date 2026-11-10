@@ -15,6 +15,7 @@
   let socket = null;               // создаётся только когда игрок выбрал мультиплеер
   let mode = 'solo';               // 'solo' | 'multi'
   let selfId = null, mySlot = 0, roomCode = null, hostId = null, entered = false, bypass = false;
+  let gameState = null, worldRevision = 0, shotSeq = 0;
   const remote = {};               // id → { group, target, label, active }
 
   // ------------------------------------------------------------------
@@ -45,7 +46,7 @@
   $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName() }); };
   $('bJoin').onclick = () => { showErr(); socket.emit('joinRoom', { code: $('mpCode').value, name: myName() }); };
   $('bGo').onclick = () => startGame();
-  $('bLeave').onclick = () => { socket.emit('leaveRoom'); clearRemote(); roomCode = null; setView('mp'); };
+  $('bLeave').onclick = () => { socket.emit('leaveRoom'); clearRemote(); roomCode = null; gameState = null; setView('mp'); };
 
   // ------------------------------------------------------------------
   //  2) ПОДКЛЮЧЕНИЕ К СЕРВЕРУ (только при выборе «Мультиплеер»)
@@ -62,6 +63,7 @@
     // Мы вошли в лобби.
     socket.on('joined', ({ selfId: id, code, slot, players }) => {
       selfId = id; roomCode = code; mySlot = slot; entered = false;
+      gameState = null; worldRevision = 0;
       clearRemote();
       Object.values(players).forEach(p => { if (p.id !== selfId) createAvatar(p); });
       setView('lobby');
@@ -69,11 +71,222 @@
     socket.on('lobby', renderLobby);
     socket.on('playerJoined', p => { if (p.id !== selfId && !remote[p.id]) createAvatar(p); });
     socket.on('playerLeft', removeAvatar);
+    socket.on('gameState', receiveGameState);
+    socket.on('zombieHit', applyNetworkHit);
+    socket.on('purchaseCommitted', applyNetworkPurchase);
+    socket.on('windowBoardAction', action => {
+      if (!action || action.actorId === selfId || action.action !== 'repair') return;
+      const w = windows[action.index];
+      if (w) repairBoard(w);
+    });
+    socket.on('purchaseRejected', message => {
+      if (typeof pop === 'function') pop(message || 'Покупка отклонена', 'neg');
+    });
+    socket.on('playerShot', shot => {
+      if (!shot || shot.id === selfId) return;
+      if (typeof shotSnd === 'function') shotSnd(shot.weapon);
+      const player = remote[shot.id];
+      if (player && player.muzzleLight) {
+        player.muzzleLight.color.setHex(shot.weapon === 5 ? 0x45ff64 : 0xffa030);
+        player.muzzleLight.intensity = 2.5;
+        setTimeout(() => { if (player.muzzleLight) player.muzzleLight.intensity = 0; }, 90);
+      }
+      showShotTrace(shot);
+    });
     socket.on('playerMoved', d => {
+      if (gameState && gameState.players) {
+        const p = gameState.players.find(player => player.id === d.id);
+        if (p) Object.assign(p, d, { active: true });
+      }
       const r = remote[d.id]; if (!r) return;
       if (!r.active) { r.active = true; r.group.position.set(d.x, d.y - EYE_HEIGHT, d.z); }   // первое появление — без «пролёта»
       r.target = { x: d.x, y: d.y, z: d.z, yaw: d.yaw };
     });
+  }
+
+  function receiveGameState(state) {
+    if (!state) return;
+    gameState = state;
+    hostId = state.hostId || hostId;
+    worldRevision = Number.isFinite(state.revision) ? state.revision : worldRevision;
+    if (Array.isArray(state.players)) {
+      state.players.forEach(p => {
+        if (p.id === selfId) {
+          if (typeof p.points === 'number') { points = p.points; updatePoints(); }
+          if (p.perks) {
+            if (p.perks.cola && !speedCola) { speedCola = true; perkMsg('cola'); }
+            if (p.perks.doubleTap && !doubleTap) { doubleTap = true; perkMsg('dtap'); }
+          }
+        } else {
+          const r = remote[p.id];
+          if (r && p.active) {
+            r.active = true;
+            r.target = { x: p.x, y: p.y, z: p.z, yaw: p.yaw };
+          }
+        }
+      });
+    }
+    if (Array.isArray(state.doors)) {
+      state.doors.forEach((open, i) => {
+        if (open && DOORS[i] && !DOORS[i].open) openDoor(DOORS[i]);
+      });
+    }
+    if (state.started) {
+      started = true;
+      const previousRound = round;
+      round = state.round || round;
+      roundActive = !!state.roundActive;
+      toSpawn = state.toSpawn || 0;
+      roundEl.textContent = round ? 'ROUND ' + round : '';
+      if (typeof state.nextRoundIn === 'number') nextRoundAt = gtime + state.nextRoundIn;
+      if (round > previousRound && entered && !menuOn) {
+        annEl.textContent = 'ROUND ' + round;
+        annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
+        sfx('round');
+      }
+      interEl.textContent = roundActive ? '' : `ROUND ${round + 1} IN ${Math.ceil(state.nextRoundIn || 0)}`;
+      if (!window.MP.isAuthority && entered && !menuOn) {
+        if (Array.isArray(state.zombies)) applyNetworkZombies(state.zombies);
+        if (Array.isArray(state.windowBoards)) applyNetworkWindows(state.windowBoards);
+      }
+    }
+  }
+
+  function applyNetworkWindows(states) {
+    states.forEach((target, i) => {
+      const w = windows[i];
+      if (!w || !target) return;
+      const total = Math.max(0, Math.min(4, (target.boards | 0) + (target.pending | 0)));
+      let current = w.boards.length + w.pending.length;
+      while (current > total && w.boards.length) { tearBoard(w); current--; }
+      while (current < total && repairBoard(w)) current++;
+    });
+  }
+
+  function applyNetworkZombies(list) {
+    const received = new Set();
+    for (const data of list) {
+      if (!data || typeof data.id !== 'string') continue;
+      received.add(data.id);
+      let z = zombies.find(item => item.mpId === data.id);
+      if (!z) {
+        z = spawnZombie({ x: data.x, y: data.y, z: data.z }, true);
+        z.mpId = data.id;
+        z.g.position.set(data.x, data.y, data.z);
+        z.g.rotation.y = data.yaw || 0;
+        z.networkRemote = true;
+      }
+      z.networkTarget = { x: data.x, y: data.y, z: data.z, yaw: data.yaw || 0 };
+      z.hp = data.hp;
+      z.phase = data.phase || 0;
+      z.gait = data.gait || z.gait;
+      z.speed = data.speed || z.speed;
+      z.seed = data.seed || 0;
+      z.headTilt = data.headTilt || 0;
+      z.headDrop = data.headDrop || 0;
+      z.state = data.state || z.state;
+      z.w = Number.isInteger(data.window) && data.window >= 0 ? WIN[data.window] : null;
+      z.menu = false;
+      if (z.state === 'dying' && !z.rd) {
+        z.dt = 0;
+        z.eyes.forEach(e => e.visible = false);
+        startRagdoll(z, false, 0);
+      }
+    }
+    for (let i = zombies.length - 1; i >= 0; i--) {
+      const z = zombies[i];
+      if (!z.networkRemote || received.has(z.mpId)) continue;
+      scene.remove(z.g);
+      z.mats.forEach(m => m.dispose());
+      zombies.splice(i, 1);
+    }
+  }
+
+  function applyNetworkHit(hit) {
+    if (!hit || !Array.isArray(zombies)) return;
+    worldRevision = Number.isFinite(hit.revision) ? hit.revision : worldRevision;
+    const z = zombies.find(item => item.mpId === hit.zombieId);
+    if (z) {
+      const wasAlive = z.state !== 'dying';
+      z.hp = hit.hp;
+      z.flash = 1;
+      z.stagger = 0.2;
+      if (hit.state === 'dying' && wasAlive) {
+        z.state = 'dying'; z.dt = 0;
+        z.eyes.forEach(e => e.visible = false);
+        startRagdoll(z, !!hit.head, 0);
+        if (typeof kills === 'number') kills++;
+      }
+      const dir = new THREE.Vector3(0, 0, 1);
+      bloodHit(new THREE.Vector3(z.g.position.x, z.g.position.y + 1.1, z.g.position.z), dir, !!hit.head, false);
+    }
+  }
+
+  function applyNetworkPurchase(event) {
+    if (!event) return;
+    const own = event.playerId === selfId;
+    if (event.kind === 'door' && DOORS[event.doorIndex] && !DOORS[event.doorIndex].open) {
+      openDoor(DOORS[event.doorIndex]);
+    } else if (event.kind === 'box') {
+      boxStart(event.boxResult, own);
+    } else if (own && event.kind === 'cola') {
+      speedCola = true; perkMsg('cola');
+    } else if (own && event.kind === 'doubleTap') {
+      doubleTap = true; perkMsg('dtap');
+    } else if (own && event.kind === 'thompson') {
+      const w = WEAPONS[1];
+      w.mag = w.magSize; w.reserve = w.maxReserve - w.magSize;
+      if (!w.own) equip(1); else updateHUD();
+      sfx('buy');
+    } else if (own && event.kind === 'shotgun') {
+      const w = WEAPONS[2];
+      w.mag = w.magSize; w.reserve = w.maxReserve - w.magSize;
+      if (!w.own) equip(2); else updateHUD();
+      sfx('buy');
+    }
+    if (!own && event.kind !== 'door' && event.kind !== 'box' && typeof pop === 'function') {
+      const p = gameState && gameState.players && gameState.players.find(item => item.id === event.playerId);
+      pop((p ? p.name : 'Игрок') + ' совершил покупку', 'head');
+    }
+  }
+
+  function publishWorld(snapshot) {
+    if (!socket || !socket.connected || !roomCode || !window.MP.isAuthority) return;
+    socket.emit('worldSnapshot', { ...snapshot, revision: worldRevision });
+  }
+
+  function registerShot(weapon) {
+    if (!socket || !socket.connected || !roomCode || !window.MP.active) return null;
+    const shotId = `${selfId}:${++shotSeq}`;
+    const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+    socket.emit('shoot', { shotId, weapon, yaw: euler.y, pitch: euler.x });
+    return shotId;
+  }
+
+  function requestPurchase(kind, doorIndex) {
+    if (!socket || !socket.connected || !roomCode) return false;
+    socket.emit('purchaseRequest', { kind, doorIndex });
+    return true;
+  }
+
+  function requestHit(zombie, head, shotId) {
+    if (!socket || !socket.connected || !roomCode || !zombie || !zombie.mpId || !shotId) return;
+    socket.emit('zombieHit', { zombieId: zombie.mpId, head: !!head, shotId });
+  }
+
+  function showShotTrace(shot) {
+    if (![shot.x, shot.y, shot.z, shot.yaw, shot.pitch].every(Number.isFinite)) return;
+    const c = Math.cos(shot.pitch);
+    const dir = new THREE.Vector3(-Math.sin(shot.yaw) * c, Math.sin(shot.pitch), -Math.cos(shot.yaw) * c);
+    const from = new THREE.Vector3(shot.x, shot.y, shot.z);
+    const to = from.clone().addScaledVector(dir, shot.weapon === 5 ? 28 : 18);
+    const geometry = new THREE.BufferGeometry().setFromPoints([from, to]);
+    const material = new THREE.LineBasicMaterial({
+      color: shot.weapon === 5 ? 0x5cff65 : 0xffd07a, transparent: true, opacity: 0.85,
+    });
+    const line = new THREE.Line(geometry, material);
+    scene.add(line);
+    setTimeout(() => { scene.remove(line); geometry.dispose(); material.dispose(); }, 110);
   }
 
   function renderLobby({ code, hostId: h, players }) {
@@ -127,6 +340,7 @@
     entered = true;
     placeAtSpawn();
     sendMove(true);                                   // сразу сообщаем остальным, где мы
+    socket.emit('gameStart');
   });
 
   // ------------------------------------------------------------------
@@ -145,9 +359,25 @@
     if (mode === 'multi' && socket && roomCode && entered && !menuOn && controls.isLocked) sendMove(false);
   }, 1000 / SEND_RATE);
 
-  addEventListener('mousedown', e => {
-    if (e.button === 0 && mode === 'multi' && socket && roomCode && !menuOn && controls.isLocked) socket.emit('shoot');
-  });
+  setInterval(() => {
+    if (!window.MP.active || !window.MP.isAuthority || !entered || menuOn || !controls.isLocked || !started) return;
+    publishWorld({
+      started: true,
+      round,
+      roundActive,
+      toSpawn,
+      nextRoundIn: Math.max(0, nextRoundAt - gtime),
+      windowBoards: windows.map(w => ({ boards: w.boards.length, pending: w.pending.length })),
+      zombies: zombies.filter(z => !z.menu && z.mpId).map(z => ({
+        id: z.mpId,
+        x: z.g.position.x, y: z.g.position.y, z: z.g.position.z,
+        yaw: z.g.rotation.y, hp: z.hp, state: z.state,
+        phase: z.phase, gait: z.gait, speed: z.speed, seed: z.seed,
+        window: z.w ? WIN.indexOf(z.w) : -1,
+        headTilt: z.headTilt, headDrop: z.headDrop,
+      })),
+    });
+  }, 100);
 
   // ------------------------------------------------------------------
   //  5) АВАТАРЫ ДРУГИХ ИГРОКОВ
@@ -169,10 +399,12 @@
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), mat); head.position.y = 1.55; group.add(head);
     const gun = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.6), new THREE.MeshStandardMaterial({ color: 0x222222 }));
     gun.position.set(0.25, 1.25, -0.4); group.add(gun);
+    const muzzleLight = new THREE.PointLight(0xffa030, 0, 2);
+    muzzleLight.position.set(0.25, 1.25, -0.76); group.add(muzzleLight);
     group.add(makeLabel(p.name));
     group.visible = false;                            // покажем, когда игрок реально войдёт в игру
     scene.add(group);
-    remote[p.id] = { group, active: false, target: { x: 0, y: EYE_HEIGHT, z: 0, yaw: 0 } };
+    remote[p.id] = { group, muzzleLight, active: false, target: { x: 0, y: EYE_HEIGHT, z: 0, yaw: 0 } };
   }
   function removeAvatar(id) {
     const r = remote[id]; if (!r) return;
@@ -196,5 +428,17 @@
     }
   })();
 
-  window.MP = { get socket() { return socket; }, remote };
+  window.MP = {
+    get socket() { return socket; },
+    get active() { return mode === 'multi' && !!roomCode && !!socket && socket.connected; },
+    get isAuthority() { return !!roomCode && !!selfId && selfId === hostId; },
+    get remote() { return remote; },
+    publishWorld,
+    registerShot,
+    requestPurchase,
+    requestHit,
+    requestWindowRepair(index) {
+      if (socket && socket.connected && roomCode) socket.emit('windowBoardAction', { action: 'repair', index });
+    },
+  };
 })();
