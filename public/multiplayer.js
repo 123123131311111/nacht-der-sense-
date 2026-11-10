@@ -223,7 +223,9 @@
     }
     for (let i = zombies.length - 1; i >= 0; i--) {
       const z = zombies[i];
-      if (!z.networkRemote || received.has(z.mpId)) continue;
+      // The host snapshot is authoritative for guests. Clear menu/local or
+      // stale network zombies too, not just objects previously created here.
+      if (received.has(z.mpId)) continue;
       scene.remove(z.g);
       z.mats.forEach(m => m.dispose());
       zombies.splice(i, 1);
