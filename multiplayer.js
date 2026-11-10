@@ -26,6 +26,10 @@
   bPlay.addEventListener('click', e => {
     if (bypass || !menuOn) return;
     e.stopImmediatePropagation();
+    if (mode === 'multi' && roomCode && gameState && gameState.started) {
+      startGame();
+      return;
+    }
     setView('mode');
   }, true);
 
@@ -109,6 +113,9 @@
     gameState = state;
     hostId = state.hostId || hostId;
     worldRevision = Number.isFinite(state.revision) ? state.revision : worldRevision;
+    if (state.started && mode === 'multi' && roomCode && !entered && !window.MP.isAuthority) {
+      enterHostStartedGame();
+    }
     if (Array.isArray(state.players)) {
       state.players.forEach(p => {
         if (p.id === selfId) {
@@ -150,6 +157,27 @@
         if (Array.isArray(state.windowBoards)) applyNetworkWindows(state.windowBoards);
       }
     }
+  }
+
+  function enterHostStartedGame() {
+    if (entered || !roomCode) return;
+    entered = true;
+    placeAtSpawn();
+    for (let i = zombies.length - 1; i >= 0; i--) {
+      const z = zombies[i];
+      if (!z.menu) continue;
+      scene.remove(z.g);
+      z.mats.forEach(m => m.dispose());
+      zombies.splice(i, 1);
+    }
+    menuOn = false;
+    document.body.classList.remove('menu');
+    document.body.classList.add('playing');
+    setView('main');
+    infoMsg.textContent = 'Хост запустил игру — нажмите «В ИГРУ», чтобы управлять';
+    $('bPlay').textContent = '▶ В ИГРУ';
+    info.style.display = 'flex';
+    sendMove(true);
   }
 
   function applyNetworkWindows(states) {
