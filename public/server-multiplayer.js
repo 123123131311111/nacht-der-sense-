@@ -49,13 +49,13 @@ const MAPS = {
     },
   },
   verruckt: {
-    doors: [{ x: 0, z: 14 }, { x: 0, z: -2.35 }],   // главный вход и центральная лестница; порядок как в VK_DOORS на клиенте
+    doors: [{ x: -9, z: -2.35 }, { x: 9, z: -2.35 }],   // платный вход на 2 этаж: левый и правый корпус (порядок как в VK_DOORS на клиенте)
     windows: [],
     wall: { thompson: { x: -19.8, z: 2.75 }, shotgun: { x: 19.8, z: -2.75 } },   // внутри корпусов: Thompson — левый, дробовик — правый
-    box: { x: 0, z: 8.5, available: () => true },
+    box: { x: 0, z: -9.3, available: () => true },
     perks: {
-      cola: { x: 17.2, z: 11.1, minY: -1, maxY: 3.2 },
-      doubleTap: { x: 17.1, z: 10.8, minY: 3.2, maxY: 7.5 },
+      cola: { x: -7.2, z: 3.2, minY: 3.2, maxY: 7.5 },
+      doubleTap: { x: 8.4, z: 3, minY: 3.2, maxY: 7.5 },
       juggernog: { x: 1000, z: 1000, minY: 3.2, maxY: 7.5 },
     },
   },
