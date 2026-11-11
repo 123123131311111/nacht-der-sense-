@@ -18,7 +18,8 @@ const WEAPONS = [
   { body: 60, head: 120, interval: 850, pellets: 8 },
   { body: 150, head: 300, interval: 550, pellets: 1 },
   { body: 250, head: 500, interval: 280, pellets: 1 },
-  { body: 940, head: 940, interval: 350, pellets: 24 },
+  { body: 620, head: 620, interval: 420, pellets: 24 },
+  { body: 110, head: 220, interval: 100, pellets: 1 },
 ];
 const DOORS = [
   { x: -9.5, z: 4 }, { x: 4, z: -4 }, { x: -3, z: 4 },
@@ -297,10 +298,12 @@ io.on('connection', socket => {
       price = shotgun ? (owned ? 600 : 1200) : (owned ? 500 : 1000);
       weaponIndex = shotgun ? 2 : 1;
     } else if (kind === 'box') {
-      if (!near(player, -6, 5.7, 3.5, -1, 3.2)) return failPurchase(socket, 'Подойдите к Mystery Box');
+      // ящик стоит в стартовой комнате, а после открытия любой двери в центральный зал переезжает туда (как на клиенте)
+      const dr = room.game.doors, boxPos = (dr[0] || dr[2] || dr[4]) ? { x: 3, z: -6.3 } : { x: -6, z: 5.7 };
+      if (!near(player, boxPos.x, boxPos.z, 3.5, -1, 3.2)) return failPurchase(socket, 'Подойдите к Mystery Box');
       if (room.game.boxBusyUntil > Date.now()) return failPurchase(socket, 'Mystery Box уже используется');
       price = 950;
-      boxResult = 1 + Math.floor(Math.random() * 5);
+      boxResult = 1 + Math.floor(Math.random() * 6);
     } else return failPurchase(socket, 'Неизвестная покупка');
     if (player.points < price) return failPurchase(socket, 'Не хватает очков');
     player.points -= price;
