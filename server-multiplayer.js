@@ -19,9 +19,10 @@ const WEAPONS = [
   { body: 60, head: 120, interval: 850, pellets: 8 },
   { body: 150, head: 300, interval: 550, pellets: 1 },
   { body: 250, head: 500, interval: 280, pellets: 1 },
-  { body: 620, head: 620, interval: 420, pellets: 24 },
+  { body: 865, head: 865, interval: 420, pellets: 24 },
   { body: 110, head: 220, interval: 100, pellets: 1 },
   { body: 95, head: 190, interval: 90, pellets: 1 },   // M16A1 (только Mystery Box)
+  { body: 55, head: 110, interval: 140, pellets: 2 },  // двойные пистолеты (только Mystery Box): 2 пули за выстрел
 ];
 const DOORS = [
   { x: -9.5, z: 4 }, { x: 4, z: -4 }, { x: -3, z: 4 },
@@ -220,11 +221,11 @@ io.on('connection', socket => {
     const { room, player } = ctx;
     const shot = player.shots[shotId];
     if (!shot || Date.now() - shot.at > 3000 || shot.hits >= shot.maxHits ||
-        (shot.weapon !== 2 && shot.hitIds.has(zombieId))) return;
+        (shot.weapon !== 2 && shot.weapon !== 8 && shot.hitIds.has(zombieId))) return;
     const zombie = room.game.zombies.find(z => z.id === zombieId);
     if (!zombie || zombie.state === 'dying' || !(shot.weapon === -1 || WEAPONS[shot.weapon])) return;
     shot.hits++;
-    if (shot.weapon !== 2) shot.hitIds.add(zombieId);
+    if (shot.weapon !== 2 && shot.weapon !== 8) shot.hitIds.add(zombieId);
     const weapon = shot.weapon === -1
       ? (room.game.round <= 3 ? { body: 100000, head: 100000 } : { body: Math.max(10, 150 * Math.pow(0.8, room.game.round - 3)), head: Math.max(10, 150 * Math.pow(0.8, room.game.round - 3)) })   // нож: до 3 раунда с 1 удара, дальше слабее
       : WEAPONS[shot.weapon];
@@ -363,7 +364,7 @@ io.on('connection', socket => {
       if (!near(player, boxPos.x, boxPos.z, 3.5, -1, 3.2)) return failPurchase(socket, 'Подойдите к Mystery Box');
       if (room.game.boxBusyUntil > Date.now()) return failPurchase(socket, 'Mystery Box уже используется');
       price = 950;
-      boxResult = 1 + Math.floor(Math.random() * 7);
+      boxResult = 1 + Math.floor(Math.random() * 8);
     } else return failPurchase(socket, 'Неизвестная покупка');
     if (player.points < price) return failPurchase(socket, 'Не хватает очков');
     player.points -= price;
