@@ -160,8 +160,35 @@ body.touch #knife{bottom:32px}
 /* ===== мультиплеер: выбор режима и лобби ===== */
 #menu[data-view=mode] #mainBtns,#menu[data-view=maps] #mainBtns,#menu[data-view=mp] #mainBtns,#menu[data-view=lobby] #mainBtns{display:none}
 #menu[data-view=mode] #pMode,#menu[data-view=maps] #pMaps,#menu[data-view=mp] #pMp,#menu[data-view=lobby] #pLobby{display:block}
-#mapList .mb small{display:block;font:12px "Courier New",monospace;letter-spacing:.08em;color:#aaa;margin-top:4px}
-#mapList .mb.soon{opacity:.45;pointer-events:none}
+/* ===== выбор карты: панель с карточками ===== */
+#menu[data-view=maps]{width:min(1020px,100%)}
+#menu[data-view=maps] h1.logo{font-size:clamp(26px,4vw,42px);margin-bottom:14px}
+#menu[data-view=maps] .logo small{margin-bottom:8px}
+#pMaps h2{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px}
+#pMaps h2 span{font-size:12px;letter-spacing:.2em;color:#8e8880;font-weight:400}
+#mapList{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px;margin:0 0 18px}
+.mc{position:relative;display:block;padding:0;margin:0;text-align:left;cursor:pointer;color:#ddd;background:#0b0606;border:1px solid #3a1a1a;overflow:hidden;font:inherit;transition:transform .18s,border-color .18s,box-shadow .18s;animation:mcIn .4s both}
+.mc:nth-child(2){animation-delay:.08s}.mc:nth-child(3){animation-delay:.16s}
+@keyframes mcIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.mc .im{position:relative;aspect-ratio:16/9;overflow:hidden;background:#140909}
+.mc .im img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .5s,filter .3s;filter:brightness(.85)}
+.mc .im:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(11,6,6,.95) 100%)}
+.mc .tx{padding:6px 16px 15px;margin-top:-34px;position:relative;z-index:1}
+.mc .tx b{display:block;font:700 19px Georgia,serif;letter-spacing:.14em;color:#eee;text-shadow:0 2px 6px #000}
+.mc .tx small{display:block;margin-top:6px;font:12px "Courier New",monospace;letter-spacing:.06em;color:#a8a29a;line-height:1.4}
+.mc .tag{position:absolute;top:10px;right:10px;z-index:2;padding:4px 10px;font:700 11px "Courier New",monospace;letter-spacing:.18em;color:#fff;background:rgba(150,16,16,.92);border:1px solid #e44;opacity:0;transform:translateY(-4px);transition:.18s}
+.mc:hover,.mc:focus-visible{transform:translateY(-4px);border-color:#a22;box-shadow:0 8px 30px rgba(170,20,20,.35);outline:0}
+.mc:hover .im img,.mc:focus-visible .im img{transform:scale(1.06);filter:brightness(1.05)}
+.mc.sel{border-color:#f33;box-shadow:0 0 0 2px #c22,0 0 34px rgba(220,30,30,.45)}
+.mc.sel .tag{opacity:1;transform:none}
+.mc.sel .im img{filter:brightness(1.1)}
+.mc.soon{cursor:default}
+.mc.soon:hover{transform:none;border-color:#3a1a1a;box-shadow:none}
+.mc.soon .im img{filter:grayscale(1) brightness(.6)}
+.mc.soon:hover .im img{transform:none;filter:grayscale(1) brightness(.6)}
+.mc.soon .tag{opacity:1;transform:none;background:rgba(20,20,20,.92);border-color:#555;color:#aaa}
+#bMapGo[disabled]{opacity:.4;pointer-events:none}
+@media (max-height:480px){#menu[data-view=maps] h1.logo{display:none}#mapList{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:10px}.mc .tx b{font-size:15px}.mc .tx small{font-size:11px}.mc .tx{padding-bottom:10px}}
 #mpName,#mpCode{box-sizing:border-box;padding:12px 14px;font:700 18px "Courier New",monospace;letter-spacing:.12em;color:#eee;background:rgba(20,10,10,.8);border:1px solid #3a1a1a;border-left:4px solid #6a1414;outline:0}
 #mpName{width:100%;margin:0 0 12px}#mpCode{width:120px;text-transform:uppercase;text-align:center}
 #mpErr{min-height:20px;margin:6px 0;font:13px "Courier New",monospace;color:#f66}
@@ -190,8 +217,9 @@ body.touch #knife{bottom:32px}
 <button class="mb big" id="bSolo">ОДИНОЧНАЯ ИГРА</button>
 <button class="mb" id="bMulti">ОНЛАЙН · МУЛЬТИПЛЕЕР</button>
 <button class="mb back" id="bModeBack">← НАЗАД</button></div>
-<div class="panel" id="pMaps"><h2>ВЫБОР КАРТЫ</h2>
+<div class="panel" id="pMaps"><h2>ВЫБОР КАРТЫ<span id="mapCount"></span></h2>
 <div id="mapList"></div>
+<button class="mb big" id="bMapGo">▶ ДАЛЕЕ</button>
 <button class="mb back" id="bMapsBack">← НАЗАД</button></div>
 <div class="panel" id="pMp"><h2>МУЛЬТИПЛЕЕР</h2>
 <input id="mpName" maxlength="16" placeholder="Твоё имя">
@@ -315,6 +343,7 @@ const mats = {
 };
 
 // ---------- геометрия и коллизии ----------
+const MAP_ID = new URLSearchParams(location.search).get('map') === 'verruckt' ? 'verruckt' : 'nacht';   // карта выбирается параметром ?map=
 const colliders = [], worldMeshes = [], windows = [];
 function addBox(x0, x1, y0, y1, z0, z1, mat, collide = true) {
   const w = x1 - x0, h = y1 - y0, d = z1 - z0;
@@ -400,17 +429,92 @@ function decorateBoard(bm, sp) {   // гвозди (по 2 на каждой с�
 const win = (s, e, lvl) => ({ s, e, b: lvl + 1.2, t: lvl + 2.8, board: true });
 const door = (s, e, lvl) => ({ s, e, b: lvl, t: lvl + 2.9 });
 
+// =====================================================================================
+//  VERRUCKT (прототип): круглая психбольница, 2 этажа.
+//  Центр (0,0). Внешний радиус 15, 4 плоские стены (окна) по сторонам света.
+//  Центральное ядро (r 5.5) с винтовой лестницей; вокруг — 4 палаты-сектора E / N / W / S,
+//  разделённые диагональными стенами. Из палаты в ядро — дверь (покупается).
+//  Коллизии у игры только AABB, поэтому круглые стены собраны из маленьких блоков.
+// =====================================================================================
+const VK_START = 'E', VK_BOX_ZONE = 'S';
+const VK_LAMPS = [[10, 3.3, 0], [0, 3.3, 10], [-10, 3.3, 0], [0, 3.3, -10], [10, 7.3, 0], [0, 7.3, 10], [-10, 7.3, 0], [0, 7.3, -10]];
+const VK_DOORS = [
+  { ax: 'z', fixed: 5.5, s: -1.5, e: 1.5, a: 'E', b: 'CORE', h: 3.7 },
+  { ax: 'x', fixed: 5.5, s: -1.5, e: 1.5, a: 'N', b: 'CORE', h: 3.7 },
+  { ax: 'z', fixed: -5.5, s: -1.5, e: 1.5, a: 'W', b: 'CORE', h: 3.7 },
+  { ax: 'x', fixed: -5.5, s: -1.5, e: 1.5, a: 'S', b: 'CORE', h: 3.7 }
+];
+function vkZone(x, z) {
+  if (Math.hypot(x, z) < 5.5) return 'CORE';
+  return Math.abs(x) > Math.abs(z) ? (x > 0 ? 'E' : 'W') : (z > 0 ? 'N' : 'S');
+}
+function vkBlock(x, z, size, y0, y1, mat) { return addBox(x - size / 2, x + size / 2, y0, y1, z - size / 2, z + size / 2, mat); }
+function vkRing(r, step, size, skip, y0, y1, mat) {   // стена-кольцо из блоков
+  const n = Math.round(2 * Math.PI * r / step);
+  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, x = r * Math.cos(a), z = r * Math.sin(a); if (!skip(x, z)) vkBlock(x, z, size, y0, y1, mat); }
+}
+function vkFloors() {
+  const scaleUV = g => { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3); };
+  const cyl = (y, mat) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 0.5, 48), mat); m.position.y = y; scene.add(m); worldMeshes.push(m); };
+  cyl(-0.25, mats.floor); cyl(7.95, mats.concrete);   // пол 1 этажа и потолок 2 этажа (только визуально: высота пола по умолчанию 0)
+  // перекрытие 2 этажа: круг R15 с квадратным вырезом 8x8 в центре (внутри выреза — аналитическая плита с круглым проёмом, см. buildSpiral)
+  const sh = new THREE.Shape(); sh.absarc(0, 0, 15, 0, Math.PI * 2, false);
+  const h = new THREE.Path(); h.moveTo(-4, -4); h.lineTo(-4, 4); h.lineTo(4, 4); h.lineTo(4, -4); h.lineTo(-4, -4); sh.holes.push(h);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: 0.3, bevelEnabled: false, curveSegments: 48 }); scaleUV(g);
+  const m = new THREE.Mesh(g, mats.concrete); m.rotation.x = -Math.PI / 2; m.position.y = 3.7; scene.add(m); worldMeshes.push(m);
+  // коллайдеры перекрытия — полосы по 0.5 м, не выходят за круг и обходят квадрат 8x8
+  for (let z0 = -15; z0 < 15; z0 += 0.5) {
+    const z1 = z0 + 0.5, xr = Math.sqrt(Math.max(0, 225 - Math.max(z0 * z0, z1 * z1)));
+    if (xr < 0.3) continue;
+    const inSq = z0 >= -4 && z1 <= 4, seg = (a, b) => colliders.push({ x0: a, x1: b, y0: 3.7, y1: 4, z0, z1 });
+    if (inSq) { seg(-xr, -4); seg(4, xr); } else seg(-xr, xr);
+  }
+}
+function vkWalls() {
+  const B = mats.brick, C = mats.concrete;
+  // 4 плоские внешние стены с окнами на обоих этажах (по два окна на сторону)
+  const wins = lvl => [win(-4.5, -2.1, lvl), win(2.1, 4.5, lvl)];
+  for (const f of [14.2, -14.2]) for (const ax of ['x', 'z']) {
+    wall(ax, f, -4.8, 4.8, 0.6, 0, 3.85, wins(0), B);
+    wall(ax, f, -4.8, 4.8, 0.6, 3.85, 7.7, wins(4), B);
+  }
+  // скруглённые углы наружной стены
+  vkRing(14.6, 0.5, 0.7, (x, z) => (Math.abs(x) > 13 && Math.abs(z) < 4.9) || (Math.abs(z) > 13 && Math.abs(x) < 4.9), 0, 7.7, B);
+  // стена ядра с четырьмя проёмами на сторонах света (на 1 этаже в проёмах двери)
+  vkRing(5.5, 0.45, 0.65, (x, z) => (Math.abs(z) < 1.55 && Math.abs(x) > 3) || (Math.abs(x) < 1.55 && Math.abs(z) > 3), 0, 7.7, C);
+  // диагональные стенки между палатами
+  for (const a of [45, 135, 225, 315]) for (let r = 5.8; r <= 14.3; r += 0.5) {
+    const t = a * Math.PI / 180; vkBlock(r * Math.cos(t), r * Math.sin(t), 0.8, 0, 7.7, C);
+  }
+}
+function vkNodes() {   // узлы навигации (связи считаются автоматически по прямой видимости)
+  const n = {}, rooms = { E: [1, 0], N: [0, 1], W: [-1, 0], S: [0, -1] };
+  for (const [lv, y] of [['', 0], ['u', 4]]) {
+    for (const k in rooms) {
+      const [ux, uz] = rooms[k], px = -uz, pz = ux, at = (r, l) => [ux * r + px * l, uz * r + pz * l, y];
+      n[lv + k + 'a'] = at(6.9, 0); n[lv + k + 'b'] = at(10, 0); n[lv + k + 'c'] = at(10, 3.5); n[lv + k + 'd'] = at(10, -3.5);
+      n[lv + k + 'e'] = at(12.4, 0); n[lv + k + 'f'] = at(12.2, 3.3); n[lv + k + 'g'] = at(12.2, -3.3);
+    }
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; n[lv + 'c' + i] = [4.2 * Math.cos(a), 4.2 * Math.sin(a), y]; }
+  }
+  Object.assign(n, { s0: [SP.cx - 0.6, SP.cz + 4.4, 0], s1: spPt(12), s2: spPt(125), s3: spPt(205), s5: spPt(285), s6: spPt(335), s4: [SP.cx + 0.7, SP.cz + 4, 4] });
+  return n;
+}
+
 // пол, потолок, перекрытие второго этажа
+if (MAP_ID === 'nacht') {
 addBox(-15, 15, -0.5, 0, -15, 15, mats.floor);
 addBox(-15, 15, 7.7, 8.2, -15, 15, mats.concrete);
 addBox(-15, 15, 3.7, 4, -4, 15, mats.concrete);
 addBox(-15, 8, 3.7, 4, -15, -4, mats.concrete);
 addBox(14, 15, 3.7, 4, -15, -4, mats.concrete);
 addBox(8, 14, 3.7, 4, -15, -14, mats.concrete);
+} else vkFloors();
 // круговая (винтовая) лестница: центр (11, −9), радиус 3 м, полный виток из 16 ступеней по 25 см, в центре — колонна.
 // Идём вверх против часовой стрелки (вид сверху); вход внизу и выход наверху — с севера (z ≈ −4…−6).
 // Ступени, колонна и перекрытие с круглым проёмом считаются аналитически (spStepTop / stairHit), а не набором коробок.
-const SP = { cx: 11, cz: -9, ro: 3.0, rh: 3.0, rc: 0.55, n: 16, rise: 0.25, a0: Math.PI / 2, colTop: 7.7 };
+const SP = MAP_ID === 'nacht' ? { cx: 11, cz: -9, ro: 3.0, rh: 3.0, rc: 0.55, n: 16, rise: 0.25, a0: Math.PI / 2, colTop: 7.7 } : { cx: 0, cz: 0, ro: 3.0, rh: 3.0, rc: 0.55, n: 16, rise: 0.25, a0: Math.PI / 2, colTop: 7.7 };
+const SPB = MAP_ID === 'nacht' ? { x0: 8, x1: 14, z0: -14, z1: -4 } : { x0: -4, x1: 4, z0: -4, z1: 4 };   // прямоугольник вокруг лестницы: внутри него плита 2 этажа считается аналитически
 SP.da = Math.PI * 2 / SP.n;
 const STAIR = { yTop: SP.n * SP.rise };
 (function buildSpiral() {
@@ -428,7 +532,7 @@ const STAIR = { yTop: SP.n * SP.rise };
   const col = new THREE.Mesh(new THREE.CylinderGeometry(SP.rc, SP.rc, SP.colTop, 24), mats.concrete);
   col.position.set(SP.cx, SP.colTop / 2, SP.cz); scene.add(col); worldMeshes.push(col);
   // перекрытие второго этажа вокруг круглого проёма
-  const sl = new THREE.Shape(); sl.moveTo(8, 4); sl.lineTo(14, 4); sl.lineTo(14, 14); sl.lineTo(8, 14); sl.lineTo(8, 4);
+  const sl = new THREE.Shape(); sl.moveTo(SPB.x0, -SPB.z1); sl.lineTo(SPB.x1, -SPB.z1); sl.lineTo(SPB.x1, -SPB.z0); sl.lineTo(SPB.x0, -SPB.z0); sl.lineTo(SPB.x0, -SPB.z1);
   const hole = new THREE.Path(); hole.absarc(SP.cx, -SP.cz, SP.rh - 0.01, 0, Math.PI * 2, true); sl.holes.push(hole);
   const sg = new THREE.ExtrudeGeometry(sl, { depth: 0.3, bevelEnabled: false, curveSegments: 32 }); scaleUV(sg);
   const sm = new THREE.Mesh(sg, mats.concrete); sm.rotation.x = -Math.PI / 2; sm.position.y = 3.7; scene.add(sm); worldMeshes.push(sm);
@@ -444,7 +548,7 @@ function spStepTop(x, z) {   // высота верха ступени в точ
   return (Math.min(SP.n - 1, Math.floor(t / SP.da)) + 1) * SP.rise;
 }
 function stairHit(x0, x1, z0, z1, ya, yb) {   // пересечение прямоугольника (x0..x1, z0..z1) на высотах ya..yb со ступенями, колонной и перекрытием у проёма
-  if (x1 < 8 || x0 > 14 || z1 < -14 || z0 > -4) return null;
+  if (x1 < SPB.x0 || x0 > SPB.x1 || z1 < SPB.z0 || z0 > SPB.z1) return null;
   const cx = SP.cx, cz = SP.cz; let top = 0;
   const nx = Math.min(Math.max(cx, x0), x1), nz = Math.min(Math.max(cz, z0), z1);
   if (Math.hypot(nx - cx, nz - cz) < SP.rc && yb > 0 && ya < SP.colTop) top = SP.colTop;   // колонна
@@ -455,6 +559,7 @@ function stairHit(x0, x1, z0, z1, ya, yb) {   // пересечение прям
   if (!top) return null;
   SB.y1 = top; return SB;
 }
+if (MAP_ID === 'nacht') {
 // внешние стены (оба этажа), окна заколочены; все проёмы шире 2.5 (проходы чистые, без ящиков и колонн)
 wall('x', -15, -15, 15, 0.6, 0, 3.85, [win(-9.5, -6.5, 0), win(3.5, 6.5, 0)], mats.brick);
 wall('x', -15, -15, 15, 0.6, 3.85, 7.7, [win(-9.5, -6.5, 4), win(3.5, 6.5, 4)], mats.brick);
@@ -470,6 +575,7 @@ wall('x', 1, -2, 15, 0.4, 0, 3.7, [door(5.5, 8.5, 0)], mats.concrete);
 // внутренние стены 2 этажа
 wall('z', -2, -4, 15, 0.4, 4, 7.7, [door(4.5, 7.5, 4)], mats.concrete);
 wall('x', 6, 5, 15, 0.4, 4, 7.7, [door(8.5, 11.5, 4)], mats.concrete);
+} else vkWalls();
 
 
 // ---------- свет: мало тусклых белых ламп ----------
@@ -483,7 +589,7 @@ function lamp(x, y, z, intensity = 1.3, real = true) {
   bulbs.push({ l, base: intensity, ph: Math.random() * 10, bad: Math.random() < 0.15 });
 }
 // 7 ламп: каждая освещает свой участок карты (небольшой радиус), между ними остаётся темнота
-[[-9.5, 3.3, 9.5], [7, 3.3, 9], [-9, 3.3, -8], [4, 3.3, -6], [-8, 7.3, 8], [9, 7.3, 10], [-6, 7.3, -9], [12.6, 6.9, -9]].forEach(p => lamp(p[0], p[1], p[2], 1.6));   // последняя — над круговой лестницей
+(MAP_ID === 'nacht' ? [[-9.5, 3.3, 9.5], [7, 3.3, 9], [-9, 3.3, -8], [4, 3.3, -6], [-8, 7.3, 8], [9, 7.3, 10], [-6, 7.3, -9], [12.6, 6.9, -9]] : VK_LAMPS).forEach(p => lamp(p[0], p[1], p[2], 1.6));   // последняя — над круговой лестницей
 
 // ---------- интерьер: мебель, комнаты, мусор ----------
 const PM = (c, r = 0.85, m = 0.1) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
@@ -544,6 +650,7 @@ function trash(x0, x1, z0, z1, y, n) {
 }
 const pipe = (x0, x1, y, z, ax = 'x') => { const L = x1 - x0, m = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, L, 8), M2.steel); if (ax === 'x') { m.rotation.z = Math.PI / 2; m.position.set((x0 + x1) / 2, y, z); } else { m.rotation.x = Math.PI / 2; m.position.set(z, y, (x0 + x1) / 2); } scene.add(m); };
 
+if (MAP_ID === 'nacht') {
 // 1) ПРИХОЖАЯ (старт)
 sign('ПРИХОЖАЯ', -14.68, 3.0, 8, Math.PI / 2);
 for (let i = 0; i < 4; i++) locker(-14.65 + i * 0.9, 4.25, 0.8, 0.7);
@@ -606,6 +713,12 @@ shelf(13.5, 11.9, 1.2, 0.55); barrel(13.2, 14.2, 0, 0x2a2a3a); crate(0.2, 13.4, 
 crate(-14.6, -12.5, 1.0, 4, M2.olive); barrel(-3.3, -14.0, 4, 0x3a2a2a);
 table(-6, -8, 2.2, 1.0, 4); chair(-7.1, -8, -1, 0, 4); chair(-4.9, -8, 1, 0, 4);
 cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
+} else {   // Verruckt: минимум реквизита (прототип)
+  for (const [x, z] of [[8, 5], [-8, 5], [-8, -5], [8, -5], [3, 9], [-3, 9], [3, -9], [-3, -9]]) { barrel(x, z); barrel(x + 0.7, z); }
+  for (const [x, z] of [[9, 8], [-9, -8]]) crate(x, z, 1.0);
+  cot(8, 9, 'x', 0, M2.cloth); cot(-10, -9, 'x', 0, M2.blue);
+  cot(8, 9, 'x', 4, M2.cloth); cot(-10, -9, 'x', 4, M2.white); crate(-9, 8, 1.0, 4); barrel(9, -8, 4);
+}
 
 
 // ---------- улица: небо, земля, мёртвые деревья, горящие дома ----------
@@ -662,9 +775,9 @@ const info = document.getElementById('info');
 controls.addEventListener('lock', () => info.style.display = 'none');
 controls.addEventListener('unlock', () => { if (!dead) info.style.display = 'flex'; });
 scene.add(controls.getObject());
-const SPAWN = new THREE.Vector3(-9.5, 1.7, 9.5);
+const SPAWN = MAP_ID === 'nacht' ? new THREE.Vector3(-9.5, 1.7, 9.5) : new THREE.Vector3(10, 1.7, 0), SPAWN_YAW = MAP_ID === 'nacht' ? 0 : Math.PI / 2;   // на Verruckt смотрим из восточной палаты в сторону ядра
 const pos = controls.getObject().position.copy(SPAWN);
-camera.rotation.y = 0;
+camera.rotation.y = SPAWN_YAW;
 const R = 0.35, H = 1.7, STEP = 0.45;
 let vy = 0, onGround = false, stepT = 0;
 const keys = {};
@@ -2044,7 +2157,7 @@ function floorAt(x, z, feet) {
   let g = 0;
   for (const b of floors) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && b.y1 <= feet + 0.5 && b.y1 > g) g = b.y1;
   const sh = spStepTop(x, z); if (sh && sh <= feet + 0.5 && sh > g) g = sh;   // ступени винтовой лестницы
-  if (x > 8 && x < 14 && z > -14 && z < -4 && 4 <= feet + 0.5 && g < 4 && Math.hypot(x - SP.cx, z - SP.cz) >= SP.rh) g = 4;   // перекрытие вокруг проёма
+  if (x > SPB.x0 && x < SPB.x1 && z > SPB.z0 && z < SPB.z1 && 4 <= feet + 0.5 && g < 4 && Math.hypot(x - SP.cx, z - SP.cz) >= SP.rh) g = 4;   // перекрытие вокруг проёма
   return g;
 }
 function los(x0, z0, x1, z1, feet) {
@@ -2053,7 +2166,7 @@ function los(x0, z0, x1, z1, feet) {
   return true;
 }
 const spPt = deg => { const a = SP.a0 + deg * Math.PI / 180, x = SP.cx + 1.9 * Math.cos(a), z = SP.cz + 1.9 * Math.sin(a); return [x, z, spStepTop(x, z)]; };   // точка на винте: угол от подножия, высота ступени
-const ND = {
+const ND = MAP_ID !== 'nacht' ? vkNodes() : {
   a0: [-9.5, 9.5, 0], a1: [-12, 6, 0], a2: [-6, 7, 0], a3: [-6, 12.5, 0], a4: [-12, 12.5, 0],
   d1: [-9.5, 4, 0], d2: [-4, 10, 0], cor: [-3, 10, 0], cn: [-3, 3, 0], d3: [-2, 10, 0],
   c0: [1, 12.5, 0], c1: [1, 4.5, 0], c2: [6, 5, 0], c3: [6, 12, 0], c4: [12, 6, 0], c5: [13, 13, 0], c6: [8, 8.5, 0], d4: [7, 1, 0],
@@ -2082,7 +2195,7 @@ const WIN = windows.filter(w => w.lvl < 1).map(w => {
     : { ...w, o, dir: { x: o, z: 0 }, spawn: { x: w.fixed + o * 3.2, z: c }, entry: { x: w.fixed - o * 2, z: c } };
 });
 // комната по координате (1 этаж): START — стартовая, CORR — коридор, EAST — восточная, HALL — большой зал с лестницей
-function zoneOf(x, z) { return z > 4 ? (x < -4 ? 'START' : x < -2 ? 'CORR' : 'EAST') : (z > 1 && x > -2 ? 'EAST' : 'HALL'); }
+function zoneOf(x, z) { if (MAP_ID !== 'nacht') return vkZone(x, z); return z > 4 ? (x < -4 ? 'START' : x < -2 ? 'CORR' : 'EAST') : (z > 1 && x > -2 ? 'EAST' : 'HALL'); }
 WIN.forEach(w => w.zone = zoneOf(w.entry.x, w.entry.z));
 // ---------- частицы и анимации досок ----------
 const boardFx = [], parts = [];
@@ -2283,11 +2396,11 @@ function makeChalk() {
   for (let i = 0; i < 700; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.12})`; g.fillRect(Math.random() * 512, Math.random() * 256, 2, 2); }
   return new THREE.CanvasTexture(c);
 }
-const WALLBUY = { x: -14.7, z: 10 };
+const WALLBUY = MAP_ID === 'nacht' ? { x: -14.7, z: 10, n: [1, 0] } : { x: 13.9, z: 0, n: [-1, 0] };   // n — нормаль стены (куда смотрит табличка)
 const wbMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), new THREE.MeshBasicMaterial({ map: makeChalk(), transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
-wbMesh.position.set(WALLBUY.x + 0.015, 1.75, WALLBUY.z); wbMesh.rotation.y = Math.PI / 2; scene.add(wbMesh);
+wbMesh.position.set(WALLBUY.x + WALLBUY.n[0] * 0.015, 1.75, WALLBUY.z + WALLBUY.n[1] * 0.015); wbMesh.rotation.y = Math.atan2(WALLBUY.n[0], WALLBUY.n[1]); scene.add(wbMesh);
 
-const SG_PRICE = 1200, SG_AMMO = 600, WB2 = { x: -14.7, z: -11.5 };
+const SG_PRICE = 1200, SG_AMMO = 600, WB2 = MAP_ID === 'nacht' ? { x: -14.7, z: -11.5, n: [1, 0] } : { x: 0, z: 13.9, n: [0, -1] };
 WEAPONS[2].maxReserve = 48;
 function makeChalkSG() {
   const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d');
@@ -2302,14 +2415,14 @@ function makeChalkSG() {
   for (let i = 0; i < 700; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.12})`; g.fillRect(Math.random() * 512, Math.random() * 256, 2, 2); }
   return new THREE.CanvasTexture(c);
 }
-{ const m = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), new THREE.MeshBasicMaterial({ map: makeChalkSG(), transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.position.set(WB2.x + 0.015, 1.75, WB2.z); m.rotation.y = Math.PI / 2; scene.add(m); }
+{ const m = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), new THREE.MeshBasicMaterial({ map: makeChalkSG(), transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.position.set(WB2.x + WB2.n[0] * 0.015, 1.75, WB2.z + WB2.n[1] * 0.015); m.rotation.y = Math.atan2(WB2.n[0], WB2.n[1]); scene.add(m); }
 
 
 // ---------- MYSTERY BOX (950) ----------
 const BOX_PRICE = 950, BOX = { x: -6, z: 5, w: 2.8, h: 1.5, d: 1.4 };
 const BOX_COL = { 8: 0xffd24a, 1: 0xffb040, 2: 0xff4030, 3: 0x40c0ff, 4: 0xe8e060, 5: 0x40ff60, 6: 0xc0c0c0, 7: 0x9ac8ff };
 const _boxN0 = scene.children.length;   // всё, что добавлено в сцену ниже, до boxRoot — части ящика (чтобы переносить его целиком)
-const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = { x: 0.3, z: -13.95 };   // у северной стены зала, между бочками и окном (x 3.5…6.5), лицом в зал   // стартовая комната → центральный зал (после покупки двери)
+const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = MAP_ID === 'nacht' ? { x: 0.3, z: -13.95 } : { x: 0, z: -13.2 };   // у северной стены зала, между бочками и окном (x 3.5…6.5), лицом в зал   // стартовая комната → центральный зал (после покупки двери)
 let boxCol = null;
 const mChest = matFrom('chest', 0xffffff, 2, { side: THREE.DoubleSide });
 const mIron = new THREE.MeshStandardMaterial({ color: 0x35363a, roughness: 0.5, metalness: 0.5 });
@@ -2396,7 +2509,7 @@ function placeBox(toHall) {
 }
 function relocateBox(toHall) { if (toHall === boxHall) return; boxHall = toHall; boxMovePending = true; }   // сам перенос — в boxUpdate, когда ящик не крутится
 function boxUpdate(dt) {
-  if (boxMovePending && !boxS.on) { boxMovePending = false; placeBox(boxHall); rebuildNav(); if (boxHall) pop('MYSTERY BOX — В ЦЕНТРАЛЬНОМ ЗАЛЕ', 'head'); }
+  if (boxMovePending && !boxS.on) { boxMovePending = false; placeBox(boxHall); rebuildNav(); if (boxHall) pop(MAP_ID === 'nacht' ? 'MYSTERY BOX — В ЦЕНТРАЛЬНОМ ЗАЛЕ' : 'MYSTERY BOX — В ЮЖНОЙ ПАЛАТЕ', 'head'); }
   lid.rotation.x += ((boxS.on ? -1.1 : 0) - lid.rotation.x) * Math.min(1, dt * 7);
   boxGlow.visible = boxBeam.visible = lid.rotation.x < -0.2; boxLight.intensity += ((boxS.on ? 3.5 : 0) - boxLight.intensity) * Math.min(1, dt * 8);
   if (!boxS.on) { token.visible = false; return; }
@@ -2460,7 +2573,7 @@ function updateProjs(dt) {
 }
 
 // ---------- SPEED COLA ----------
-const COLA_PRICE = 4000, MACH = { x: -14.25, z: 7 };
+const COLA_PRICE = 4000, MACH = MAP_ID === 'nacht' ? { x: -14.25, z: 7 } : { x: -13.45, z: 0 };
 let speedCola = false, doubleTap = false, juggernog = false;
 const JUGG_PRICE = 2000, JUGG_HP = 175;   // 175 хп = 7 ударов зомби по 25 (обычно 4: +3 удара)
 function applyJugg() { juggernog = true; maxHp = JUGG_HP; hp = maxHp; }
@@ -2570,7 +2683,7 @@ function drinkPerk(k = 'cola') {   // покупка перка: проигра�
 
 
 // ---------- DOUBLE TAP (2 этаж, северо-запад) ----------
-const DTAP_PRICE = 2500, DTAP = { x: -12, z: -14.25 };
+const DTAP_PRICE = 2500, DTAP = MAP_ID === 'nacht' ? { x: -12, z: -14.25 } : { x: 0, z: -13.45 };
 function makeDtapTex() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 400; const g = c.getContext('2d');
   g.fillStyle = '#c23418'; g.fillRect(0, 0, 256, 400); g.fillStyle = '#4a0f08'; g.fillRect(10, 10, 236, 380);
@@ -2586,7 +2699,7 @@ dtapFace.position.set(DTAP.x, 5.1, DTAP.z + 0.46); scene.add(dtapFace);
 const dtapLight = new THREE.PointLight(0xff8a30, 0.9, 7, 2); dtapLight.position.set(DTAP.x, 5.8, DTAP.z + 1.2); scene.add(dtapLight);
 
 // ---------- ДЖАГЕР ФАНТА (2 этаж, западная стена) ----------
-const JUGG = { x: -14.25, z: 2, y: 4 };
+const JUGG = MAP_ID === 'nacht' ? { x: -14.25, z: 2, y: 4 } : { x: -13.45, z: 0, y: 4 };
 function makeJuggTex() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 400; const g = c.getContext('2d');
   g.fillStyle = '#b01838'; g.fillRect(0, 0, 256, 400); g.fillStyle = '#3a0a1a'; g.fillRect(10, 10, 236, 380);
@@ -2612,7 +2725,7 @@ function rebuildNav() {
 
 // ---------- ДВЕРИ: покупка прохода; зомби спавнятся только в окнах открытых комнат ----------
 const DOOR_PRICE = 1000;
-const DOORS = [ // a/b — комнаты по обе стороны; h — высота полотна
+const DOORS = MAP_ID !== 'nacht' ? VK_DOORS : [ // a/b — комнаты по обе стороны; h — высота полотна
   { ax: 'x', fixed: 4, s: -11, e: -8, a: 'START', b: 'HALL' },
   { ax: 'z', fixed: -4, s: 8.5, e: 11.5, a: 'START', b: 'CORR' },
   { ax: 'x', fixed: 4, s: -4, e: -2, a: 'CORR', b: 'HALL', h: 3.7 },
@@ -2660,10 +2773,10 @@ let activeWin = [];
   }
 })();
 function recomputeZones() { // открытые комнаты = всё, что достижимо от стартовой через купленные двери
-  const open = new Set(['START']);
+  const open = new Set([MAP_ID === 'nacht' ? 'START' : VK_START]);
   for (let ch = true; ch;) { ch = false; for (const d of DOORS) if (d.open && open.has(d.a) !== open.has(d.b)) { open.add(d.a); open.add(d.b); ch = true; } }
   activeWin = WIN.filter(w => open.has(w.zone));
-  relocateBox(open.has('HALL'));   // центральный зал открыт — Mystery Box переезжает туда
+  relocateBox(open.has(MAP_ID === 'nacht' ? 'HALL' : VK_BOX_ZONE));   // центральный зал открыт — Mystery Box переезжает туда
 }
 function openDoor(d) {
   d.open = true;
@@ -3120,8 +3233,8 @@ function plan(z, targetX = PX, targetZ = PZ, targetFloor = PF, targetVisibility 
   if (inStair(p.x, p.z)) { // на лестнице поиск по узлам бессилен (LOS не видит вверх по ступеням): идём по винту к нужному концу
     const dy = targetFloor - fy, ang = Math.atan2(p.z - SP.cz, p.x - SP.cx), TT = Math.PI * 2, tz = (((ang - SP.a0) % TT) + TT) % TT;
     const hx = a => ({ x: SP.cx + 1.9 * Math.cos(a), z: SP.cz + 1.9 * Math.sin(a) });   // точка на винте на радиусе 1.9 м
-    if (dy > 0.25 && fy < STAIR.yTop - 0.15) { z.wp = fy >= 3.7 ? { x: 11.7, z: -5 } : hx(ang + 0.5); return; }   // вверх: точка на винте чуть впереди, у верхних ступеней — сразу на площадку
-    if (dy < -0.25 && fy > 0.15) { z.wp = tz < 0.6 ? { x: 10.4, z: -4.4 } : hx(ang - 0.5); return; }   // вниз: назад по винту, у подножия — на пол
+    if (dy > 0.25 && fy < STAIR.yTop - 0.15) { z.wp = fy >= 3.7 ? { x: SP.cx + 0.7, z: SP.cz + 4 } : hx(ang + 0.5); return; }   // вверх: точка на винте чуть впереди, у верхних ступеней — сразу на площадку
+    if (dy < -0.25 && fy > 0.15) { z.wp = tz < 0.6 ? { x: SP.cx - 0.6, z: SP.cz + 4.6 } : hx(ang - 0.5); return; }   // вниз: назад по винту, у подножия — на пол
     if (fy > 0.4 && fy < STAIR.yTop - 0.4) { z.wp = null; return; } // игрок рядом на той же лестнице
   }
   if (Math.abs(targetFloor - fy) < 1.3 && los(p.x, p.z, targetX, targetZ, fy)) { z.wp = null; return; }
@@ -3539,7 +3652,7 @@ function menuUpdate(dt, t) {
 controls.addEventListener('lock', () => {   // старт игры: убираем фоновых зомби, ставим игрока на место
   if (!menuOn) return; menuOn = false; document.body.classList.remove('menu');
   for (let i = zombies.length - 1; i >= 0; i--) if (zombies[i].menu) { scene.remove(zombies[i].g); zombies[i].mats.forEach(m => m.dispose()); zombies.splice(i, 1); }
-  pos.copy(SPAWN); camera.rotation.set(0, 0, 0);
+  pos.copy(SPAWN); camera.rotation.set(0, SPAWN_YAW, 0);
 });
 // ---------- вступление при начале катки: затемнение 3 с + два звука из /sounds ----------
 const INTRO_SOUNDS = ['sounds/intro-1-ominous.mp3', 'sounds/intro-2-demonic.mp3'], INTRO_GAP = 1000;   // 2-й звук — через 1 с после старта 1-го

@@ -38,26 +38,48 @@
     if (typeof reloadSounds === 'function') reloadSounds();   // у гостя тоже догружаем все звуки
   }
 
-  // ---- выбор карты: после выбора режима. Чтобы добавить карту — допиши запись в MAPS (id, name, desc; soon: true = «скоро»)
+  // ---- выбор карты: панель с карточками. Чтобы добавить карту — допиши запись в MAPS:
+  //      id, name, desc, img (картинка 16:9 в public/maps/), soon: true = «скоро»
   const MAPS = [
-    { id: 'nacht', name: 'NACHT DER UNTOTEN', desc: 'Бункер · 2 этажа · Mystery Box · перки' },
-    { id: 'soon', name: '???', desc: 'Скоро', soon: true },
+    { id: 'nacht', name: 'NACHT DER UNTOTEN', desc: 'Бункер · 2 этажа · Mystery Box · перки', img: 'maps/nacht.jpg' },
+    { id: 'verruckt', name: 'VERRUCKT', desc: 'Психбольница · круглая · 2 этажа · только соло (прототип)', img: 'maps/verruckt.jpg', soloOnly: true },
+    { id: 'soon', name: '???', desc: 'Новая карта в разработке', img: 'maps/soon.jpg', soon: true },
   ];
-  window.NB_MAP = MAPS[0].id;      // выбранная карта (игровой код может читать window.NB_MAP)
-  const mapList = $('mapList');
+  // Карта, которая сейчас построена в игре (index.html читает ?map=). Другую карту выбрать = перезагрузить страницу с ?map=
+  const CUR_MAP = (typeof MAP_ID !== 'undefined' && MAP_ID) || 'nacht';
+  window.NB_MAP = CUR_MAP;         // выбранная карта (игровой код может читать window.NB_MAP)
+  const mapList = $('mapList'), bMapGo = $('bMapGo');
+  const mapCards = []; let pickedMap = MAPS[0];
+  const goMap = () => {
+    if (window.NB_MAP !== CUR_MAP) { location.href = location.pathname + '?map=' + window.NB_MAP + '&start=' + mode; return; }   // нужна другая карта — перезагрузка
+    if (mode === 'multi') { connect(); setView('mp'); } else startGame();
+  };
+  const pickMap = m => {
+    window.NB_MAP = m.id; pickedMap = m;
+    mapCards.forEach(c => c.el.classList.toggle('sel', c.m === m));
+    setMapGoLabel();
+  };
   MAPS.forEach(m => {
     const b = document.createElement('button');
-    b.className = 'mb' + (m.soon ? ' soon' : ''); b.innerHTML = `${m.name}<small>${m.desc}</small>`;
-    if (!m.soon) b.onclick = () => {
-      window.NB_MAP = m.id;
-      if (mode === 'multi') { connect(); setView('mp'); } else startGame();
-    };
-    mapList.appendChild(b);
+    b.className = 'mc' + (m.soon ? ' soon' : '');
+    b.innerHTML = `<div class="im"><img src="${m.img}" alt="" draggable="false"></div><span class="tag">${m.soon ? '🔒 СКОРО' : '✓ ВЫБРАНО'}</span><div class="tx"><b>${m.name}</b><small>${m.desc}</small></div>`;
+    const img = b.querySelector('img'); img.onerror = () => { img.style.display = 'none'; };
+    if (!m.soon) { b.onclick = () => pickMap(m); b.ondblclick = () => { pickMap(m); goMap(); }; }
+    mapList.appendChild(b); mapCards.push({ el: b, m });
   });
-  $('bSolo').onclick = () => { mode = 'solo'; setView('maps'); };
+  $('mapCount').textContent = `ДОСТУПНО: ${MAPS.filter(m => !m.soon).length} / ${MAPS.length}`;
+  function setMapGoLabel() {
+    const noMulti = mode === 'multi' && pickedMap.soloOnly;   // карта без сервера: в мультиплеере недоступна
+    bMapGo.textContent = noMulti ? 'ЭТА КАРТА — ТОЛЬКО СОЛО' : mode === 'multi' ? '▶ ДАЛЕЕ · ЛОББИ' : (window.NB_MAP !== CUR_MAP ? '▶ ЗАГРУЗИТЬ КАРТУ' : '▶ НАЧАТЬ ИГРУ');
+    bMapGo.disabled = noMulti;
+  }
+  pickMap(MAPS.find(m => m.id === CUR_MAP) || MAPS[0]);
+  bMapGo.onclick = goMap;
+  $('bSolo').onclick = () => { mode = 'solo'; setMapGoLabel(); setView('maps'); };
   $('bModeBack').onclick = () => setView('main');
-  $('bMulti').onclick = () => { mode = 'multi'; setView('maps'); };
+  $('bMulti').onclick = () => { mode = 'multi'; setMapGoLabel(); setView('maps'); };
   $('bMapsBack').onclick = () => setView('mode');
+  { const st = new URLSearchParams(location.search).get('start'); if (st === 'solo' || st === 'multi') { mode = st; setMapGoLabel(); setView('maps'); } }
   $('bMpBack').onclick = () => setView('maps');
 
   const nameInput = $('mpName');
