@@ -667,6 +667,12 @@ if (MAP_ID === 'nacht') {
   const uv = sg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3);
   const sm = new THREE.Mesh(sg, mats.concrete); sm.rotation.x = -Math.PI / 2; sm.position.y = 3.7; scene.add(sm); worldMeshes.push(sm);
 }
+// Перекрытие вокруг проёма: за пределами квадрата, который проверяет stairHit (±ro+0.2 от центра), у плиты не было коллайдера —
+// у спуска игрок проваливался на первый этаж. Полосы целиком вне круга проёма (его z: cz±rh), меши плиты уже нарисованы выше.
+if (MAP_ID === 'nacht') {
+  colliders.push({ x0: SPB.x0, x1: SPB.x1, y0: 3.7, y1: 4, z0: SPB.z0, z1: SP.cz - SP.rh });
+  colliders.push({ x0: SPB.x0, x1: SPB.x1, y0: 3.7, y1: 4, z0: SP.cz + SP.rh, z1: SPB.z1 });
+}
 const floors = colliders.slice();
 if (MAP_ID === 'nacht') addBox(SP.cx - 0.07, SP.cx + 0.07, 4.0, 5.0, SP.cz + SP.rc, SP.cz + SP.rh, mats.concrete);
 const SB = { x0: 0, x1: 0, y0: 0, y1: 0, z0: 0, z1: 0 };
