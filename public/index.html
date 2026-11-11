@@ -1731,6 +1731,8 @@ function updateWeapon(dt, t) {
 }
 
 // ---------- НОЖ: удар по области, кулдаун 2 с, убивает с одного удара ----------
+// нож: до 3 раунда убивает с одного удара, дальше урон падает (а у зомби хп растёт); за убийство 120 очков
+const knifeDmg = () => round <= 3 ? 1e9 : Math.max(10, 150 * Math.pow(0.8, round - 3));
 const KNIFE_CD = 2, KNIFE_RANGE = 2.5, KNIFE_ARC = 0.35, KNIFE_T = 0.38;
 let knifeCd = 0, knifeT = 0, knifeHit = false, knifeTxt = '';
 const knifeG = new THREE.Group(); knifeG.visible = false; knifeG.rotation.order = 'YXZ'; weaponScene.add(knifeG);
@@ -1756,7 +1758,7 @@ function knifeStrike() {
     const c = z.g.position, dx = c.x - pos.x, dz = c.z - pos.z, d = Math.hypot(dx, dz);
     if (d > KNIFE_RANGE || Math.abs(c.y - (pos.y - H)) > 1.4) continue;
     if (d > 0.9 && (dx * _d.x + dz * _d.z) / d < KNIFE_ARC) continue;   // зона удара: полукруг перед игроком (~140°)
-    hitZombie(z, false, 1e9, { stagger: 0, shotId }); bloodHit(new THREE.Vector3(c.x, c.y + 1.2, c.z), _d, false, false); n++;
+    hitZombie(z, false, knifeDmg(), { stagger: 0, shotId, knife: true }); bloodHit(new THREE.Vector3(c.x, c.y + 1.2, c.z), _d, false, false); n++;
   }
   CF.kickV -= 1.2; sfx(n ? 'thud' : 'knock');
 }
@@ -2310,10 +2312,17 @@ for (const sx of [-1, 1]) { // боковые ручки
   const hd = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.022, 6, 14, Math.PI), mIron); hd.rotation.set(0, Math.PI / 2, Math.PI); hd.position.set(BOX.x + sx * (BOX.w / 2 + 0.03), BOX.h * 0.62, BOX.z); hd.rotation.y = sx * Math.PI / 2; scene.add(hd);
 }
 const lid = new THREE.Group(); lid.position.set(BOX.x, BOX.h, BOX.z - BOX.d / 2); scene.add(lid);
-const lidMesh = bx(BOX.w, 0.16, BOX.d, mChest, 0, 0.08, BOX.d / 2, lid);
+const mChestOut = mChest.clone(); mChestOut.side = THREE.FrontSide;   // снаружи доски, а не «полки» изнутри
+const mInner = new THREE.MeshStandardMaterial({ color: 0x120a05, roughness: 1, side: THREE.BackSide });   // тёмная внутренность крышки
+const lidMesh = bx(BOX.w, 0.16, BOX.d, [mChestOut, mChestOut, mChestOut, mInner, mChestOut, mChestOut], 0, 0.08, BOX.d / 2, lid);
+{ // тёмная полость сундука: при открытии вместо досок видна чернота
+  const cav = new THREE.Mesh(new THREE.PlaneGeometry(BOX.w - 0.3, BOX.d - 0.3), new THREE.MeshBasicMaterial({ color: 0x050302 }));
+  cav.rotation.x = -Math.PI / 2; cav.position.set(BOX.x, BOX.h + 0.004, BOX.z); scene.add(cav);
+}
 { // сводчатая крышка + стальные дуги
   const arch = new THREE.Mesh(new THREE.CylinderGeometry(BOX.d / 2, BOX.d / 2, BOX.w, 20, 1, false, 0, Math.PI), mChest);
-  arch.rotation.z = Math.PI / 2; arch.scale.x = 0.34 / (BOX.d / 2); arch.position.set(0, 0.16, BOX.d / 2); lid.add(arch);
+  arch.material = mChestOut; arch.rotation.z = Math.PI / 2; arch.scale.x = 0.34 / (BOX.d / 2); arch.position.set(0, 0.16, BOX.d / 2); lid.add(arch);
+  { const ai = new THREE.Mesh(arch.geometry, mInner); ai.rotation.copy(arch.rotation); ai.scale.copy(arch.scale); ai.position.copy(arch.position); lid.add(ai); }
   [-0.9, 0.9].forEach(dx => {
     const band = new THREE.Mesh(new THREE.CylinderGeometry(BOX.d / 2 + 0.02, BOX.d / 2 + 0.02, 0.15, 20, 1, true, 0, Math.PI), mIron); band.material.side = THREE.DoubleSide;
     band.rotation.z = Math.PI / 2; band.scale.x = 0.36 / (BOX.d / 2 + 0.02); band.position.set(dx, 0.16, BOX.d / 2); lid.add(band);
@@ -3037,7 +3046,7 @@ function hitZombie(z, head, dmg, fx) {
   crossEl.classList.add('hit'); setTimeout(() => crossEl.classList.remove('hit'), 110);
   if (head) { crossEl.classList.add('hs'); clearTimeout(hsTO); hsTO = setTimeout(() => crossEl.classList.remove('hs'), 50); }   // крестик на 0.05 c
   if (z.hp <= 0) { z.state = 'dying'; z.dt = 0; z.eyes.forEach(e => e.visible = false); startRagdoll(z, head, dmg != null ? dmg : (head ? wp.head : wp.body)); kills++; maybeDropMaxAmmo(z);
-    if (head) addPoints(100, 'head', 'HEADSHOT'); else addPoints(60, 'kill'); }
+    if (fx && fx.knife) addPoints(120, 'kill'); else if (head) addPoints(100, 'head', 'HEADSHOT'); else addPoints(60, 'kill'); }
   else addPoints(10);
 }
 function hurtPlayer(d) {
