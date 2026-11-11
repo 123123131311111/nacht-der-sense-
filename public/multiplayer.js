@@ -35,6 +35,7 @@
 
   function startGame() {           // запускаем штатный старт игры (внутри пользовательского клика)
     bypass = true; bPlay.click(); bypass = false;
+    if (typeof reloadSounds === 'function') reloadSounds();   // у гостя тоже догружаем все звуки
   }
 
   $('bSolo').onclick = () => { mode = 'solo'; startGame(); };
@@ -83,6 +84,16 @@
       if (!hit || hit.playerId !== selfId || !Number.isFinite(hit.damage)) return;
       if (typeof hurtPlayer === 'function') hurtPlayer(hit.damage);
     });
+    const markDowned = (id, v) => {
+      const gp = gameState && gameState.players && gameState.players.find(p => p.id === id); if (gp) gp.downed = v;
+      if (remote[id]) remote[id].downed = v;
+    };
+    socket.on('playerDowned', d => { if (d && d.id !== selfId) markDowned(d.id, true); });
+    socket.on('playerRevived', d => {
+      if (!d) return;
+      if (d.id === selfId) reviveSelf(); else markDowned(d.id, false);
+    });
+    socket.on('teamWipe', () => { if (typeof finalDeath === 'function') finalDeath(); });
     socket.on('purchaseCommitted', applyNetworkPurchase);
     socket.on('windowBoardAction', action => {
       if (!action || action.actorId === selfId || action.action !== 'repair') return;
@@ -129,11 +140,12 @@
           if (p.perks) {
             if (p.perks.cola && !speedCola) { speedCola = true; perkMsg('cola'); }
             if (p.perks.doubleTap && !doubleTap) { doubleTap = true; perkMsg('dtap'); }
+            if (p.perks.juggernog && !juggernog) { applyJugg(); perkMsg('jugg'); }
           }
         } else {
           const r = remote[p.id];
           if (r && p.active) {
-            r.active = true;
+            r.active = true; r.downed = !!p.downed;
             r.target = { x: p.x, y: p.y, z: p.z, yaw: p.yaw };
           }
         }
@@ -188,6 +200,7 @@
       zombies.splice(i, 1);
     }
     menuOn = false;
+    if (typeof reloadSounds === 'function') reloadSounds();
     document.body.classList.remove('menu');
     document.body.classList.add('playing');
     setView('main');
@@ -299,6 +312,8 @@
       speedCola = true; drinkPerk('cola');
     } else if (own && event.kind === 'doubleTap') {
       doubleTap = true; drinkPerk('dtap');
+    } else if (own && event.kind === 'juggernog') {
+      applyJugg(); drinkPerk('jugg');
     } else if (own && event.kind === 'thompson') {
       const w = WEAPONS[1];
       w.mag = w.magSize; w.reserve = w.maxReserve - w.magSize;
@@ -466,7 +481,7 @@
     return spr;
   }
   function createAvatar(p) {
-    const group = new THREE.Group();                  // начало координат = ступни
+    const group = new THREE.Group(); group.rotation.order = 'YXZ';   // начало координат = ступни; X — падение на пол
     const mat = new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.8 });
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.2, 12), mat); body.position.y = 0.8; group.add(body);
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), mat); head.position.y = 1.55; group.add(head);
@@ -494,7 +509,8 @@
       const r = remote[id], t = r.target, g = r.group;
       if (!r.active) continue;
       g.position.x += (t.x - g.position.x) * 0.25;
-      g.position.y += ((t.y - EYE_HEIGHT) - g.position.y) * 0.25;
+      g.position.y += ((t.y - EYE_HEIGHT + (r.downed ? 0.3 : 0)) - g.position.y) * 0.25;
+      g.rotation.x += ((r.downed ? -Math.PI / 2 : 0) - g.rotation.x) * 0.15;   // повалённый лежит на спине
       g.position.z += (t.z - g.position.z) * 0.25;
       let dy = t.yaw - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * 0.25;
       g.visible = !menuOn;
@@ -519,6 +535,9 @@
     requestPurchase,
     requestHit,
     requestPlayerHit,
+    reportDowned() { if (socket && socket.connected && roomCode) socket.emit('playerDowned'); },
+    reviveStart(targetId) { if (socket && socket.connected && roomCode) socket.emit('reviveStart', { targetId }); },
+    reviveDone(targetId) { if (socket && socket.connected && roomCode) socket.emit('reviveDone', { targetId }); },
     requestDropPickup(id) { if (socket && socket.connected && roomCode) socket.emit('pickupDrop', { id }); },
     requestWindowRepair(index) {
       if (socket && socket.connected && roomCode) socket.emit('windowBoardAction', { action: 'repair', index });
