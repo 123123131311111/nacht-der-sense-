@@ -158,8 +158,10 @@ body.menu #cross,body.menu #knife,body.menu #ammo,body.menu #round,body.menu #po
 body.touch #knife{bottom:32px}
 #tKnife{right:calc(env(safe-area-inset-right) + var(--u)*214px);bottom:calc(env(safe-area-inset-bottom) + var(--u)*48px);width:calc(var(--u)*56px);height:calc(var(--u)*56px);font-size:calc(var(--u)*12px)}
 /* ===== мультиплеер: выбор режима и лобби ===== */
-#menu[data-view=mode] #mainBtns,#menu[data-view=mp] #mainBtns,#menu[data-view=lobby] #mainBtns{display:none}
-#menu[data-view=mode] #pMode,#menu[data-view=mp] #pMp,#menu[data-view=lobby] #pLobby{display:block}
+#menu[data-view=mode] #mainBtns,#menu[data-view=maps] #mainBtns,#menu[data-view=mp] #mainBtns,#menu[data-view=lobby] #mainBtns{display:none}
+#menu[data-view=mode] #pMode,#menu[data-view=maps] #pMaps,#menu[data-view=mp] #pMp,#menu[data-view=lobby] #pLobby{display:block}
+#mapList .mb small{display:block;font:12px "Courier New",monospace;letter-spacing:.08em;color:#aaa;margin-top:4px}
+#mapList .mb.soon{opacity:.45;pointer-events:none}
 #mpName,#mpCode{box-sizing:border-box;padding:12px 14px;font:700 18px "Courier New",monospace;letter-spacing:.12em;color:#eee;background:rgba(20,10,10,.8);border:1px solid #3a1a1a;border-left:4px solid #6a1414;outline:0}
 #mpName{width:100%;margin:0 0 12px}#mpCode{width:120px;text-transform:uppercase;text-align:center}
 #mpErr{min-height:20px;margin:6px 0;font:13px "Courier New",monospace;color:#f66}
@@ -188,6 +190,9 @@ body.touch #knife{bottom:32px}
 <button class="mb big" id="bSolo">ОДИНОЧНАЯ ИГРА</button>
 <button class="mb" id="bMulti">ОНЛАЙН · МУЛЬТИПЛЕЕР</button>
 <button class="mb back" id="bModeBack">← НАЗАД</button></div>
+<div class="panel" id="pMaps"><h2>ВЫБОР КАРТЫ</h2>
+<div id="mapList"></div>
+<button class="mb back" id="bMapsBack">← НАЗАД</button></div>
 <div class="panel" id="pMp"><h2>МУЛЬТИПЛЕЕР</h2>
 <input id="mpName" maxlength="16" placeholder="Твоё имя">
 <button class="mb big" id="bCreate">+ СОЗДАТЬ ЛОББИ</button>
@@ -554,7 +559,7 @@ crate(-14.6, -14.6, 1.1); crate(-14.6, -13.4, 0.9); crate(-14.5, -14.5, 0.8, 0.9
 barrel(-14.2, -1.2 + 3.8);
 // 3) СКЛАД (зал, восток)
 sign('СКЛАД', 1, 3.0, -14.68, 0);
-for (let i = 0; i < 3; i++) shelf(-1.8 + i * 1.3, -14.6, 1.2, 0.55);
+shelf(-1.8, -14.6, 1.2, 0.55);   // два стеллажа убраны: там теперь стоит Mystery Box
 for (let i = 0; i < 3; i++) shelf(9.5 + i * 1.3, 0.18, 1.2, 0.55);
 crate(13.3, -0.1, 1.0); crate(13.4, 0.0, 0.7, 0.8); crate(12.2, 0.1, 0.8, 0, M2.olive); barrel(7.5, 0.4, 0, 0x4a2a1a);
 // 4) КОРИДОР
@@ -1004,19 +1009,20 @@ function updateWeaponLight(dt, now) {
     if (f < 0.002) continue;
     L += f; WL.tmp.applyMatrix4(camera.matrixWorldInverse).normalize(); WL.acc.addScaledVector(WL.tmp, f);   // направление на лампу в координатах камеры
   }
-  const k = 1 - Math.exp(-dt * 7);
-  WL.m += (Math.min(0.8, 0.2 + 0.85 * L) - WL.m) * k;
+  const k = 1 - Math.exp(-dt * 9);
+  WL.m += (Math.min(0.9, 0.06 + 1.3 * L) - WL.m) * k;   // в тёмных местах оружие почти чёрное, у ламп светлое
   const w = L / (L + 0.12);
   if (WL.acc.lengthSq() > 1e-8) { WL.tgt.copy(WL.acc).normalize().multiplyScalar(w).addScaledVector(WL.def, 1 - w).normalize(); } else WL.tgt.copy(WL.def);
   WL.dir.lerp(WL.tgt, k).normalize();
-  wAmb.intensity = 1.0 * WL.m; wDir.intensity = 1.5 * WL.m; wRim.intensity = 0.8 * WL.m * 0.6;
+  wAmb.intensity = 0.7 * WL.m; wDir.intensity = 1.7 * WL.m; wRim.intensity = 0.8 * WL.m * 0.5;
   wDir.position.copy(WL.dir); wRim.position.set(-WL.dir.x, 0.3, -WL.dir.z);
 }
 const gun = new THREE.Group(); weaponScene.add(gun);
 const mSteel = new THREE.MeshStandardMaterial({ color: 0x5a5d62, metalness: 0.8, roughness: 0.35 });
 const mDark = new THREE.MeshStandardMaterial({ color: 0x1b1b1d, metalness: 0.7, roughness: 0.45 });
 const mGrip = new THREE.MeshStandardMaterial({ color: 0x2e1f14, roughness: 0.9 });
-const pistolG = new THREE.Group(), tommyG = new THREE.Group(), shotG = new THREE.Group(), rifleG = new THREE.Group(), garandG = new THREE.Group(), rayG = new THREE.Group(), lmgG = new THREE.Group(), m16G = new THREE.Group();
+const pistolG = new THREE.Group(), tommyG = new THREE.Group(), shotG = new THREE.Group(), rifleG = new THREE.Group(), garandG = new THREE.Group(), rayG = new THREE.Group(), lmgG = new THREE.Group(), m16G = new THREE.Group(), dualG = new THREE.Group();
+gun.add(dualG); dualG.visible = false;
 gun.add(pistolG); gun.add(tommyG); gun.add(shotG); gun.add(rifleG); gun.add(garandG); gun.add(rayG); gun.add(lmgG); gun.add(m16G); tommyG.visible = shotG.visible = rifleG.visible = garandG.visible = rayG.visible = lmgG.visible = m16G.visible = false;
 const mWood = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.85 });
 function part(w, h, d, x, y, z, m, rx = 0, tg = pistolG) {
@@ -1307,7 +1313,11 @@ function buildModel(i, g) {
     base(); ARC(0.026, 0.0035, 0, 0.0, 0.0, WM.cream);
   }
 }
+function buildDual(g) {   // два M1911: по одному в каждой руке (обе модели — копии пистолета, у каждой свой затвор)
+  for (const s of [-1, 1]) { const p = new THREE.Group(); p.position.x = s * 0.2; g.add(p); buildModel(0, p); g.userData[s > 0 ? 'slideR' : 'slideL'] = p.userData.slide; }
+}
 [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G].forEach((gr, i) => buildModel(i, gr));   // в руках и в Mystery Box — одни и те же модели
+buildDual(dualG);
 gun.rotation.order = 'YXZ';
 
 // вспышка выстрела
@@ -1329,10 +1339,12 @@ flash.add(new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), new THREE.MeshBa
   const star = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, opacity: 0.45 }));
   star.position.z = -0.02; flash.add(star);
 }
+const flash2 = flash.clone(true); flash2.position.set(-0.2, 0.032, -0.18); flash2.visible = false; gun.add(flash2);   // вспышка левого пистолета (двойные пистолеты)
 const flashLocal = new THREE.PointLight(0xffa030, 5, 3.5); flashLocal.position.set(0, 0.05, -0.2); gun.add(flashLocal); flashLocal.visible = false;
 const flashWorld = new THREE.PointLight(0xffa030, 0, 12, 2); scene.add(flashWorld); // подсвечивает комнату
 
-const RAY_DMG = Math.ceil(100 * Math.pow(1.15, 13)) + 4;   // = 620: убивает любого зомби с одного выстрела до 13 раунда включительно (раньше 940 — до 16)
+const ZHP = r => Math.round(125 * Math.pow(1.16, r));   // здоровье зомби по раундам (усилено)
+const RAY_DMG = Math.ceil(ZHP(13)) + 4;   // = 620: убивает любого зомби с одного выстрела до 13 раунда включительно (раньше 940 — до 16)
 // ---------- арсенал и инвентарь (2 слота) ----------
 const WEAPONS = [
   { name: 'M1911', own: true, mag: 8, magSize: 8, reserve: 80, fullRes: 80, interval: 150, body: 50, head: 100, auto: false, reload: 1.25, spin: { turns: 2, k: 0.1, pivot: [0, -0.025, 0.01], push: [-0.1, 0.1, -0.08] }, spread: 0, rk: 1,
@@ -1350,7 +1362,9 @@ const WEAPONS = [
   { name: 'LMG', own: false, mag: 100, magSize: 100, reserve: 200, fullRes: 200, maxReserve: 200, interval: 100, body: 110, head: 220, auto: true, reload: 4.5, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.02, rk: 0.6,
     base: [0.19, -0.2, -0.42], flash: [0, 0.04, -1.0] },
   { name: 'M16A1', own: false, mag: 30, magSize: 30, reserve: 120, fullRes: 150, maxReserve: 180, interval: 90, body: 95, head: 190, auto: true, reload: 2.3, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.008, rk: 0.5,
-    base: [0.19, -0.2, -0.42], flash: [0, 0.045, -0.8] }
+    base: [0.19, -0.2, -0.42], flash: [0, 0.045, -0.8] },
+  { name: 'DUAL M1911', own: false, dual: true, mag: 24, magSize: 24, reserve: 120, fullRes: 120, maxReserve: 144, interval: 140, body: 55, head: 110, auto: false, reload: 2.0, spin: { turns: 1, k: 0.1, pivot: [0, -0.025, 0.01], push: [-0.1, 0.1, -0.08] }, spread: 0.012, rk: 1.2,
+    base: [0, -0.17, -0.38], flash: [0.2, 0.032, -0.18] }
 ];
 // единый прокрут для всего оружия: одинаковая скорость и кривая, число оборотов зависит только от времени перезарядки; вынос к центру минимальный
 const SPIN_SEC = 0.95;
@@ -1358,9 +1372,9 @@ WEAPONS.forEach(w => { w.spin.k = 0.3; w.spin.turns = 1; w.spin.push = [-0.03, 0
 const spinTurns = rl => Math.max(1, Math.round(rl / SPIN_SEC));
 // разброс (в долях половины высоты экрана; круг на экране = реальная область попаданий): spread — от бедра, bloom — прирост за выстрел
 // (bmax — потолок, bd — скорость спада в секунду), fs — размер вспышки
-[[.012, .03, .05, 1.1], [.005, .03, .05, 1.3], [.02, .04, .06, 1.9], [.02, .03, .05, 1.6], [.016, .035, .05, 1.6], [.01, .02, .05, 1.2], [.008, .045, .05, 1.5], [.008, .03, .05, 1.4]]
+[[.012, .03, .05, 1.1], [.005, .03, .05, 1.3], [.02, .04, .06, 1.9], [.02, .03, .05, 1.6], [.016, .035, .05, 1.6], [.01, .02, .05, 1.2], [.008, .045, .05, 1.5], [.008, .03, .05, 1.4], [.012, .03, .05, 1.2]]
   .forEach((a, i) => { const w = WEAPONS[i]; w.bloom = a[0]; w.bmax = a[1]; w.bd = a[2]; w.fs = a[3]; });
-[[280, 4], [300, 4], [200, 2.5], [480, 7], [450, 6], [0, 0], [320, 5], [340, 5]].forEach((a, i) => { WEAPONS[i].bv = a[0]; WEAPONS[i].tl = a[1]; });   // скорость пули (м/с) и длина следа (м); Ray Gun не трогаем
+[[280, 4], [300, 4], [200, 2.5], [480, 7], [450, 6], [0, 0], [320, 5], [340, 5], [280, 4]].forEach((a, i) => { WEAPONS[i].bv = a[0]; WEAPONS[i].tl = a[1]; });   // скорость пули (м/с) и длина следа (м); Ray Gun не трогаем
 const AIM = { move: 0, bloom: 0, cur: 0, g: -1 };   // движение/прыжок и стрельба раздвигают прицел, он сразу же определяет реальный разброс
 const WR = { z: 0, zV: 0, p: 0, pV: 0, y: 0, yV: 0, yw: 0, ywV: 0, r: 0, rV: 0 };   // пружины отдачи оружия (та же механика, что и инерция при повороте)
 function weaponKick(w) {
@@ -1382,7 +1396,8 @@ function updateHUD() {
 function switchWeapon(i) {
   if (i === cur || !WEAPONS[i] || !WEAPONS[i].own) return;
   cur = i; reloading = false; swapT = SWAP_TIME; mouseDown = false; ANIM.t = 99; ANIM.ej = true;
-  [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G].forEach((g, k) => g.visible = k === i);
+  [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G, dualG].forEach((g, k) => g.visible = k === i);
+  flash2.visible = false;
   coneMat.color.setHex(i === 5 ? 0x40ff60 : 0xffa020); flashLocal.color.setHex(i === 5 ? 0x40ff60 : 0xffa030); flashWorld.color.setHex(i === 5 ? 0x40ff60 : 0xffa030);
   const f = WEAPONS[i].flash; flash.position.set(f[0], f[1], f[2]); flashLocal.position.set(f[0], f[1] + 0.02, f[2] - 0.02);
   flash.visible = flashLocal.visible = false; flashT = 0;
@@ -1421,8 +1436,8 @@ const trTex = (() => {
 })();
 const trMat = new THREE.MeshBasicMaterial({ map: trTex, color: 0xffd9a0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
 const coreGeo = new THREE.SphereGeometry(0.03, 6, 5), coreMat = new THREE.MeshBasicMaterial({ color: 0xfff2c0, fog: false });
-function muzzleWorld(zms) {   // дуло видно в weaponCam: переносим его на луч основной камеры (чтобы пуля вылетала визуально из ствола)
-  flash.getWorldPosition(_mzV); _mzV.project(weaponCam);
+function muzzleWorld(zms, fl = flash) {   // дуло видно в weaponCam: переносим его на луч основной камеры (чтобы пуля вылетала визуально из ствола)
+  fl.getWorldPosition(_mzV); _mzV.project(weaponCam);
   const o = new THREE.Vector3(_mzV.x, _mzV.y, 0.5).unproject(camera), dir = o.sub(camera.position).normalize();
   let d = 0.9;   // у стены или зомби вплотную дуло «внутри» — пулю стартуем до препятствия
   bray.set(camera.position, dir); bray.far = d;
@@ -1532,14 +1547,15 @@ function shoot() {
   const w = WEAPONS[cur], now = performance.now();
   if (!controls.isLocked || dead || downed || PD.on || reloading || swapT > 0 || knifeT > 0 || now - lastShot < w.interval) return;
   if (w.mag <= 0) { if (w.reserve > 0) startReload(); else { lastShot = now; sfx('dry'); } return; }
-  lastShot = now; w.mag--; ANIM.t = 0; ANIM.ej = false; ANIM.clip = (cur === 4 && w.mag === 0); recoil = 1; flashT = FLASH_T; flashS = (w.fs || 1) * (0.85 + Math.random() * 0.4); updateHUD(); camShoot(w); weaponKick(w);
+  lastShot = now; w.mag -= w.dual ? Math.min(2, w.mag) : 1; ANIM.t = 0; ANIM.ej = false; ANIM.clip = (cur === 4 && w.mag === 0); recoil = 1; flashT = FLASH_T; flashS = (w.fs || 1) * (0.85 + Math.random() * 0.4); updateHUD(); camShoot(w); weaponKick(w);
   const shotId = window.MP && MP.active ? MP.registerShot(cur) : null;
   flash.rotation.z = Math.random() * 6.28;
   shotSnd(cur);
   const sp0 = AIM.cur; AIM.bloom = Math.min(w.bmax, AIM.bloom + w.bloom);   // текущий разброс = то, что показывает прицел
   if (w.proj) { fireProj(w, shotId); return; }
-  const zms = zombieMeshes(), mz = muzzleWorld(zms);
-  for (let k = 0, n = w.pellets || 1; k < n; k++) {   // дробовик: несколько дробин за выстрел
+  const zms = zombieMeshes(), mzs = w.dual ? [muzzleWorld(zms, flash), muzzleWorld(zms, flash2)] : [muzzleWorld(zms)];
+  for (let k = 0, n = w.dual ? 2 : (w.pellets || 1); k < n; k++) {
+    const mz = mzs[k] || mzs[0];   // дробовик: несколько дробин за выстрел
     { const a = Math.random() * 6.2832, r = Math.sqrt(Math.random()) * sp0; ray.setFromCamera({ x: Math.cos(a) * r * innerHeight / innerWidth, y: Math.sin(a) * r }, camera); }
     ray.far = 60;
     const h = ray.intersectObjects(worldMeshes, false)[0], zh = ray.intersectObjects(zms, false)[0];
@@ -1618,11 +1634,11 @@ function updateAim(dt, w) {   // динамичный прицел: бедро +
 // ANIM.t — время с последнего выстрела. У каждого оружия своя подвижная деталь: затвор пистолета (при пустом магазине остаётся открытым),
 // рукоять затвора Thompson, помповое цевьё, цикл затвора Kar98k, шток Garand (+ вылет обоймы с «пингом»), пульсация колец Ray Gun.
 const ANIM = { t: 99, ej: true, lock: 0, clip: false };
-const GROUPS = [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G];
+const GROUPS = [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G, dualG];
 const aEase = x => x * x * (3 - 2 * x), aClamp = x => Math.max(0, Math.min(1, x));
 const aPulse = (t, a, b, c) => t < a ? 0 : t < a + b ? aEase((t - a) / b) : t < a + b + c ? 1 - aEase((t - a - b) / c) : 0;
-const EJECT_AT = [0.012, 0.01, 0.29, 0.27, 0.012, -1, 0.012, 0.012];   // когда вылетает гильза (у помпы и болтовки — когда затвор уже отошёл назад)
-const SHELL_PORT = [[0.285, -0.165, -0.42], [0.29, -0.2, -0.5], [0.3, -0.2, -0.42], [0.3, -0.22, -0.4], [0.3, -0.22, -0.4], [0, 0, 0], [0.3, -0.2, -0.4], [0.29, -0.2, -0.46]];   // окно выброса в координатах камеры
+const EJECT_AT = [0.012, 0.01, 0.29, 0.27, 0.012, -1, 0.012, 0.012, 0.012];   // когда вылетает гильза (у помпы и болтовки — когда затвор уже отошёл назад)
+const SHELL_PORT = [[0.285, -0.165, -0.42], [0.29, -0.2, -0.5], [0.3, -0.2, -0.42], [0.3, -0.22, -0.4], [0.3, -0.22, -0.4], [0, 0, 0], [0.3, -0.2, -0.4], [0.29, -0.2, -0.46], [0.285, -0.165, -0.42]];   // окно выброса в координатах камеры
 const CASE_MAT = new THREE.MeshStandardMaterial({ color: 0xd0a843, metalness: 0.85, roughness: 0.3, emissive: 0x3a2a08 });
 const SHELL_RED = new THREE.MeshStandardMaterial({ color: 0xb02020, roughness: 0.6, emissive: 0x2a0606 });
 const CLIP_MAT = new THREE.MeshStandardMaterial({ color: 0xb0b4ba, metalness: 0.8, roughness: 0.35, emissive: 0x20222a });
@@ -1663,6 +1679,10 @@ function weaponAnim(dt) {
   } else if (cur === 4) ud.oprod.position.z = 0.055 * aPulse(t, 0, 0.03, 0.07);
   else if (cur === 6) ud.bolt.position.z = 0.06 * aPulse(t, 0, 0.02, 0.05);
   else if (cur === 7) ud.bolt.position.z = 0.05 * aPulse(t, 0, 0.02, 0.04);
+  else if (cur === 8) {   // оба затвора синхронно, на пустом магазине открыты
+    ANIM.lock += ((w.mag === 0 ? 1 : 0) - ANIM.lock) * Math.min(1, dt * (w.mag === 0 ? 30 : 18));
+    const z = 0.045 * Math.max(aPulse(t, 0, 0.035, 0.085), ANIM.lock); ud.slideR.position.z = z; ud.slideL.position.z = z;
+  }
   else { const k = 1 + 0.2 * aPulse(t, 0, 0.04, 0.18); ud.fx.scale.set(k, k, 1); }
   if (!ANIM.ej && t >= EJECT_AT[cur]) { ANIM.ej = true; ejectShell(cur); }
 }
@@ -1720,9 +1740,9 @@ function updateWeapon(dt, t) {
   if (flashT > 0) {
     flashT -= dt;
     const on = flashT > 0, k = Math.max(0, flashT / FLASH_T);
-    flash.visible = flashLocal.visible = on;
+    flash.visible = flashLocal.visible = on; flash2.visible = on && !!w.dual;
     if (on) {
-      flash.scale.setScalar(flashS * 0.5 * (0.6 + 0.4 * k));
+      flash.scale.setScalar(flashS * 0.5 * (0.6 + 0.4 * k)); flash2.scale.copy(flash.scale);
       flashLocal.intensity = 1.4 * (0.4 + 0.6 * k);
       camera.getWorldPosition(_p); camera.getWorldDirection(_d);
       flashWorld.position.copy(_p).addScaledVector(_d, 0.8); flashWorld.intensity = 1.8 * (0.4 + 0.6 * k);
@@ -1836,10 +1856,11 @@ const SHOT_FILES = {
   1: ['sounds/thompson-shot-1.wav', 'sounds/thompson-shot-2.wav', 'sounds/thompson-shot-3.wav', 'sounds/thompson-shot-4.wav'],
   2: ['sounds/shotgun-shot.mp3'],   // дробовик
   5: ['sounds/raygun-shot.mp3'],    // Ray Gun
+  8: ['sounds/dual-shot.mp3'],    // двойные пистолеты (звук играется дважды с лёгким сдвигом)
   7: ['sounds/m16-shot.mp3'],     // M16A1: одиночный выстрел 5,56
   6: ['sounds/lmg-shot-1.wav', 'sounds/lmg-shot-2.wav', 'sounds/lmg-shot-3.wav', 'sounds/lmg-shot-4.wav'],   // пулемёт: куски очереди по ~3 выстрела
 };
-const SHOT_GAIN = { 0: 0.9, 1: 0.7, 2: 0.9, 5: 0.85, 6: 0.8, 7: 0.75 };
+const SHOT_GAIN = { 8: 0.85, 0: 0.9, 1: 0.7, 2: 0.9, 5: 0.85, 6: 0.8, 7: 0.75 };
 const shotBufs = {}, shotLast = {};
 // загрузка звуков: без кэша браузера (иначе у второго игрока остаются старые файлы), с повторами; уже загруженное/загружаемое не трогаем
 const sndState = {};   // src → 'loading' | 'ok'
@@ -1955,13 +1976,15 @@ function playShotFile(i) {
 // выстрелы: 0 пистолет, 1 автомат, 2 дробовик, 3 винтовка, 4 Гаранд, 5 Ray Gun
 function shotSnd(i) {
   ensureAC(); if (!AC) return;
-  if (SHOT_FILES[i] && playShotFile(i)) return;   // записанный звук, если уже загружен; иначе ниже — синтезированный
+  if (i === 8) { const a = playShotFile(8); setTimeout(() => playShotFile(8), 25); if (a) return; }   // двойные пистолеты: звук выстрела удвоен
+  else if (SHOT_FILES[i] && playShotFile(i)) return;   // записанный звук, если уже загружен; иначе ниже — синтезированный
   if (i === 0) { noise(0.14, 0.5, 'bandpass', 2200, 500, 0, 0.8); tone(240, 0.12, 'triangle', 0.35, 60); }
   else if (i === 1) { noise(0.08, 0.4, 'bandpass', 3000, 900, 0, 0.7); tone(180, 0.08, 'square', 0.12, 70); }
   else if (i === 2) { noise(0.45, 0.8, 'lowpass', 2500, 180); noise(0.1, 0.5, 'highpass', 1500, 1500); tone(100, 0.3, 'sine', 0.6, 35); }
   else if (i === 3) { noise(0.25, 0.6, 'bandpass', 1600, 250, 0, 0.6); tone(130, 0.22, 'triangle', 0.45, 45); }
   else if (i === 4) { noise(0.2, 0.6, 'bandpass', 2600, 400, 0, 0.7); tone(320, 0.14, 'sawtooth', 0.18, 90); tone(110, 0.2, 'sine', 0.4, 50); tone(1800, 0.5, 'sine', 0.05, 1700, 0.05); }
   else if (i === 6) { noise(0.1, 0.6, 'bandpass', 2000, 500, 0, 0.7); tone(140, 0.09, 'sawtooth', 0.2, 60); }
+  else if (i === 8) { noise(0.14, 0.5, 'bandpass', 2200, 500, 0, 0.8); tone(240, 0.12, 'triangle', 0.35, 60); noise(0.14, 0.4, 'bandpass', 2000, 450, 0.02, 0.8); }
   else if (i === 7) { noise(0.09, 0.5, 'bandpass', 2600, 700, 0, 0.7); tone(170, 0.08, 'sawtooth', 0.16, 65); }
   else { tone(1500, 0.35, 'sawtooth', 0.22, 160); tone(750, 0.35, 'square', 0.12, 90); tone(60, 0.3, 'sine', 0.4, 30); noise(0.25, 0.15, 'bandpass', 4000, 800); }
 }
@@ -2284,7 +2307,7 @@ function makeChalkSG() {
 
 // ---------- MYSTERY BOX (950) ----------
 const BOX_PRICE = 950, BOX = { x: -6, z: 5, w: 2.8, h: 1.5, d: 1.4 };
-const BOX_COL = { 1: 0xffb040, 2: 0xff4030, 3: 0x40c0ff, 4: 0xe8e060, 5: 0x40ff60, 6: 0xc0c0c0, 7: 0x9ac8ff };
+const BOX_COL = { 8: 0xffd24a, 1: 0xffb040, 2: 0xff4030, 3: 0x40c0ff, 4: 0xe8e060, 5: 0x40ff60, 6: 0xc0c0c0, 7: 0x9ac8ff };
 const _boxN0 = scene.children.length;   // всё, что добавлено в сцену ниже, до boxRoot — части ящика (чтобы переносить его целиком)
 const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = { x: 0.3, z: -13.95 };   // у северной стены зала, между бочками и окном (x 3.5…6.5), лицом в зал   // стартовая комната → центральный зал (после покупки двери)
 let boxCol = null;
@@ -2344,14 +2367,14 @@ boxBeam.position.set(BOX.x, BOX.h + 1.1, BOX.z); boxBeam.visible = false; scene.
 const boxLight = new THREE.PointLight(0xffc040, 0, 6, 2); boxLight.position.set(BOX.x, BOX.h + 0.6, BOX.z); scene.add(boxLight);
 const token = new THREE.Group(); token.position.set(BOX.x, 2.6, BOX.z); token.visible = false; scene.add(token);
 const boxModels = [];
-for (let i = 1; i <= 7; i++) {
-  const wr = new THREE.Group(), md = new THREE.Group(); buildModel(i, md);
+for (let i = 1; i <= 8; i++) {
+  const wr = new THREE.Group(), md = new THREE.Group(); if (i === 8) buildDual(md); else buildModel(i, md);
   const c = new THREE.Box3().setFromObject(md).getCenter(new THREE.Vector3()); md.position.sub(c);
   wr.add(md); wr.scale.setScalar(1.9); wr.visible = false; token.add(wr); boxModels[i] = wr;
 }
-function showBoxModel(i) { for (let k = 1; k <= 7; k++) boxModels[k].visible = k === i; }
+function showBoxModel(i) { for (let k = 1; k <= 8; k++) boxModels[k].visible = k === i; }
 const boxS = { on: false, t: 0, tick: 0, shown: 1, final: 1, reward: true };
-function boxStart(finalWeapon, reward = true) { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = finalWeapon || (1 + (Math.random() * 7 | 0)); boxS.reward = reward; sfx('box'); }
+function boxStart(finalWeapon, reward = true) { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = finalWeapon || (1 + (Math.random() * 8 | 0)); boxS.reward = reward; sfx('box'); }
 // оружие из Mystery Box: если оно уже есть — пополняем патроны; иначе equip (пустой слот или замена удерживаемого)
 function giveWeapon(i) {
   const w = WEAPONS[i]; w.mag = w.magSize; w.reserve = w.fullRes;
@@ -2380,7 +2403,7 @@ function boxUpdate(dt) {
   boxS.t += dt; token.visible = true; token.rotation.y += dt * 3; token.position.y = 2.6 + Math.sin(boxS.t * 5) * 0.08;
   if (boxS.t < 5) {
     boxS.tick -= dt;
-    if (boxS.tick <= 0) { boxS.tick = 0.11; boxS.shown = 1 + (Math.random() * 7 | 0); showBoxModel(boxS.shown); sfx('tick'); }
+    if (boxS.tick <= 0) { boxS.tick = 0.11; boxS.shown = 1 + (Math.random() * 8 | 0); showBoxModel(boxS.shown); sfx('tick'); }
   } else {
     boxS.shown = boxS.final; showBoxModel(boxS.final);
     if (boxS.t >= 5.6) { boxS.on = false; if (boxS.reward) giveWeapon(boxS.final); pop(WEAPONS[boxS.final].name, 'head'); sfx('buy'); }
@@ -3016,7 +3039,8 @@ function spawnZombie(mp, network = false) {
   z.atkKind = 0; z.tearKind = Math.random() * 3 | 0; z.seed = Math.random() * 100; z.headTilt = rnd(-0.18, 0.18); z.headDrop = rnd(-0.1, 0.3); z.twT = 0; z.twY = 0; z.elOff = rnd(-0.15, 0.15);
   z.speed = (run ? Math.min(5.5, 3.4 + 0.1 * round) : Math.min(2.4, 1.2 + 0.1 * (round - 1))) * (0.9 + Math.random() * 0.2);
   if (z.gait === 'limp') z.speed *= 1.25;
-  z.hp = Math.round(100 * Math.pow(1.15, round));
+  if (round >= 6) z.speed *= Math.min(1.5, 1 + 0.08 * (round - 5));   // с 6 раунда зомби быстрее (до +50%)
+  z.hp = ZHP(round);
   Object.assign(z, { w, state: network ? 'chase' : (mp ? 'menu' : 'window'), t: 0, phase: Math.random() * 6, mv: 0, flash: 0, stagger: 0, atkCd: 0.5, atkT: 0, planT: 0, wp: null, stuck: 0, stuckTot: 0, nT: 0, moved: 0, torn: 0, apT: 0, ghost: true });
   if (network) {
     z.g.position.set(mp.x, mp.y || 0, mp.z); z.g.rotation.y = mp.yaw || 0;

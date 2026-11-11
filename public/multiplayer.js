@@ -38,17 +38,34 @@
     if (typeof reloadSounds === 'function') reloadSounds();   // у гостя тоже догружаем все звуки
   }
 
-  $('bSolo').onclick = () => { mode = 'solo'; startGame(); };
+  // ---- выбор карты: после выбора режима. Чтобы добавить карту — допиши запись в MAPS (id, name, desc; soon: true = «скоро»)
+  const MAPS = [
+    { id: 'nacht', name: 'NACHT DER UNTOTEN', desc: 'Бункер · 2 этажа · Mystery Box · перки' },
+    { id: 'soon', name: '???', desc: 'Скоро', soon: true },
+  ];
+  window.NB_MAP = MAPS[0].id;      // выбранная карта (игровой код может читать window.NB_MAP)
+  const mapList = $('mapList');
+  MAPS.forEach(m => {
+    const b = document.createElement('button');
+    b.className = 'mb' + (m.soon ? ' soon' : ''); b.innerHTML = `${m.name}<small>${m.desc}</small>`;
+    if (!m.soon) b.onclick = () => {
+      window.NB_MAP = m.id;
+      if (mode === 'multi') { connect(); setView('mp'); } else startGame();
+    };
+    mapList.appendChild(b);
+  });
+  $('bSolo').onclick = () => { mode = 'solo'; setView('maps'); };
   $('bModeBack').onclick = () => setView('main');
-  $('bMulti').onclick = () => { mode = 'multi'; connect(); setView('mp'); };
-  $('bMpBack').onclick = () => setView('mode');
+  $('bMulti').onclick = () => { mode = 'multi'; setView('maps'); };
+  $('bMapsBack').onclick = () => setView('mode');
+  $('bMpBack').onclick = () => setView('maps');
 
   const nameInput = $('mpName');
   try { nameInput.value = localStorage.getItem('nb_name') || ''; } catch (e) {}
   const myName = () => { const n = nameInput.value.trim(); try { localStorage.setItem('nb_name', n); } catch (e) {} return n; };
   const showErr = t => { $('mpErr').textContent = t || ''; };
 
-  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName() }); };
+  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName(), map: window.NB_MAP }); };
   $('bJoin').onclick = () => { showErr(); socket.emit('joinRoom', { code: $('mpCode').value, name: myName() }); };
   $('bGo').onclick = () => startGame();
   $('bLeave').onclick = () => { socket.emit('leaveRoom'); clearRemote(); clearNetworkZombies(); roomCode = null; gameState = null; setView('mp'); };
