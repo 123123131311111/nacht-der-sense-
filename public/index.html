@@ -492,6 +492,11 @@ function vkBlood() {
 // Прямая лестница Verrückt: идёт вдоль +Z, 15 ступеней по 0.25 м + пол 2-го этажа (4.0) как последняя ступень.
 const VK_ST = { n: 15, rise: 0.25, run: 0.28, zs: -2.1, hw: 0.8 };
 VK_ST.ze = VK_ST.zs + VK_ST.n * VK_ST.run;   // конец проёма (= начало пола 2-го этажа)
+// Вход на 2-й этаж каждого корпуса — платная дверь у подножия лестницы. Порядок (левый, правый) ДОЛЖЕН совпадать с MAPS.verruckt.doors в server-multiplayer.js.
+VK_DOORS.push(
+  { ax: 'x', fixed: VK_ST.zs - 0.25, s: -9 - VK_ST.hw, e: -9 + VK_ST.hw, a: 'YARD', b: 'UPPER_L', h: 3.7, label: 'открыть вход на 2 этаж', msg: 'ВХОД НА 2 ЭТАЖ ОТКРЫТ' },
+  { ax: 'x', fixed: VK_ST.zs - 0.25, s: 9 - VK_ST.hw, e: 9 + VK_ST.hw, a: 'YARD', b: 'UPPER_R', h: 3.7, label: 'открыть вход на 2 этаж', msg: 'ВХОД НА 2 ЭТАЖ ОТКРЫТ' }
+);
 function vkWalls() {
   const iron = new THREE.MeshStandardMaterial({ color: 0x34383b, roughness: 0.65, metalness: 0.7 });
   const darkIron = new THREE.MeshStandardMaterial({ color: 0x171a1c, roughness: 0.8, metalness: 0.35 });
@@ -581,6 +586,9 @@ function vkWalls() {
       const c = addBox(sx - hw, sx + hw, 0, k * rise, zs + (k - 1) * run, zs + k * run, k % 2 ? stepA : stepB);
       floors.push(c.userData.col);
     }
+    // Боковые стенки лестничной клетки до перекрытия: без них закрытую дверь можно обойти, взобравшись на ступени сбоку.
+    addBox(sx - hw - 0.18, sx - hw, 0, 3.7, zs - 0.25 - 0.15, ze, mats.concrete);
+    addBox(sx + hw, sx + hw + 0.18, 0, 3.7, zs - 0.25 - 0.15, ze, mats.concrete);
     // Перила по краям проёма на втором этаже (низ и бока; сверху — вход на лестницу).
     const rail = (xa, xb, za, zb) => {
       addBox(xa, xb, 4, 4.95, za, zb, invisible);            // коллизия
@@ -2765,7 +2773,7 @@ function updateProjs(dt) {
 }
 
 // ---------- SPEED COLA ----------
-const COLA_PRICE = 4000, MACH = MAP_ID === 'nacht' ? { x: -14.25, z: 7 } : { x: -7.2, z: 3.2 };
+const COLA_PRICE = 4000, MACH = MAP_ID === 'nacht' ? { x: -14.25, z: 7, y: 0, f: 1 } : { x: -7.2, z: 3.2, y: 4, f: -1 };   // y — этаж; f — куда смотрит табличка по X (в Verrückt — в комнату, а не в стену)
 let speedCola = false, doubleTap = false, juggernog = false;
 const JUGG_PRICE = 2000, JUGG_HP = 175;   // 175 хп = 7 ударов зомби по 25 (обычно 4: +3 удара)
 function applyJugg() { juggernog = true; maxHp = JUGG_HP; hp = maxHp; }
@@ -2782,10 +2790,10 @@ function makeColaTex() {
   g.fillStyle = '#7dff8a'; g.font = 'bold 30px "Courier New"'; g.fillText(String(COLA_PRICE), 128, 346);
   return new THREE.CanvasTexture(c);
 }
-addBox(MACH.x - 0.45, MACH.x + 0.45, 0, 2.2, MACH.z - 0.7, MACH.z + 0.7, new THREE.MeshStandardMaterial({ color: 0x14702a, roughness: 0.6, emissive: 0x062a0e }));
+addBox(MACH.x - 0.45, MACH.x + 0.45, MACH.y, MACH.y + 2.2, MACH.z - 0.7, MACH.z + 0.7, new THREE.MeshStandardMaterial({ color: 0x14702a, roughness: 0.6, emissive: 0x062a0e }));
 const colaFace = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), new THREE.MeshBasicMaterial({ map: makeColaTex(), color: 0xdddddd }));
-colaFace.position.set(MACH.x + 0.46, 1.1, MACH.z); colaFace.rotation.y = Math.PI / 2; scene.add(colaFace);
-const colaLight = new THREE.PointLight(0x40ff60, 0.9, 7, 2); colaLight.position.set(MACH.x + 1.2, 1.8, MACH.z); scene.add(colaLight);
+colaFace.position.set(MACH.x + 0.46 * MACH.f, MACH.y + 1.1, MACH.z); colaFace.rotation.y = Math.PI / 2 * MACH.f; scene.add(colaFace);
+const colaLight = new THREE.PointLight(0x40ff60, 0.9, 7, 2); colaLight.position.set(MACH.x + 1.2 * MACH.f, MACH.y + 1.8, MACH.z); scene.add(colaLight);
 // иконки перков (HUD справа сверху): бутылка с молнией = Speed Cola, две пули = Double Tap
 const PERK_ICONS = {
   cola: '<span class="pk" title="Speed Cola — перезарядка вдвое быстрее" style="background:#0d4a1a;border-color:#4cff6a;color:#2fae45"><svg viewBox="0 0 46 46" width="38" height="38"><path d="M19 5h8v7l3.5 5.5V38a3.5 3.5 0 0 1-3.5 3.5H19A3.5 3.5 0 0 1 15.5 38V17.5L19 12z" fill="#e8ffe8" stroke="#7dff8a" stroke-width="1.5"/><rect x="16.5" y="20" width="13" height="14" fill="#35c84a"/><path d="M25.5 18 17.5 29.5h5L20.5 39 29 26.5h-5.2z" fill="#ffd24a" stroke="#7a5200" stroke-width="1" stroke-linejoin="round"/></svg></span>',
@@ -2875,7 +2883,7 @@ function drinkPerk(k = 'cola') {   // покупка перка: проигра�
 
 
 // ---------- DOUBLE TAP (2 этаж, северо-запад) ----------
-const DTAP_PRICE = 2500, DTAP = MAP_ID === 'nacht' ? { x: -12, z: -14.25, y: 4 } : { x: 8.4, z: 3, y: 0 };
+const DTAP_PRICE = 2500, DTAP = MAP_ID === 'nacht' ? { x: -12, z: -14.25, y: 4 } : { x: 8.4, z: 3, y: 4 };
 function makeDtapTex() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 400; const g = c.getContext('2d');
   g.fillStyle = '#c23418'; g.fillRect(0, 0, 256, 400); g.fillStyle = '#4a0f08'; g.fillRect(10, 10, 236, 380);
@@ -2913,7 +2921,7 @@ function rebuildNav() {
     if (Math.abs(A.y - B.y) < 0.6 && Math.hypot(A.x - B.x, A.z - B.z) < 18 && los(A.x, A.z, B.x, B.z, Math.min(A.y, B.y))) link(i, j);
   }
   const chains = MAP_ID === 'nacht' ? ['s'] : ['s', 'r'];
-  for (const p of chains) [['0', '1'], ['1', '2'], ['2', '3'], ['3', '5'], ['5', '6'], ['6', '4']].forEach(([a, b]) => link(NI[p + a], NI[p + b]));
+  for (const p of chains) if (MAP_ID === 'nacht' || DOORS[p === 's' ? 0 : 1].open) [['0', '1'], ['1', '2'], ['2', '3'], ['3', '5'], ['5', '6'], ['6', '4']].forEach(([a, b]) => link(NI[p + a], NI[p + b]));
 }
 
 // ---------- ДВЕРИ: покупка прохода; зомби спавнятся только в окнах открытых комнат ----------
@@ -2974,7 +2982,7 @@ function recomputeZones() { // открытые комнаты = всё, что 
 function openDoor(d) {
   d.open = true;
   colliders.splice(colliders.indexOf(d.col), 1); worldMeshes.splice(worldMeshes.indexOf(d.mesh), 1);
-  opening.push(d); recomputeZones(); rebuildNav(); sfx('door'); pop('ДВЕРЬ ОТКРЫТА', 'head');
+  opening.push(d); recomputeZones(); rebuildNav(); sfx('door'); pop(d.msg || 'ДВЕРЬ ОТКРЫТА', 'head');
 }
 function updateDoors(dt) {
   for (let i = opening.length - 1; i >= 0; i--) { // створка уезжает вверх в перекрытие
@@ -3099,7 +3107,7 @@ function updateInteract(dt) {
     }
     repT = 0; return;
   }
-  if (PF < 1.5 && Math.hypot(pos.x - MACH.x, pos.z - MACH.z) < 2.1) {
+  if (Math.abs(PF - MACH.y) < 1.5 && Math.hypot(pos.x - MACH.x, pos.z - MACH.z) < 2.1) {
     if (speedCola) promptEl.innerHTML = '<span class="ok">Speed Cola — куплено</span>';
     else {
       const can = points >= COLA_PRICE;
@@ -3169,7 +3177,7 @@ function updateInteract(dt) {
       buyT += dt;
       if (buyT >= BUY_TIME) { buyT = 0; if (!requestMPBuy('door', DOORS.indexOf(dr))) { buyLock = true; spend(DOOR_PRICE); openDoor(dr); } }
     } else buyT = 0;
-    promptEl.innerHTML = `Зажмите ${KE()} — открыть дверь за ${DOOR_PRICE} очков` + (can ? '' : ' <span class="no">— не хватает очков</span>') + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
+    promptEl.innerHTML = `Зажмите ${KE()} — ${dr.label || 'открыть дверь'} за ${DOOR_PRICE} очков` + (can ? '' : ' <span class="no">— не хватает очков</span>') + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
     repT = 0; return;
   }
   buyT = 0;
