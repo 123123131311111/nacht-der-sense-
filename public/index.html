@@ -1014,8 +1014,8 @@ const gun = new THREE.Group(); weaponScene.add(gun);
 const mSteel = new THREE.MeshStandardMaterial({ color: 0x5a5d62, metalness: 0.8, roughness: 0.35 });
 const mDark = new THREE.MeshStandardMaterial({ color: 0x1b1b1d, metalness: 0.7, roughness: 0.45 });
 const mGrip = new THREE.MeshStandardMaterial({ color: 0x2e1f14, roughness: 0.9 });
-const pistolG = new THREE.Group(), tommyG = new THREE.Group(), shotG = new THREE.Group(), rifleG = new THREE.Group(), garandG = new THREE.Group(), rayG = new THREE.Group(), lmgG = new THREE.Group();
-gun.add(pistolG); gun.add(tommyG); gun.add(shotG); gun.add(rifleG); gun.add(garandG); gun.add(rayG); gun.add(lmgG); tommyG.visible = shotG.visible = rifleG.visible = garandG.visible = rayG.visible = lmgG.visible = false;
+const pistolG = new THREE.Group(), tommyG = new THREE.Group(), shotG = new THREE.Group(), rifleG = new THREE.Group(), garandG = new THREE.Group(), rayG = new THREE.Group(), lmgG = new THREE.Group(), m16G = new THREE.Group();
+gun.add(pistolG); gun.add(tommyG); gun.add(shotG); gun.add(rifleG); gun.add(garandG); gun.add(rayG); gun.add(lmgG); gun.add(m16G); tommyG.visible = shotG.visible = rifleG.visible = garandG.visible = rayG.visible = lmgG.visible = m16G.visible = false;
 const mWood = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.85 });
 function part(w, h, d, x, y, z, m, rx = 0, tg = pistolG) {
   const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -1248,6 +1248,48 @@ function buildModel(i, g) {
     // приклад
     PF(stockPts(-0.1), 0.044, 0, 0, 0, L.wood, 0.004);
     RB(0.047, 0.1, 0.012, 0, -0.025, 0.47, L.dark, 0.004);
+  } else if (i === 7) {   // ---- M16A1 ----
+    // low-poly: ствол и ресиверы, ручка-прицел, рёбристое цевьё, пламегаситель-«птичья клетка», магазин на 20, пластиковый приклад
+    const L = (WM._lp = WM._lp || (() => { const f = m => { const c = m.clone(); c.flatShading = true; return c; }; return { blue: f(WM.blue), steel: f(WM.steel), dark: f(WM.dark), wood: f(WM.wood), brass: f(WM.brass) }; })());
+    if (!L.poly) { L.poly = L.dark.clone(); L.poly.color.setHex(0x2b2a27); L.hg = L.dark.clone(); L.hg.color.setHex(0x3a342c); }
+    // верхний и нижний ресиверы, шахта магазина
+    B(0.04, 0.052, 0.3, 0, 0.052, -0.04, L.blue);
+    B(0.04, 0.05, 0.24, 0, 0.005, 0.0, L.blue);
+    B(0.036, 0.03, 0.07, 0, -0.03, -0.075, L.blue);
+    // ручка-прицел (A1), задний диоптр и основание
+    B(0.02, 0.012, 0.23, 0, 0.092, 0.0, L.blue);
+    B(0.026, 0.03, 0.03, 0, 0.08, -0.115, L.blue); B(0.026, 0.03, 0.045, 0, 0.08, 0.09, L.blue);
+    B(0.004, 0.018, 0.008, -0.009, 0.108, 0.09, L.steel); B(0.004, 0.018, 0.008, 0.009, 0.108, 0.09, L.steel);
+    // крышка окна выброса, форвард-ассист, фиксатор магазина
+    B(0.003, 0.022, 0.075, 0.0215, 0.05, -0.045, L.steel);
+    B(0.012, 0.014, 0.022, 0.027, 0.036, 0.055, L.steel);
+    B(0.008, 0.012, 0.016, 0.022, -0.008, -0.04, L.steel);
+    // подвижная деталь: затворная рама видна в окне выброса
+    mv('bolt');
+    B(0.003, 0.014, 0.034, 0.0218, 0.05, -0.065, L.dark);
+    base();
+    // ствол, рёберное цевьё, мушка, пламегаситель
+    Z(0.0075, 0.0075, 0.5, 0, 0.045, -0.5, L.steel, 8);
+    Z(0.0265, 0.0265, 0.3, 0, 0.045, -0.33, L.hg, 8);
+    for (let k = 0; k < 6; k++) Z(0.0295, 0.0295, 0.006, 0, 0.045, -0.2 - k * 0.05, L.dark, 8);
+    B(0.016, 0.04, 0.02, 0, 0.068, -0.53, L.blue); B(0.003, 0.022, 0.003, 0, 0.098, -0.53, L.steel);
+    Z(0.0145, 0.0145, 0.008, 0, 0.045, -0.705, L.steel, 8);
+    Z(0.0125, 0.0125, 0.07, 0, 0.045, -0.74, L.dark, 8);
+    // магазин на 20 патронов (рёбра жёсткости) и донце
+    B(0.03, 0.11, 0.052, 0, -0.085, -0.077, L.steel, 0.05);
+    for (let k = 0; k < 4; k++) B(0.032, 0.003, 0.054, 0, -0.05 - k * 0.025, -0.077, L.dark);
+    B(0.034, 0.008, 0.058, 0, -0.147, -0.082, L.dark, 0.05);
+    // спусковая скоба и крючок
+    B(0.008, 0.006, 0.075, 0, -0.032, 0.045, L.blue); B(0.008, 0.03, 0.006, 0, -0.017, 0.008, L.blue); B(0.008, 0.03, 0.006, 0, -0.017, 0.082, L.blue);
+    B(0.005, 0.02, 0.005, 0, -0.013, 0.035, L.steel);
+    // пистолетная рукоять
+    sub(0, -0.02, 0.1, -0.32);
+    PF([[-0.022, 0], [0.022, 0], [0.026, -0.1], [-0.018, -0.1]], 0.036, 0, 0, 0, L.poly, 0.001);
+    base();
+    // буферная труба и фиксированный приклад с затыльником
+    Z(0.014, 0.014, 0.12, 0, 0.032, 0.16, L.blue, 8);
+    PF([[0.12, 0.04], [0.3, 0.044], [0.45, 0.038], [0.455, -0.09], [0.4, -0.088], [0.3, -0.06], [0.12, -0.025]], 0.04, 0, 0, 0, L.poly, 0.002);
+    B(0.042, 0.125, 0.01, 0, -0.025, 0.458, L.dark);
   } else {   // ---- Ray Gun ----
     const pr = [[0.001, -0.15], [0.03, -0.14], [0.05, -0.1], [0.056, -0.05], [0.052, 0.0], [0.045, 0.06], [0.04, 0.12], [0.034, 0.16], [0.03, 0.2], [0.022, 0.24], [0.018, 0.3], [0.02, 0.34], [0.026, 0.37], [0.001, 0.385]];
     const lg = new THREE.LatheGeometry(pr.map(p => new THREE.Vector2(p[0], p[1])), 24).rotateX(-Math.PI / 2);
@@ -1263,7 +1305,7 @@ function buildModel(i, g) {
     base(); ARC(0.026, 0.0035, 0, 0.0, 0.0, WM.cream);
   }
 }
-[pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG].forEach((gr, i) => buildModel(i, gr));   // в руках и в Mystery Box — одни и те же модели
+[pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G].forEach((gr, i) => buildModel(i, gr));   // в руках и в Mystery Box — одни и те же модели
 gun.rotation.order = 'YXZ';
 
 // вспышка выстрела
@@ -1304,7 +1346,9 @@ const WEAPONS = [
   { name: 'RAY GUN', own: false, mag: 20, magSize: 20, reserve: 80, fullRes: 80, interval: 420, dmg: RAY_DMG, proj: true, auto: false, reload: 1.9, spin: { turns: -1, k: 0.2, pivot: [0, -0.01, -0.14], push: [-0.1, 0.12, -0.05] }, spread: 0, rk: 0.8,
     base: [0.2, -0.17, -0.4], flash: [0, 0.03, -0.38] },
   { name: 'LMG', own: false, mag: 100, magSize: 100, reserve: 200, fullRes: 200, maxReserve: 200, interval: 100, body: 110, head: 220, auto: true, reload: 4.5, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.02, rk: 0.6,
-    base: [0.19, -0.2, -0.42], flash: [0, 0.04, -1.0] }
+    base: [0.19, -0.2, -0.42], flash: [0, 0.04, -1.0] },
+  { name: 'M16A1', own: false, mag: 30, magSize: 30, reserve: 120, fullRes: 150, maxReserve: 180, interval: 90, body: 95, head: 190, auto: true, reload: 2.3, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.008, rk: 0.5,
+    base: [0.19, -0.2, -0.42], flash: [0, 0.045, -0.8] }
 ];
 // единый прокрут для всего оружия: одинаковая скорость и кривая, число оборотов зависит только от времени перезарядки; вынос к центру минимальный
 const SPIN_SEC = 0.95;
@@ -1312,9 +1356,9 @@ WEAPONS.forEach(w => { w.spin.k = 0.3; w.spin.turns = 1; w.spin.push = [-0.03, 0
 const spinTurns = rl => Math.max(1, Math.round(rl / SPIN_SEC));
 // разброс (в долях половины высоты экрана; круг на экране = реальная область попаданий): spread — от бедра, bloom — прирост за выстрел
 // (bmax — потолок, bd — скорость спада в секунду), fs — размер вспышки
-[[.012, .03, .05, 1.1], [.005, .03, .05, 1.3], [.02, .04, .06, 1.9], [.02, .03, .05, 1.6], [.016, .035, .05, 1.6], [.01, .02, .05, 1.2], [.008, .045, .05, 1.5]]
+[[.012, .03, .05, 1.1], [.005, .03, .05, 1.3], [.02, .04, .06, 1.9], [.02, .03, .05, 1.6], [.016, .035, .05, 1.6], [.01, .02, .05, 1.2], [.008, .045, .05, 1.5], [.008, .03, .05, 1.4]]
   .forEach((a, i) => { const w = WEAPONS[i]; w.bloom = a[0]; w.bmax = a[1]; w.bd = a[2]; w.fs = a[3]; });
-[[280, 4], [300, 4], [200, 2.5], [480, 7], [450, 6], [0, 0], [320, 5]].forEach((a, i) => { WEAPONS[i].bv = a[0]; WEAPONS[i].tl = a[1]; });   // скорость пули (м/с) и длина следа (м); Ray Gun не трогаем
+[[280, 4], [300, 4], [200, 2.5], [480, 7], [450, 6], [0, 0], [320, 5], [340, 5]].forEach((a, i) => { WEAPONS[i].bv = a[0]; WEAPONS[i].tl = a[1]; });   // скорость пули (м/с) и длина следа (м); Ray Gun не трогаем
 const AIM = { move: 0, bloom: 0, cur: 0, g: -1 };   // движение/прыжок и стрельба раздвигают прицел, он сразу же определяет реальный разброс
 const WR = { z: 0, zV: 0, p: 0, pV: 0, y: 0, yV: 0, yw: 0, ywV: 0, r: 0, rV: 0 };   // пружины отдачи оружия (та же механика, что и инерция при повороте)
 function weaponKick(w) {
@@ -1336,7 +1380,7 @@ function updateHUD() {
 function switchWeapon(i) {
   if (i === cur || !WEAPONS[i] || !WEAPONS[i].own) return;
   cur = i; reloading = false; swapT = SWAP_TIME; mouseDown = false; ANIM.t = 99; ANIM.ej = true;
-  [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG].forEach((g, k) => g.visible = k === i);
+  [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G].forEach((g, k) => g.visible = k === i);
   coneMat.color.setHex(i === 5 ? 0x40ff60 : 0xffa020); flashLocal.color.setHex(i === 5 ? 0x40ff60 : 0xffa030); flashWorld.color.setHex(i === 5 ? 0x40ff60 : 0xffa030);
   const f = WEAPONS[i].flash; flash.position.set(f[0], f[1], f[2]); flashLocal.position.set(f[0], f[1] + 0.02, f[2] - 0.02);
   flash.visible = flashLocal.visible = false; flashT = 0;
@@ -1572,16 +1616,16 @@ function updateAim(dt, w) {   // динамичный прицел: бедро +
 // ANIM.t — время с последнего выстрела. У каждого оружия своя подвижная деталь: затвор пистолета (при пустом магазине остаётся открытым),
 // рукоять затвора Thompson, помповое цевьё, цикл затвора Kar98k, шток Garand (+ вылет обоймы с «пингом»), пульсация колец Ray Gun.
 const ANIM = { t: 99, ej: true, lock: 0, clip: false };
-const GROUPS = [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG];
+const GROUPS = [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G];
 const aEase = x => x * x * (3 - 2 * x), aClamp = x => Math.max(0, Math.min(1, x));
 const aPulse = (t, a, b, c) => t < a ? 0 : t < a + b ? aEase((t - a) / b) : t < a + b + c ? 1 - aEase((t - a - b) / c) : 0;
-const EJECT_AT = [0.012, 0.01, 0.29, 0.27, 0.012, -1, 0.012];   // когда вылетает гильза (у помпы и болтовки — когда затвор уже отошёл назад)
-const SHELL_PORT = [[0.285, -0.165, -0.42], [0.29, -0.2, -0.5], [0.3, -0.2, -0.42], [0.3, -0.22, -0.4], [0.3, -0.22, -0.4], [0, 0, 0], [0.3, -0.2, -0.4]];   // окно выброса в координатах камеры
+const EJECT_AT = [0.012, 0.01, 0.29, 0.27, 0.012, -1, 0.012, 0.012];   // когда вылетает гильза (у помпы и болтовки — когда затвор уже отошёл назад)
+const SHELL_PORT = [[0.285, -0.165, -0.42], [0.29, -0.2, -0.5], [0.3, -0.2, -0.42], [0.3, -0.22, -0.4], [0.3, -0.22, -0.4], [0, 0, 0], [0.3, -0.2, -0.4], [0.29, -0.2, -0.46]];   // окно выброса в координатах камеры
 const CASE_MAT = new THREE.MeshStandardMaterial({ color: 0xd0a843, metalness: 0.85, roughness: 0.3, emissive: 0x3a2a08 });
 const SHELL_RED = new THREE.MeshStandardMaterial({ color: 0xb02020, roughness: 0.6, emissive: 0x2a0606 });
 const CLIP_MAT = new THREE.MeshStandardMaterial({ color: 0xb0b4ba, metalness: 0.8, roughness: 0.35, emissive: 0x20222a });
 const CASE_G = [new THREE.CylinderGeometry(0.0055, 0.006, 0.023, 7), new THREE.CylinderGeometry(0.0055, 0.006, 0.023, 7), null,
-  new THREE.CylinderGeometry(0.0062, 0.0085, 0.064, 7), new THREE.CylinderGeometry(0.006, 0.0085, 0.063, 7), null, new THREE.CylinderGeometry(0.0062, 0.0085, 0.064, 7)];
+  new THREE.CylinderGeometry(0.0062, 0.0085, 0.064, 7), new THREE.CylinderGeometry(0.006, 0.0085, 0.063, 7), null, new THREE.CylinderGeometry(0.0062, 0.0085, 0.064, 7), new THREE.CylinderGeometry(0.0055, 0.0065, 0.046, 7)];
 const SHELL_G1 = new THREE.CylinderGeometry(0.0105, 0.0105, 0.05, 8), SHELL_G2 = new THREE.CylinderGeometry(0.011, 0.011, 0.018, 8), CLIP_G = new THREE.BoxGeometry(0.026, 0.005, 0.1);
 function ejectShell(i) {
   if (i === 5) return;
@@ -1616,6 +1660,7 @@ function weaponAnim(dt) {
     ud.bolt.position.z = 0.075 * (aEase(aClamp((t - 0.22) / 0.1)) - aEase(aClamp((t - 0.32) / 0.1)));
   } else if (cur === 4) ud.oprod.position.z = 0.055 * aPulse(t, 0, 0.03, 0.07);
   else if (cur === 6) ud.bolt.position.z = 0.06 * aPulse(t, 0, 0.02, 0.05);
+  else if (cur === 7) ud.bolt.position.z = 0.05 * aPulse(t, 0, 0.02, 0.04);
   else { const k = 1 + 0.2 * aPulse(t, 0, 0.04, 0.18); ud.fx.scale.set(k, k, 1); }
   if (!ANIM.ej && t >= EJECT_AT[cur]) { ANIM.ej = true; ejectShell(cur); }
 }
@@ -1785,9 +1830,10 @@ const SHOT_FILES = {
   1: ['sounds/thompson-shot-1.wav', 'sounds/thompson-shot-2.wav', 'sounds/thompson-shot-3.wav', 'sounds/thompson-shot-4.wav'],
   2: ['sounds/shotgun-shot.mp3'],   // дробовик
   5: ['sounds/raygun-shot.mp3'],    // Ray Gun
+  7: ['sounds/m16-shot.mp3'],     // M16A1: одиночный выстрел 5,56
   6: ['sounds/lmg-shot-1.wav', 'sounds/lmg-shot-2.wav', 'sounds/lmg-shot-3.wav', 'sounds/lmg-shot-4.wav'],   // пулемёт: куски очереди по ~3 выстрела
 };
-const SHOT_GAIN = { 0: 0.9, 1: 0.7, 2: 0.9, 5: 0.85, 6: 0.8 };
+const SHOT_GAIN = { 0: 0.9, 1: 0.7, 2: 0.9, 5: 0.85, 6: 0.8, 7: 0.75 };
 const shotBufs = {}, shotLast = {};
 function loadShotBufs() {
   if (!AC) return;
@@ -1802,8 +1848,8 @@ function loadShotBufs() {
 const SFX_FILES = { box: 'sounds/mystery-box-spin.mp3', round: 'sounds/round-start.mp3', shell: 'sounds/shell-drop.mp3',
   bh1: 'sounds/board-hit-1.wav', bh2: 'sounds/board-hit-2.wav', bh3: 'sounds/board-hit-3.wav', bh4: 'sounds/board-hit-4.wav', bh5: 'sounds/board-hit-5.wav',   // заколачивание досок
   zg1: 'sounds/zombie-growl-1.mp3', zg2: 'sounds/zombie-growl-2.mp3', zfar: 'sounds/zombie-far-scream.mp3',
-  maxammo: 'sounds/max-ammo.mp3', popen: 'sounds/perk-open.mp3', pdrink: 'sounds/perk-drink.mp3', pthrow: 'sounds/perk-throw.mp3' };   // покупка перка: открыть бутылку, глотки, бросок об пол   // рык рядом ×2, далёкий крик
-const SFX_GAIN = { box: 0.8, round: 0.8, shell: 0.55, maxammo: 0.85, popen: 1, pdrink: 1, pthrow: 0.75, bh1: 0.9, bh2: 0.9, bh3: 0.9, bh4: 0.9, bh5: 0.9 }, SFX_SINGLE = { box: 1, round: 1, maxammo: 1, popen: 1, pdrink: 1, pthrow: 1 };   // box/round — одновременно звучит только один экземпляр
+  maxammo: 'sounds/max-ammo.mp3', door: 'sounds/door-open.mp3', tear: 'sounds/board-tear.mp3', popen: 'sounds/perk-open.mp3', pdrink: 'sounds/perk-drink.mp3', pthrow: 'sounds/perk-throw.mp3' };   // покупка перка: открыть бутылку, глотки, бросок об пол   // рык рядом ×2, далёкий крик
+const SFX_GAIN = { box: 0.8, round: 0.8, shell: 0.55, maxammo: 0.85, door: 0.9, tear: 0.85, popen: 1, pdrink: 1, pthrow: 0.75, bh1: 0.9, bh2: 0.9, bh3: 0.9, bh4: 0.9, bh5: 0.9 }, SFX_SINGLE = { box: 1, round: 1, maxammo: 1, door: 1, popen: 1, pdrink: 1, pthrow: 1 };   // box/round — одновременно звучит только один экземпляр
 const sfxBufs = {}, sfxLive = {};
 
 // позиционный звук из буфера: громкость по расстоянию, панорама по направлению относительно камеры, опциональный ФНЧ (для далёких звуков)
@@ -1900,6 +1946,7 @@ function shotSnd(i) {
   else if (i === 3) { noise(0.25, 0.6, 'bandpass', 1600, 250, 0, 0.6); tone(130, 0.22, 'triangle', 0.45, 45); }
   else if (i === 4) { noise(0.2, 0.6, 'bandpass', 2600, 400, 0, 0.7); tone(320, 0.14, 'sawtooth', 0.18, 90); tone(110, 0.2, 'sine', 0.4, 50); tone(1800, 0.5, 'sine', 0.05, 1700, 0.05); }
   else if (i === 6) { noise(0.1, 0.6, 'bandpass', 2000, 500, 0, 0.7); tone(140, 0.09, 'sawtooth', 0.2, 60); }
+  else if (i === 7) { noise(0.09, 0.5, 'bandpass', 2600, 700, 0, 0.7); tone(170, 0.08, 'sawtooth', 0.16, 65); }
   else { tone(1500, 0.35, 'sawtooth', 0.22, 160); tone(750, 0.35, 'square', 0.12, 90); tone(60, 0.3, 'sine', 0.4, 30); noise(0.25, 0.15, 'bandpass', 4000, 800); }
 }
 function stepSnd() { ensureAC(); noise(0.07, 0.07, 'lowpass', 350 + Math.random() * 120, 150); tone(75, 0.06, 'sine', 0.05, 45); }
@@ -1925,7 +1972,7 @@ function sfx(k) {
   else if (k === 'perk') { tone(110, 2.6, 'sawtooth', 0.1); tone(138.6, 2.6, 'sawtooth', 0.07); tone(164.8, 2.6, 'triangle', 0.1); tone(55, 2.2, 'sine', 0.3, 40); }
   else if (k === 'hurt') tone(140, 0.25, 'square', 0.12, 50);
   else if (k === 'hit') tone(220, 0.08, 'square', 0.05, 120);
-  else if (k === 'plank') { tone(90, 0.14, 'square', 0.1, 45); noise(0.12, 0.3, 'bandpass', 1400, 400, 0, 2); tone(260, 0.07, 'sawtooth', 0.05, 120); }
+  else if (k === 'plank') { if (playSfxFile('tear')) return; tone(90, 0.14, 'square', 0.1, 45); noise(0.12, 0.3, 'bandpass', 1400, 400, 0, 2); tone(260, 0.07, 'sawtooth', 0.05, 120); }
   else if (k === 'thud') { tone(85, 0.24, 'sine', 0.4, 36); noise(0.14, 0.35, 'lowpass', 1100, 180); tone(170, 0.09, 'square', 0.08, 70); }
   else if (k === 'nail') { noise(0.03, 0.22, 'highpass', 4500, 4500, 0, 2); tone(2400, 0.07, 'square', 0.045, 1700); tone(220, 0.05, 'square', 0.09, 100); }
   else if (k === 'swish') noise(0.28, 0.14, 'bandpass', 350, 1800, 0, 1.5);
@@ -1941,7 +1988,7 @@ function sfx(k) {
   else if (k === 'dry') noise(0.03, 0.15, 'bandpass', 3000, 3000, 0, 4);
   else if (k === 'boom') { tone(90, 0.5, 'sawtooth', 0.4, 30); noise(0.5, 0.5, 'lowpass', 2000, 150); tone(900, 0.4, 'sine', 0.15, 200); }
   else if (k === 'buy') buySnd();
-  else if (k === 'door') { noise(0.7, 0.35, 'lowpass', 600, 120); tone(60, 0.7, 'sawtooth', 0.12, 35); buySnd(); }
+  else if (k === 'door') { if (!playSfxFile('door')) { noise(0.7, 0.35, 'lowpass', 600, 120); tone(60, 0.7, 'sawtooth', 0.12, 35); buySnd(); } }   // покупка двери: записанный звук механизма
 }
 
 // ---------- навигация ----------
@@ -2221,7 +2268,7 @@ function makeChalkSG() {
 
 // ---------- MYSTERY BOX (950) ----------
 const BOX_PRICE = 950, BOX = { x: -6, z: 5, w: 2.8, h: 1.5, d: 1.4 };
-const BOX_COL = { 1: 0xffb040, 2: 0xff4030, 3: 0x40c0ff, 4: 0xe8e060, 5: 0x40ff60, 6: 0xc0c0c0 };
+const BOX_COL = { 1: 0xffb040, 2: 0xff4030, 3: 0x40c0ff, 4: 0xe8e060, 5: 0x40ff60, 6: 0xc0c0c0, 7: 0x9ac8ff };
 const _boxN0 = scene.children.length;   // всё, что добавлено в сцену ниже, до boxRoot — части ящика (чтобы переносить его целиком)
 const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = { x: 0.3, z: -13.95 };   // у северной стены зала, между бочками и окном (x 3.5…6.5), лицом в зал   // стартовая комната → центральный зал (после покупки двери)
 let boxCol = null;
@@ -2274,14 +2321,14 @@ boxBeam.position.set(BOX.x, BOX.h + 1.1, BOX.z); boxBeam.visible = false; scene.
 const boxLight = new THREE.PointLight(0xffc040, 0, 6, 2); boxLight.position.set(BOX.x, BOX.h + 0.6, BOX.z); scene.add(boxLight);
 const token = new THREE.Group(); token.position.set(BOX.x, 2.6, BOX.z); token.visible = false; scene.add(token);
 const boxModels = [];
-for (let i = 1; i <= 6; i++) {
+for (let i = 1; i <= 7; i++) {
   const wr = new THREE.Group(), md = new THREE.Group(); buildModel(i, md);
   const c = new THREE.Box3().setFromObject(md).getCenter(new THREE.Vector3()); md.position.sub(c);
   wr.add(md); wr.scale.setScalar(1.9); wr.visible = false; token.add(wr); boxModels[i] = wr;
 }
-function showBoxModel(i) { for (let k = 1; k <= 6; k++) boxModels[k].visible = k === i; }
+function showBoxModel(i) { for (let k = 1; k <= 7; k++) boxModels[k].visible = k === i; }
 const boxS = { on: false, t: 0, tick: 0, shown: 1, final: 1, reward: true };
-function boxStart(finalWeapon, reward = true) { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = finalWeapon || (1 + (Math.random() * 6 | 0)); boxS.reward = reward; sfx('box'); }
+function boxStart(finalWeapon, reward = true) { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = finalWeapon || (1 + (Math.random() * 7 | 0)); boxS.reward = reward; sfx('box'); }
 // оружие из Mystery Box: если оно уже есть — пополняем патроны; иначе equip (пустой слот или замена удерживаемого)
 function giveWeapon(i) {
   const w = WEAPONS[i]; w.mag = w.magSize; w.reserve = w.fullRes;
@@ -2310,7 +2357,7 @@ function boxUpdate(dt) {
   boxS.t += dt; token.visible = true; token.rotation.y += dt * 3; token.position.y = 2.6 + Math.sin(boxS.t * 5) * 0.08;
   if (boxS.t < 5) {
     boxS.tick -= dt;
-    if (boxS.tick <= 0) { boxS.tick = 0.11; boxS.shown = 1 + (Math.random() * 6 | 0); showBoxModel(boxS.shown); sfx('tick'); }
+    if (boxS.tick <= 0) { boxS.tick = 0.11; boxS.shown = 1 + (Math.random() * 7 | 0); showBoxModel(boxS.shown); sfx('tick'); }
   } else {
     boxS.shown = boxS.final; showBoxModel(boxS.final);
     if (boxS.t >= 5.6) { boxS.on = false; if (boxS.reward) giveWeapon(boxS.final); pop(WEAPONS[boxS.final].name, 'head'); sfx('buy'); }
@@ -2588,8 +2635,8 @@ function requestMPBuy(kind, doorIndex) {
   MP.requestPurchase(kind, doorIndex);
   return true;
 }
-// ---------- MAX AMMO: красный бонус с зомби (шанс 8%), даёт максимум патронов всему оружию ----------
-const DROP_CHANCE = 0.08, DROP_LIFE = 30, DROP_R = 1.3, DROP_LIM = 13.6;
+// ---------- MAX AMMO: красный бонус с зомби (шанс 3%), даёт максимум патронов всему оружию ----------
+const DROP_CHANCE = 0.03, DROP_LIFE = 30, DROP_R = 1.3, DROP_LIM = 13.6;
 const drops = []; let dropSeq = 0;
 const dropTex = (() => {
   const [c, g] = cv(128, 128), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
