@@ -232,7 +232,7 @@ body.touch #knife{bottom:32px}
 <p class="hint">Отправь код друзьям. До 4 игроков. Заходи, когда все собрались.</p>
 <button class="mb big" id="bGo">▶ В ИГРУ</button>
 <button class="mb back" id="bLeave">← ВЫЙТИ ИЗ ЛОББИ</button></div>
-<div class="panel" id="pHelp"><h2>ПОМОЩЬ</h2><div id="helpPc"><p>WASD — движение · Shift — бег · Space — прыжок · ЛКМ — стрельба · R — перезарядка · V — нож (перезарядка 2 с, убивает всех перед вами) · Esc — пауза</p><p>Инвентарь: 2 слота. 1 / 2 / колёсико мыши — смена оружия. Новое оружие при полном инвентаре заменяет то, что в руках.</p><p>Зелёный автомат Speed Cola: E — купить (4000) — перезарядка вдвое быстрее. Красный Double Tap: E — купить (2500) — двойной урон.</p><p>На Verrückt зомби входят через два прохода в ограде (игрок туда пройти не может); в корпуса можно подняться по лестнице. Thompson продаётся в левом корпусе, дробовик — в правом, на дальней стене. Mystery Box стоит напротив фонтана.</p><p>На Nacht зомби ломают доски на окнах и лезут внутрь. Цельтесь в голову!</p><p>На Nacht E (удерживать) у двери — открыть проход (1000); F / E у окна — чинить доски. На Verrückt двери покупать не нужно.</p><p>E (удерживать) у стены — купить Thompson (1000) · E у сундука — Mystery Box (950)</p></div><div id="helpTouch"><p>Левый палец — стик движения (выведите палец за круг — бег) · правый палец — поворот камеры</p><p>ОГОНЬ — стрельба (держите кнопку и ведите пальцем — камера поворачивается) · ПРЫЖОК · ПЕРЕЗАР. · СМЕНА — смена оружия · ⏸ — пауза · НОЖ — удар ножом (раз в 2 с, убивает всех перед вами)</p><p>КУПИТЬ (удерживать) у Mystery Box, стен с оружием и автоматов. На Nacht также можно открывать двери и чинить окна.</p><p>Цельтесь в голову; на Verrückt зомби входят через два прохода в ограде.</p></div><button class="mb back" data-back>← НАЗАД</button></div>
+<div class="panel" id="pHelp"><h2>ПОМОЩЬ</h2><div id="helpPc"><p>WASD — движение · Shift — бег · Space — прыжок · ЛКМ — стрельба · R — перезарядка · V — нож (перезарядка 2 с, убивает всех перед вами) · Esc — пауза</p><p>Инвентарь: 2 слота. 1 / 2 / колёсико мыши — смена оружия. Новое оружие при полном инвентаре заменяет то, что в руках.</p><p>Зелёный автомат Speed Cola: E — купить (4000) — перезарядка вдвое быстрее. Красный Double Tap: E — купить (2500) — двойной урон.</p><p>На Verrückt зомби входят через два прохода в ограде (игрок туда пройти не может); в корпуса можно подняться по лестнице. Thompson продаётся в левом корпусе, дробовик — в правом, на дальней стене. Mystery Box стоит в сарае к северу от правого корпуса — дверь сарая открывается за 1000 (удерживать E).</p><p>На Nacht зомби ломают доски на окнах и лезут внутрь. Цельтесь в голову!</p><p>На Nacht E (удерживать) у двери — открыть проход (1000); F / E у окна — чинить доски. На Verrückt платные двери: вход на 2 этаж каждого корпуса и сарай с ящиком.</p><p>E (удерживать) у стены — купить Thompson (1000) · E у сундука — Mystery Box (950)</p></div><div id="helpTouch"><p>Левый палец — стик движения (выведите палец за круг — бег) · правый палец — поворот камеры</p><p>ОГОНЬ — стрельба (держите кнопку и ведите пальцем — камера поворачивается) · ПРЫЖОК · ПЕРЕЗАР. · СМЕНА — смена оружия · ⏸ — пауза · НОЖ — удар ножом (раз в 2 с, убивает всех перед вами)</p><p>КУПИТЬ (удерживать) у Mystery Box, стен с оружием и автоматов. На Nacht также можно открывать двери и чинить окна.</p><p>Цельтесь в голову; на Verrückt зомби входят через два прохода в ограде.</p></div><button class="mb back" data-back>← НАЗАД</button></div>
 </div></div>
 <div id="rotmsg">Поверните телефон горизонтально</div>
 <!-- Socket.io: сервер сам отдаёт этот файл по адресу /socket.io/socket.io.js -->
@@ -433,9 +433,11 @@ const door = (s, e, lvl) => ({ s, e, b: lvl, t: lvl + 2.9 });
 //  VERRUCKT: открытый внутренний двор за оградой с двумя входами для зомби.
 //  По сторонам двора стоят два двухэтажных корпуса, в центре — фонтан и машина.
 // =====================================================================================
-const VK_START = 'YARD', VK_BOX_ZONE = 'YARD', VK_RC = 0, VK_K = 0;
+const VK_START = 'YARD', VK_BOX_ZONE = 'SHED', VK_RC = 0, VK_K = 0;
+// Сарай с Mystery Box (к северу от правого корпуса). ДОЛЖЕН совпадать с MAPS.verruckt в server-multiplayer.js: дверь (cx, zf), ящик (cx, boxZ + 0.7).
+const VK_SHED = { cx: 13, x0: 8.8, x1: 17.2, zb: -23, zf: -17, t: 0.34, dw: 1.3, boxZ: -22.05 };
 // [x, y света, z, опора]: 'p' — уличный фонарь на столбе от пола (двор и 2-й этаж, где потолка нет), 'c' — подвес к перекрытию 2-го этажа (1-й этаж корпусов).
-const VK_LAMPS = [[-8, 3.1, 0, 'c'], [8, 3.1, 0, 'c'], [-12.5, 3.1, -5.5, 'c'], [12.5, 3.1, 5.5, 'c'], [-12.5, 3.1, 5.5, 'c'], [12.5, 3.1, -5.5, 'c'], [-12.5, 7.1, 0, 'p', 4], [12.5, 7.1, 0, 'p', 4], [3, 3.1, -7, 'p'], [-3, 3.1, 7, 'p'], [-9, 7.1, -6, 'p', 4], [9, 7.1, -6, 'p', 4], [0, 4.2, 0, 'p'], [0, 3.1, -22, 'p'], [0, 3.1, 22, 'p'], [-24, 3.1, 0, 'p'], [24, 3.1, 0, 'p'], [-24, 3.1, -22, 'p'], [24, 3.1, 22, 'p'], [-24, 3.1, 22, 'p'], [24, 3.1, -22, 'p']];
+const VK_LAMPS = [[-8, 3.1, 0, 'c'], [8, 3.1, 0, 'c'], [-12.5, 3.1, -5.5, 'c'], [12.5, 3.1, 5.5, 'c'], [-12.5, 3.1, 5.5, 'c'], [12.5, 3.1, -5.5, 'c'], [-12.5, 7.1, 0, 'p', 4], [12.5, 7.1, 0, 'p', 4], [3, 3.1, -7, 'p'], [-3, 3.1, 7, 'p'], [-9, 7.1, -6, 'p', 4], [9, 7.1, -6, 'p', 4], [0, 4.2, 0, 'p'], [0, 3.1, -22, 'p'], [0, 3.1, 22, 'p'], [-24, 3.1, 0, 'p'], [24, 3.1, 0, 'p'], [-24, 3.1, -22, 'p'], [24, 3.1, 22, 'p'], [-24, 3.1, 22, 'p'], [24, 3.1, -22, 'p'], [13, 3.1, -19.6, 'c'], [13, 3.1, -14.6, 'p']];
 const VK_DOORS = [];
 function vkZone() { return 'YARD'; }
 function vkBlock(x, z, size, y0, y1, mat) { return addBox(x - size / 2, x + size / 2, y0, y1, z - size / 2, z + size / 2, mat); }
@@ -532,7 +534,8 @@ VK_ST.ze = VK_ST.zs + VK_ST.n * VK_ST.run;   // конец проёма (= на�
 // Вход на 2-й этаж каждого корпуса — платная дверь у подножия лестницы. Порядок (левый, правый) ДОЛЖЕН совпадать с MAPS.verruckt.doors в server-multiplayer.js.
 VK_DOORS.push(
   { ax: 'x', fixed: VK_ST.zs - 0.25, s: -9 - VK_ST.hw, e: -9 + VK_ST.hw, a: 'YARD', b: 'UPPER_L', h: 3.7, label: 'открыть вход на 2 этаж', msg: 'ВХОД НА 2 ЭТАЖ ОТКРЫТ' },
-  { ax: 'x', fixed: VK_ST.zs - 0.25, s: 9 - VK_ST.hw, e: 9 + VK_ST.hw, a: 'YARD', b: 'UPPER_R', h: 3.7, label: 'открыть вход на 2 этаж', msg: 'ВХОД НА 2 ЭТАЖ ОТКРЫТ' }
+  { ax: 'x', fixed: VK_ST.zs - 0.25, s: 9 - VK_ST.hw, e: 9 + VK_ST.hw, a: 'YARD', b: 'UPPER_R', h: 3.7, label: 'открыть вход на 2 этаж', msg: 'ВХОД НА 2 ЭТАЖ ОТКРЫТ' },
+  { ax: 'x', fixed: VK_SHED.zf, s: VK_SHED.cx - VK_SHED.dw, e: VK_SHED.cx + VK_SHED.dw, a: 'YARD', b: 'SHED', h: 2.9, label: 'открыть сарай (Mystery Box)', msg: 'САРАЙ ОТКРЫТ' }   // индекс 2 — как в MAPS.verruckt.doors на сервере
 );
 function vkWalls() {
   const iron = new THREE.MeshStandardMaterial({ color: 0x34383b, roughness: 0.65, metalness: 0.7 });
@@ -590,7 +593,7 @@ function vkWalls() {
         }
         addBox(outerX - t / 2, outerX + t / 2, base + 1.0, base + 2.55, pz, z1, mats.brick); }
       // внутренняя стена: проёмы (центр, полуширина); на втором этаже только главный
-      const gaps = base === 0 ? [[-5.8, 1.2], [0, 1.6], [5.8, 1.2]] : [[0, 1.6]];
+      const gaps = base === 0 ? [[0, 1.6]] : [];   // единственный вход — центральный, с крыльцом
       let prev = z0;
       for (const [gc, gh] of gaps) {
         if (gc - gh > prev) addBox(inwardX - t / 2, inwardX + t / 2, base, top, prev, gc - gh, mats.brick);
@@ -672,6 +675,15 @@ function vkWalls() {
     for (const z of [z0 - 0.2, z1 + 0.2]) addBox(x0 - 0.2, x1 + 0.2, 7.55, 7.9, z - 0.12, z + 0.12, mats.concrete);
   };
   build(-9); build(9);
+  // Сарай: единственный вход — платная дверь VK_DOORS[2]; внутри стоит Mystery Box.
+  { const S = VK_SHED, t = S.t / 2, wm = mats.wood2, W = (x0, x1, y0, y1, z0, z1) => addBox(x0, x1, y0, y1, z0, z1, wm);
+    W(S.x0, S.x1, 0, 3.7, S.zb - t, S.zb + t);
+    W(S.x0, S.cx - S.dw, 0, 3.7, S.zf - t, S.zf + t); W(S.cx + S.dw, S.x1, 0, 3.7, S.zf - t, S.zf + t); W(S.cx - S.dw, S.cx + S.dw, 2.9, 3.7, S.zf - t, S.zf + t);
+    W(S.x0, S.x0 + S.t, 0, 3.7, S.zb - t, S.zf + t); W(S.x1 - S.t, S.x1, 0, 3.7, S.zb - t, S.zf + t);
+    addBox(S.x0 - 0.3, S.x1 + 0.3, 3.7, 4.0, S.zb - 0.3, S.zf + 0.3, mats.concrete);                            // крыша
+    addBox(S.x0 + S.t, S.x1 - S.t, -0.5, 0.03, S.zb + t, S.zf - t, mats.floor, false);                          // бетонный пол
+    for (const x of [S.x0, S.x1]) for (const z of [S.zb, S.zf]) addBox(x - 0.2, x + 0.2, 0, 3.75, z - 0.2, z + 0.2, mats.concrete, false);   // угловые столбы
+  }
 }
 function vkNodes() {   // узлы навигации (связи считаются автоматически по прямой видимости)
   const n = {
@@ -700,6 +712,7 @@ function vkNodes() {   // узлы навигации (связи считают
     n[p + 'RestIn'] = [sg * 8.4, -6.9, 0]; n[p + 'LivingIn'] = [sg * 8.6, 7.0, 0];
     n[p + 'UBed'] = [sg * 9, -7, 4]; n[p + 'USn'] = [sg * 16, -7, 4]; n[p + 'UStudy'] = [sg * 9, 7, 4];
   }
+  n.shedDoor = [VK_SHED.cx, VK_SHED.zf + 1.7, 0]; n.shedIn = [VK_SHED.cx, VK_SHED.zf - 2.0, 0]; n.shedBoxF = [VK_SHED.cx, VK_SHED.boxZ + 1.5, 0];   // сарай (связи появятся, когда дверь откроют)
   return n;
 }
 
@@ -1176,7 +1189,7 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
       wallA(12.0, -Z9, -4.9, Y, [[-8.0, -5.6]]);
       wallA(11.2, 4.9, Z9, Y, [[6.2, 8.4]]);
       wallA(16.4, -4.7, 4.7, Y, [[-4.0, -1.0]]);
-      rf(A0, 12.0, -Z9, -4.9, Y, FL.carp); rf(12.0, A1, -Z9, -4.9, Y, FL.wood2); rf(A0, 16.4, -4.7, 4.7, Y, FL.wood);
+      rf(A0, 12.0, -Z9, -4.9, Y, FL.carp); rf(12.0, A1, -Z9, -4.9, Y, FL.wood2); rf(A0, 8.0, -4.7, 4.7, Y, FL.wood); rf(10.0, 16.4, -4.7, 4.7, Y, FL.wood); rf(8.0, 10.0, -4.7, -2.3, Y, FL.wood); rf(8.0, 10.0, 2.1, 4.7, Y, FL.wood);   // вокруг проёма лестницы
       rf(A0, 11.2, 4.9, Z9, Y, FL.carp); rf(11.2, A1, 4.9, Z9, Y, FL.wood2);
 
       // --- Спальня ---
@@ -1215,6 +1228,18 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
       rack(17.0, 19.5, -4.65, -4.1, Y); rack(17.0, 19.5, 4.15, 4.7, Y);                                               // стеллажи с припасами
       fb(18.9, 19.8, 1.2, 2.1, Y, Y + 0.9, F.crate); fb(18.9, 19.7, 2.2, 2.9, Y, Y + 0.7, F.olive);
       cyl(18.6, 3.4, 0.3, Y, 0.9, PM(0x3a2920, 0.55, 0.5));
+    }
+    { // сарай с Mystery Box: ящики, бочки, ковёр перед ящиком, вывеска над дверью
+      const S = VK_SHED, cr = (x0, x1, z0, z1, y0, y1, m) => { const b = addBox(x0, x1, y0, y1, z0, z1, m, true); b.userData.col.prop = true; };
+      cr(9.25, 10.25, -22.65, -21.65, 0, 0.9, F.crate); cr(9.35, 10.15, -22.55, -21.75, 0.9, 1.6, F.olive); cr(9.25, 10.15, -21.5, -20.7, 0, 0.8, F.olive);
+      cr(15.85, 16.8, -22.65, -21.7, 0, 0.9, F.crate); cr(15.9, 16.75, -21.6, -20.8, 0, 0.7, F.olive);
+      barrel(16.4, -19.2, 0, 0x37342d); barrel(9.65, -18.3, 0, 0x3a2920);
+      flatPlane(3.4, 1.4, S.cx, 0.05, S.boxZ + 1.6, 0, F.rug1);
+      const [c, g] = cv(512, 128);
+      g.fillStyle = '#120a06'; g.fillRect(0, 0, 512, 128); g.strokeStyle = '#c9a227'; g.lineWidth = 8; g.strokeRect(4, 4, 504, 120);
+      g.fillStyle = '#e6b93a'; g.font = 'bold 62px Georgia'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('MYSTERY BOX', 256, 68);
+      const sgn = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), new THREE.MeshBasicMaterial({ map: mkT(c) }));
+      sgn.position.set(S.cx, 3.3, S.zf + S.t / 2 + 0.02); scene.add(sgn);
     }
   })();
   // Разбитые плиты и дорожки ведут от обоих проходов к фонтану.
@@ -2930,10 +2955,10 @@ function makeChalkSG() {
 
 
 // ---------- MYSTERY BOX (950) ----------
-const BOX_PRICE = 950, BOX = MAP_ID === 'nacht' ? { x: -6, z: 5, w: 2.8, h: 1.5, d: 1.4 } : { x: 0, z: -10, w: 2.8, h: 1.5, d: 1.4 };
+const BOX_PRICE = 950, BOX = MAP_ID === 'nacht' ? { x: -6, z: 5, w: 2.8, h: 1.5, d: 1.4 } : { x: VK_SHED.cx, z: VK_SHED.boxZ, w: 2.8, h: 1.5, d: 1.4 };
 const BOX_COL = { 8: 0xffd24a, 1: 0xffb040, 2: 0xff4030, 3: 0x40c0ff, 4: 0xe8e060, 5: 0x40ff60, 6: 0xc0c0c0, 7: 0x9ac8ff };
 const _boxN0 = scene.children.length;   // всё, что добавлено в сцену ниже, до boxRoot — части ящика (чтобы переносить его целиком)
-const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = MAP_ID === 'nacht' ? { x: 0.3, z: -13.95 } : { x: 0, z: -10 };
+const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = MAP_ID === 'nacht' ? { x: 0.3, z: -13.95 } : { x: VK_SHED.cx, z: VK_SHED.boxZ };
 let boxCol = null;
 const mChest = matFrom('chest', 0xffffff, 2, { side: THREE.DoubleSide });
 const mIron = new THREE.MeshStandardMaterial({ color: 0x35363a, roughness: 0.5, metalness: 0.5 });
@@ -3020,7 +3045,7 @@ function placeBox(toHall) {
 }
 function relocateBox(toHall) { if (toHall === boxHall) return; boxHall = toHall; boxMovePending = true; }   // сам перенос — в boxUpdate, когда ящик не крутится
 function boxUpdate(dt) {
-  if (boxMovePending && !boxS.on) { boxMovePending = false; placeBox(boxHall); rebuildNav(); if (boxHall) pop(MAP_ID === 'nacht' ? 'MYSTERY BOX — В ЦЕНТРАЛЬНОМ ЗАЛЕ' : 'MYSTERY BOX — В ЮЖНОЙ ПАЛАТЕ', 'head'); }
+  if (boxMovePending && !boxS.on) { boxMovePending = false; placeBox(boxHall); rebuildNav(); if (boxHall) pop(MAP_ID === 'nacht' ? 'MYSTERY BOX — В ЦЕНТРАЛЬНОМ ЗАЛЕ' : 'MYSTERY BOX — В САРАЕ', 'head'); }
   lid.rotation.x += ((boxS.on ? -1.1 : 0) - lid.rotation.x) * Math.min(1, dt * 7);
   boxGlow.visible = boxBeam.visible = lid.rotation.x < -0.2; boxLight.intensity += ((boxS.on ? 3.5 : 0) - boxLight.intensity) * Math.min(1, dt * 8);
   if (!boxS.on) { token.visible = false; return; }
