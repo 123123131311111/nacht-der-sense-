@@ -434,7 +434,7 @@ const door = (s, e, lvl) => ({ s, e, b: lvl, t: lvl + 2.9 });
 //  По сторонам двора стоят два двухэтажных корпуса, в центре — фонтан и машина.
 // =====================================================================================
 const VK_START = 'YARD', VK_BOX_ZONE = 'YARD', VK_RC = 0, VK_K = 0;
-const VK_LAMPS = [[-8, 3.1, 0], [8, 3.1, 0], [0, 3.1, -8], [0, 3.1, 8], [-9, 7.1, 0], [9, 7.1, 0], [0, 4.2, 0], [0, 3.1, -22], [0, 3.1, 22], [-22, 3.1, 0], [22, 3.1, 0], [-22, 3.1, -22], [22, 3.1, 22], [-22, 3.1, 22], [22, 3.1, -22]];
+const VK_LAMPS = [[-8, 3.1, 0], [8, 3.1, 0], [-12.5, 3.1, -5.5], [12.5, 3.1, 5.5], [-12.5, 3.1, 5.5], [12.5, 3.1, -5.5], [-12.5, 7.1, 0], [12.5, 7.1, 0], [0, 3.1, -8], [0, 3.1, 8], [-9, 7.1, 0], [9, 7.1, 0], [0, 4.2, 0], [0, 3.1, -22], [0, 3.1, 22], [-22, 3.1, 0], [22, 3.1, 0], [-22, 3.1, -22], [22, 3.1, 22], [-22, 3.1, 22], [22, 3.1, -22]];
 const VK_DOORS = [];
 function vkZone() { return 'YARD'; }
 function vkBlock(x, z, size, y0, y1, mat) { return addBox(x - size / 2, x + size / 2, y0, y1, z - size / 2, z + size / 2, mat); }
@@ -519,36 +519,49 @@ function vkWalls() {
     for (const x of [-2.45, 2.45]) addBox(x - 0.22, x + 0.22, 0, 3.9, z - 0.22, z + 0.22, woodPost, false);
     addBox(-2.45, 2.45, 3.6, 3.9, z - 0.1, z + 0.1, woodPost, false);   // перекладина над воротами
   }
-  // Два корпуса 6 × 12 м, по два этажа; входы обращены к фонтану.
+  // Два больших корпуса 9 × 18 м, по два этажа. Внутренняя стена осталась на |x|=6 (у фонтана), наружная отодвинута до |x|=15.
+  // Первый этаж: главный дверной проём 3.6 м + два боковых входа 2.4 м (удобно входить и убегать). Окна в торцах — по два на этаж.
   const build = cx => {
-    const x0 = cx - 3, x1 = cx + 3, z0 = -6, z1 = 6, inwardX = cx < 0 ? x1 : x0, t = 0.34;
+    const sgn = cx < 0 ? -1 : 1;
+    const x0 = sgn < 0 ? -15 : 6, x1 = sgn < 0 ? -6 : 15, z0 = -9, z1 = 9, wc = (x0 + x1) / 2;
+    const inwardX = sgn < 0 ? x1 : x0, outerX = sgn < 0 ? x0 : x1, t = 0.34;
     for (const base of [0, 4]) {
       const top = base + 3.65;
-      // Наружная продольная стена и внутренняя стена с дверным проёмом.
-      const outerX = cx < 0 ? x0 : x1;
       addBox(outerX - t / 2, outerX + t / 2, base, top, z0, z1, mats.brick);
-      const doorHalf = 1.35;
-      addBox(inwardX - t / 2, inwardX + t / 2, base, top, z0, -doorHalf, mats.brick);
-      addBox(inwardX - t / 2, inwardX + t / 2, base, top, doorHalf, z1, mats.brick);
-      addBox(inwardX - t / 2, inwardX + t / 2, base + 2.85, top, -doorHalf, doorHalf, mats.brick);
-      // Торцевые стены; высокие проёмы окон оставлены у земли и на втором этаже.
+      // внутренняя стена: проёмы (центр, полуширина); на втором этаже только главный
+      const gaps = base === 0 ? [[-5.8, 1.2], [0, 1.6], [5.8, 1.2]] : [[0, 1.6]];
+      let prev = z0;
+      for (const [gc, gh] of gaps) {
+        if (gc - gh > prev) addBox(inwardX - t / 2, inwardX + t / 2, base, top, prev, gc - gh, mats.brick);
+        addBox(inwardX - t / 2, inwardX + t / 2, base + 2.85, top, gc - gh, gc + gh, mats.brick);
+        prev = gc + gh;
+      }
+      addBox(inwardX - t / 2, inwardX + t / 2, base, top, prev, z1, mats.brick);
+      // торцевые стены: два окна на этаж
+      const glass = new THREE.MeshStandardMaterial({ color: 0x292e30, roughness: 0.25, metalness: 0.45, emissive: 0x101516 });
       for (const z of [z0, z1]) {
         addBox(x0, x1, base, base + 1.0, z - t / 2, z + t / 2, mats.brick);
         addBox(x0, x1, base + 2.55, top, z - t / 2, z + t / 2, mats.brick);
-        addBox(x0, cx - 0.85, base + 1.0, base + 2.55, z - t / 2, z + t / 2, mats.brick);
-        addBox(cx + 0.85, x1, base + 1.0, base + 2.55, z - t / 2, z + t / 2, mats.brick);
-        const glass = new THREE.MeshStandardMaterial({ color: 0x292e30, roughness: 0.25, metalness: 0.45, emissive: 0x101516 });
-        addBox(cx - 0.8, cx + 0.8, base + 1.08, base + 2.47, z - 0.035, z + 0.035, glass);
+        const wins = [wc - 2.3, wc + 2.3];
+        let px = x0;
+        for (const w of wins) {
+          if (w - 0.9 > px) addBox(px, w - 0.9, base + 1.0, base + 2.55, z - t / 2, z + t / 2, mats.brick);
+          addBox(w - 0.8, w + 0.8, base + 1.08, base + 2.47, z - 0.035, z + 0.035, glass);
+          px = w + 0.9;
+        }
+        addBox(px, x1, base + 1.0, base + 2.55, z - t / 2, z + t / 2, mats.brick);
       }
-      // Пилястры и пояс между этажами подчёркивают высоту зданий.
+      // пилястры и пояс между этажами
       for (const x of [x0, x1]) for (const z of [z0, z1]) addBox(x - 0.2, x + 0.2, base, top + 0.12, z - 0.2, z + 0.2, mats.concrete, false);
       addBox(x0 - 0.18, x1 + 0.18, base + 3.55, base + 3.72, z0 - 0.18, z1 + 0.18, mats.concrete, false);
-      // Рамы входа с фасада.
-      addBox(inwardX - 0.1, inwardX + 0.1, base, base + 3.0, -1.48, -1.28, mats.concrete, false);
-      addBox(inwardX - 0.1, inwardX + 0.1, base, base + 3.0, 1.28, 1.48, mats.concrete, false);
-      addBox(inwardX - 0.16, inwardX + 0.16, base + 2.95, base + 3.12, -1.48, 1.48, mats.concrete, false);
+      // рамы входов с фасада
+      for (const [gc, gh] of gaps) {
+        addBox(inwardX - 0.1, inwardX + 0.1, base, base + 3.0, gc - gh - 0.2, gc - gh, mats.concrete, false);
+        addBox(inwardX - 0.1, inwardX + 0.1, base, base + 3.0, gc + gh, gc + gh + 0.2, mats.concrete, false);
+        addBox(inwardX - 0.16, inwardX + 0.16, base + 2.95, base + 3.12, gc - gh - 0.2, gc + gh + 0.2, mats.concrete, false);
+      }
     }
-    // Второй этаж разделён вокруг круглого проёма лестницы — обе лестницы остаются проходимыми.
+    // Перекрытие второго этажа вокруг проёма лестницы.
     const sx = cx, hole = 1.65;
     for (const [za, zb] of [[z0, -hole], [hole, z1]]) {
       const c = addBox(x0, x1, 3.7, 4, za, zb, mats.concrete);
@@ -558,7 +571,7 @@ function vkWalls() {
       const c = addBox(xa, xb, 3.7, 4, -hole, hole, mats.concrete);
       floors.push(c.userData.col);
     }
-    // Невысокий парапет вместо крыши сохраняет читаемость обоих этажей сверху.
+    // Невысокий парапет вместо крыши.
     addBox(x0 - 0.2, x0 + 0.12, 7.55, 7.9, z0 - 0.2, z1 + 0.2, mats.concrete);
     addBox(x1 - 0.12, x1 + 0.2, 7.55, 7.9, z0 - 0.2, z1 + 0.2, mats.concrete);
     for (const z of [z0 - 0.2, z1 + 0.2]) addBox(x0 - 0.2, x1 + 0.2, 7.55, 7.9, z - 0.12, z + 0.12, mats.concrete);
@@ -581,8 +594,11 @@ function vkNodes() {   // узлы навигации (связи считают
     southWest: [-4.2, 4.3, 0], southEast: [4.2, 4.3, 0], southYard: [0, 27.8, 0], southGate: [0, 30, 0],
     leftDoor: [-5.5, 0, 0], leftRoom: [-7, -3.8, 0], leftRoom2: [-7, 3.8, 0],
     rightDoor: [5.5, 0, 0], rightRoom: [7, -3.8, 0], rightRoom2: [7, 3.8, 0],
+    leftDoorN: [-5.5, -5.8, 0], leftDoorS: [-5.5, 5.8, 0], rightDoorN: [5.5, -5.8, 0], rightDoorS: [5.5, 5.8, 0],
+    leftFar: [-12.5, -7.2, 0], leftFar2: [-12.5, 7.2, 0], leftFar3: [-12.5, 0.4, 0], rightFar: [12.5, -7.2, 0], rightFar2: [12.5, 7.2, 0], rightFar3: [12.5, 0.4, 0],
     leftUpper: [-7, -3.8, 4], leftUpper2: [-7, 3.8, 4],
-    rightUpper: [7, -3.8, 4], rightUpper2: [7, 3.8, 4]
+    rightUpper: [7, -3.8, 4], rightUpper2: [7, 3.8, 4],
+    leftUpperFar: [-12.5, -2.5, 4], leftUpperFar2: [-12.5, 7, 4], rightUpperFar: [12.5, -2.5, 4], rightUpperFar2: [12.5, 7, 4]
   };
   const addStair = (pre, stair) => {
     const point = deg => { const a = stair.a0 + deg * Math.PI / 180, x = stair.cx + stair.rw * Math.cos(a), z = stair.cz + stair.rw * Math.sin(a); return [x, z, spStepTopAt(x, z, stair)]; };
@@ -855,18 +871,24 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
   const carCollider = addBox(-1.55, 1.55, 0, 1.95, 3.15, 7.35, new THREE.MeshBasicMaterial({ visible: false }));
   if (carCollider.userData.col) carCollider.userData.col.prop = true;
 
-  // Парапеты, двери и немного мебели на обоих этажах, не загромождая проходы к лестницам.
+  // Мебель в больших корпусах: у наружных стен, проходы к дверям, лестнице и перкам свободны.
   for (const cx of [-9, 9]) {
-    const tableX = cx + (cx < 0 ? -1.5 : 1.5);
-    table(tableX, -4.25, 1.45, 0.85, 0, 0.82, M2.steel);
-    chair(tableX, -3.35, 0, 1, 0);
-    crate(cx + (cx < 0 ? -1.8 : 1.0), 4.3, 0.8, 0, mats.crate);
-    cot(cx - 1.6, -4.8, 'x', 4, M2.cloth);
-    table(cx + 1.35, 4.2, 1.3, 0.8, 4, 0.82, M2.steel);
-    crate(cx - 1.9, 4.1, 0.8, 4, M2.olive);
-    for (const z of [-5.4, 5.4]) {
+    const sg = cx < 0 ? -1 : 1, X = a => sg * a, cr = (a, z, sz, y, m) => crate(X(a) - sz / 2, z - sz / 2, sz, y, m);
+    // --- 1 этаж: мастерская/склад ---
+    table(X(12.4), -6.3, 2.4, 1.0, 0, 0.82, M2.steel); chair(X(12.4), -7.25, 0, -1, 0); chair(X(12.4), -5.35, 0, 1, 0);
+    cr(14.3, -8.2, 1.0, 0, mats.crate); cr(14.3, -7.0, 0.8, 0, M2.olive); cr(13.1, -8.3, 0.9, 0, mats.crate);
+    shelf(X(13.2) - 0.6, 8.2, 1.2, 0.55);
+    cr(14.3, 6.6, 1.0, 0, mats.crate); cr(14.3, 7.6, 0.8, 0, M2.olive);
+    cot(sg > 0 ? 12.8 : -14.8, 3.1, 'x', 0, M2.cloth); cot(sg > 0 ? 12.8 : -14.8, 4.3, 'x', 0, M2.blue);
+    for (let i = 0; i < 3; i++) locker(sg > 0 ? 14.2 : -14.85, -3.6 + i * 0.9, 0.65, 0.85, 0);
+    // --- 2 этаж: казарма ---
+    cot(sg > 0 ? 12.8 : -14.8, -7.7, 'x', 4, M2.cloth); cot(sg > 0 ? 12.8 : -14.8, -6.5, 'x', 4, M2.blue); cot(sg > 0 ? 12.8 : -14.8, -5.3, 'x', 4, M2.cloth);
+    table(X(12.3), 4.6, 2.0, 0.9, 4, 0.82, M2.steel); chair(X(12.3), 3.7, 0, -1, 4); chair(X(12.3), 5.5, 0, 1, 4);
+    for (let i = 0; i < 3; i++) locker(sg > 0 ? 14.2 : -14.85, -2.8 + i * 0.9, 0.65, 0.85, 4);
+    cr(14.3, 8.0, 1.0, 4, M2.olive); cr(14.3, 6.9, 0.8, 4, mats.crate); cr(8.0, -8.2, 0.9, 4, mats.crate);
+    for (const z of [-6, 6]) {
       const panel = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), new THREE.MeshBasicMaterial({ color: 0x57472f }));
-      panel.position.set(cx < 0 ? cx - 2.82 : cx + 2.82, 2.15, z); panel.rotation.y = cx < 0 ? Math.PI / 2 : -Math.PI / 2; scene.add(panel);
+      panel.position.set(X(15.19), 2.15, z); panel.rotation.y = cx < 0 ? Math.PI / 2 : -Math.PI / 2; scene.add(panel);
     }
   }
   // Разбитые плиты и дорожки ведут от обоих проходов к фонтану.
@@ -875,7 +897,7 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
   flatPlane(2.8, 17, 0, 0.015, -23.5, 0, PM(0x42413d, 1, 0));
   flatPlane(2.8, 17, 0, 0.016, 23.5, 0, PM(0x42413d, 1, 0));
   trash(-4.5, 4.5, -30, -27, 0, 10); trash(-4.5, 4.5, 27, 30, 0, 10); trash(-20, 20, -20, 20, 0, 14);
-  barrel(-13.4, -9.5, 0, 0x37342d); barrel(13.3, 9.2, 0, 0x3a2920); barrel(-28, -20, 0, 0x37342d); barrel(28, 22, 0, 0x3a2920); barrel(-26, 25, 0, 0x3a2920); barrel(25, -26, 0, 0x37342d);
+  barrel(-13.4, -11.5, 0, 0x37342d); barrel(13.3, 11.5, 0, 0x3a2920); barrel(-28, -20, 0, 0x37342d); barrel(28, 22, 0, 0x3a2920); barrel(-26, 25, 0, 0x3a2920); barrel(25, -26, 0, 0x37342d);
   crate(-24, 8, 1.0, 0, mats.crate); crate(24, -8, 1.0, 0, mats.crate); crate(-10, -24, 0.8, 0, mats.crate); crate(12, 24, 0.9, 0, mats.crate);
 }
 
