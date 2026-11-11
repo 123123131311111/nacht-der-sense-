@@ -78,6 +78,7 @@
     socket.on('playerLeft', removeAvatar);
     socket.on('gameState', receiveGameState);
     socket.on('zombieHit', applyNetworkHit);
+    socket.on('dropPicked', d => { if (d && typeof removeDropById === 'function') { removeDropById(d.id); collectMaxAmmo(); } });
     socket.on('playerHurt', hit => {
       if (!hit || hit.playerId !== selfId || !Number.isFinite(hit.damage)) return;
       if (typeof hurtPlayer === 'function') hurtPlayer(hit.damage);
@@ -154,7 +155,7 @@
         round = state.round || round;
         roundActive = !!state.roundActive;
         toSpawn = state.toSpawn || 0;
-        roundEl.textContent = round ? 'ROUND ' + round : '';
+        roundEl.textContent = round ? String(round) : '';
         if (typeof state.nextRoundIn === 'number') nextRoundAt = gtime + state.nextRoundIn;
         if (round > previousRound && entered && !menuOn) {
           annEl.textContent = 'ROUND ' + round;
@@ -280,6 +281,7 @@
         z.eyes.forEach(e => e.visible = false);
         startRagdoll(z, !!hit.head, 0);
         if (typeof kills === 'number') kills++;
+        if (hit.drop && typeof spawnDrop === 'function') spawnDrop(hit.drop);   // красный бонус MAX AMMO — решение принял сервер
       }
       const dir = new THREE.Vector3(0, 0, 1);
       bloodHit(new THREE.Vector3(z.g.position.x, z.g.position.y + 1.1, z.g.position.z), dir, !!hit.head, false);
@@ -517,6 +519,7 @@
     requestPurchase,
     requestHit,
     requestPlayerHit,
+    requestDropPickup(id) { if (socket && socket.connected && roomCode) socket.emit('pickupDrop', { id }); },
     requestWindowRepair(index) {
       if (socket && socket.connected && roomCode) socket.emit('windowBoardAction', { action: 'repair', index });
     },

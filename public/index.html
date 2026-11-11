@@ -43,7 +43,7 @@ canvas{display:block}
 #inter{position:fixed;left:0;right:0;top:14%;text-align:center;z-index:2;pointer-events:none;font:700 22px "Courier New",monospace;color:#ccc;letter-spacing:.2em;text-shadow:2px 2px 0 #000}
 #perkmsg{position:fixed;left:0;right:0;top:40%;text-align:center;z-index:2;pointer-events:none;font:700 clamp(30px,7vw,64px) Georgia,serif;letter-spacing:.12em;color:#4cff6a;text-shadow:0 0 24px #0a6,4px 4px 0 #000;opacity:0}
 #perkmsg.go{animation:ann 2.5s ease-out}
-#perks{position:fixed;right:24px;left:auto;top:20px;z-index:2;pointer-events:none;display:flex;gap:8px}
+#perks{position:fixed;left:24px;right:auto;bottom:140px;top:auto;z-index:2;pointer-events:none;display:flex;gap:8px}
 #perks .pk{display:block;width:46px;height:46px;box-sizing:border-box;border-radius:7px;border:2px solid;box-shadow:0 0 10px currentColor;animation:pkin .4s ease-out}
 #perks .pk svg{display:block;margin:2px}
 @keyframes pkin{0%{transform:scale(2.4);opacity:0}100%{transform:scale(1);opacity:1}}
@@ -97,11 +97,13 @@ body.touch{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-t
 #rotmsg{display:none;position:fixed;inset:0;z-index:9;background:#000;color:#ddd;align-items:center;justify-content:center;text-align:center;font:700 22px Georgia,serif;letter-spacing:.1em;padding:30px}
 @media (orientation:portrait){body.touch.playing #rotmsg{display:flex}}
 body.touch #ammo{bottom:auto;top:calc(env(safe-area-inset-top) + 58px);right:calc(env(safe-area-inset-right) + 14px);font-size:20px}
-body.touch #round{left:calc(env(safe-area-inset-left) + 16px);bottom:auto;top:calc(env(safe-area-inset-top) + 8px);font-size:34px}
-body.touch #points{left:calc(env(safe-area-inset-left) + 16px);bottom:auto;top:calc(env(safe-area-inset-top) + 50px);font-size:26px}
+body.touch #round{left:calc(env(safe-area-inset-left) + 16px);bottom:auto;top:calc(env(safe-area-inset-top) + 76px);font-size:34px}
+body.touch #points{left:calc(env(safe-area-inset-left) + 16px);bottom:auto;top:calc(env(safe-area-inset-top) + 42px);font-size:26px}
 body.touch #points .pl{font-size:13px}
-body.touch #pops{left:calc(env(safe-area-inset-left) + 16px);bottom:auto;top:calc(env(safe-area-inset-top) + 92px)}
-body.touch #perks{left:auto;right:calc(env(safe-area-inset-right) + 64px);top:calc(env(safe-area-inset-top) + 14px)}
+body.touch #pops{left:calc(env(safe-area-inset-left) + 16px);bottom:auto;top:calc(env(safe-area-inset-top) + 116px)}
+body.touch #perks{left:calc(env(safe-area-inset-left) + 16px);right:auto;bottom:auto;top:calc(env(safe-area-inset-top) + 6px);gap:5px}
+body.touch #perks .pk{width:32px;height:32px;border-radius:5px;border-width:1.5px}
+body.touch #perks .pk svg{width:26px;height:26px;margin:1px}
 body.touch #hpbar{bottom:12px}
 body.touch #prompt{bottom:26%;font-size:16px}
 
@@ -1799,8 +1801,9 @@ function loadShotBufs() {
 // записанные эффекты: мистический ящик, начало раунда, падение гильзы
 const SFX_FILES = { box: 'sounds/mystery-box-spin.mp3', round: 'sounds/round-start.mp3', shell: 'sounds/shell-drop.mp3',
   bh1: 'sounds/board-hit-1.wav', bh2: 'sounds/board-hit-2.wav', bh3: 'sounds/board-hit-3.wav', bh4: 'sounds/board-hit-4.wav', bh5: 'sounds/board-hit-5.wav',   // заколачивание досок
-  zg1: 'sounds/zombie-growl-1.mp3', zg2: 'sounds/zombie-growl-2.mp3', zfar: 'sounds/zombie-far-scream.mp3' };   // рык рядом ×2, далёкий крик
-const SFX_GAIN = { box: 0.8, round: 0.8, shell: 0.55, bh1: 0.9, bh2: 0.9, bh3: 0.9, bh4: 0.9, bh5: 0.9 }, SFX_SINGLE = { box: 1, round: 1 };   // box/round — одновременно звучит только один экземпляр
+  zg1: 'sounds/zombie-growl-1.mp3', zg2: 'sounds/zombie-growl-2.mp3', zfar: 'sounds/zombie-far-scream.mp3',
+  maxammo: 'sounds/max-ammo.mp3', popen: 'sounds/perk-open.mp3', pdrink: 'sounds/perk-drink.mp3', pthrow: 'sounds/perk-throw.mp3' };   // покупка перка: открыть бутылку, глотки, бросок об пол   // рык рядом ×2, далёкий крик
+const SFX_GAIN = { box: 0.8, round: 0.8, shell: 0.55, maxammo: 0.85, popen: 1, pdrink: 1, pthrow: 0.75, bh1: 0.9, bh2: 0.9, bh3: 0.9, bh4: 0.9, bh5: 0.9 }, SFX_SINGLE = { box: 1, round: 1, maxammo: 1, popen: 1, pdrink: 1, pthrow: 1 };   // box/round — одновременно звучит только один экземпляр
 const sfxBufs = {}, sfxLive = {};
 
 // позиционный звук из буфера: громкость по расстоянию, панорама по направлению относительно камеры, опциональный ФНЧ (для далёких звуков)
@@ -1926,6 +1929,8 @@ function sfx(k) {
   else if (k === 'thud') { tone(85, 0.24, 'sine', 0.4, 36); noise(0.14, 0.35, 'lowpass', 1100, 180); tone(170, 0.09, 'square', 0.08, 70); }
   else if (k === 'nail') { noise(0.03, 0.22, 'highpass', 4500, 4500, 0, 2); tone(2400, 0.07, 'square', 0.045, 1700); tone(220, 0.05, 'square', 0.09, 100); }
   else if (k === 'swish') noise(0.28, 0.14, 'bandpass', 350, 1800, 0, 1.5);
+  else if (k === 'maxammo') { if (!playSfxFile('maxammo')) { buySnd(); tone(660, 0.5, 'triangle', 0.1, 990); } }
+  else if (k === 'popen' || k === 'pdrink' || k === 'pthrow') { playSfxFile(k); }
   else if (k === 'pop') { noise(0.05, 0.3, 'highpass', 3500, 3500, 0, 2); tone(900, 0.06, 'square', 0.06, 400); noise(0.25, 0.1, 'highpass', 5000, 7000, 0.05, 1); }   // откупорить бутылку, шипение
   else if (k === 'gulp') { tone(190, 0.1, 'sine', 0.18, 85); noise(0.08, 0.12, 'lowpass', 500, 200); }
   else if (k === 'burp') { tone(95, 0.32, 'sawtooth', 0.16, 48); tone(70, 0.3, 'square', 0.06, 40); noise(0.28, 0.14, 'lowpass', 420, 120); }
@@ -2218,7 +2223,7 @@ function makeChalkSG() {
 const BOX_PRICE = 950, BOX = { x: -6, z: 5, w: 2.8, h: 1.5, d: 1.4 };
 const BOX_COL = { 1: 0xffb040, 2: 0xff4030, 3: 0x40c0ff, 4: 0xe8e060, 5: 0x40ff60, 6: 0xc0c0c0 };
 const _boxN0 = scene.children.length;   // всё, что добавлено в сцену ниже, до boxRoot — части ящика (чтобы переносить его целиком)
-const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = { x: 3, z: -7 };   // стартовая комната → центральный зал (после покупки двери)
+const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = { x: 0.3, z: -13.95 };   // у северной стены зала, между бочками и окном (x 3.5…6.5), лицом в зал   // стартовая комната → центральный зал (после покупки двери)
 let boxCol = null;
 const mChest = matFrom('chest', 0xffffff, 2, { side: THREE.DoubleSide });
 const mIron = new THREE.MeshStandardMaterial({ color: 0x35363a, roughness: 0.5, metalness: 0.5 });
@@ -2286,12 +2291,15 @@ function giveWeapon(i) {
 const boxRoot = new THREE.Group(); scene.add(boxRoot);
 scene.children.slice(_boxN0, scene.children.length - 1).forEach(o => boxRoot.add(o));   // весь ящик (корпус, крышка, свет, жетон) — в одну группу
 let boxHall = false, boxMovePending = false;
+boxRoot.visible = false; { const ci = colliders.indexOf(boxCol); if (ci >= 0) colliders.splice(ci, 1); }   // старт: ящика нет
 function placeBox(toHall) {
   const t = toHall ? BOX_HALL : BOX_START, dx = t.x - BOX_START.x, dz = t.z - BOX_START.z;
   boxRoot.position.set(dx, 0, dz); boxRoot.updateMatrixWorld(true);
   boxCol.x0 = BOX_START.x - BOX.w / 2 + dx; boxCol.x1 = BOX_START.x + BOX.w / 2 + dx; boxCol.z0 = BOX_START.z - BOX.d / 2 + dz; boxCol.z1 = BOX_START.z + BOX.d / 2 + dz;
   BOX.x = t.x; BOX.z = t.z;
-  if (PF < 1.5 && pos.x > boxCol.x0 - 0.4 && pos.x < boxCol.x1 + 0.4 && pos.z > boxCol.z0 - 0.4 && pos.z < boxCol.z1 + 0.4) pos.z = boxCol.z1 + 0.6;   // если игрок стоит на новом месте ящика — выталкиваем
+  boxRoot.visible = !!toHall;   // в стартовой комнате ящика нет вообще — ни модели, ни коллайдера
+  const ci = colliders.indexOf(boxCol); if (toHall && ci < 0) colliders.push(boxCol); else if (!toHall && ci >= 0) colliders.splice(ci, 1);
+  if (toHall && PF < 1.5 && pos.x > boxCol.x0 - 0.4 && pos.x < boxCol.x1 + 0.4 && pos.z > boxCol.z0 - 0.4 && pos.z < boxCol.z1 + 0.4) pos.z = boxCol.z1 + 0.6;   // если игрок стоит на новом месте ящика — выталкиваем
 }
 function relocateBox(toHall) { if (toHall === boxHall) return; boxHall = toHall; boxMovePending = true; }   // сам перенос — в boxUpdate, когда ящик не крутится
 function boxUpdate(dt) {
@@ -2384,14 +2392,14 @@ const PERK_ICONS = {
   dtap: '<span class="pk" title="Double Tap — двойной урон" style="background:#4a0f08;border-color:#ff8a30;color:#d9501a"><svg viewBox="0 0 46 46" width="38" height="38"><g stroke="#5a3200" stroke-width="1" stroke-linejoin="round"><path d="M7 40V19Q7 11 14 5q7 6 7 14v21z" fill="#ffd24a"/><rect x="7" y="27" width="14" height="13" fill="#c98a1a"/><path d="M25 40V19Q25 11 32 5q7 6 7 14v21z" fill="#ffd24a"/><rect x="25" y="27" width="14" height="13" fill="#c98a1a"/></g><path d="M9 27h10M27 27h10" stroke="#5a3200" stroke-width="1.5"/></svg></span>'
 };
 function perkMsg(k = 'cola') { $('perks').insertAdjacentHTML('beforeend', PERK_ICONS[k]); sfx('buy'); sfx('perk'); }
-// ---------- анимация питья перка (от первого лица): подъём 0.4 → глоток 1.2 → опускание 0.6 → отрыжка 0.4 ----------
+// ---------- анимация питья перка (от первого лица): подъём+открытие 0.75 → глотки 1.75 → бросок об пол 0.6 → пауза 0.3 ----------
 // Блокирует стрельбу, перезарядку, нож и смену оружия (PD.on). Колбэки: onDrinkStart / onPerkApplied (первый глоток) / onDrinkEnd.
-function createPerkDrink({ mesh, onDrinkStart = () => {}, onPerkApplied = () => {}, onDrinkEnd = () => {}, t = { raise: 0.4, drink: 1.2, lower: 0.6, burp: 0.4 } }) {
+function createPerkDrink({ mesh, onDrinkStart = () => {}, onPerkApplied = () => {}, onDrinkEnd = () => {}, t = { raise: 0.75, drink: 1.75, lower: 0.6, burp: 0.3 } }) {
   const clamp01 = x => Math.min(1, Math.max(0, x)), lerp = (a, b, k) => a + (b - a) * k;
   const easeOut = k => 1 - Math.pow(1 - k, 3), easeIn = k => k * k * k, easeIO = k => k * k * (3 - 2 * k);
   const pose = { hidden: new THREE.Vector3(0.3, -0.5, -0.4), hold: new THREE.Vector3(0.1, -0.1, -0.4), drink: new THREE.Vector3(0.02, -0.1, -0.22) };   // в координатах weaponCam
   const gunDrop = { x: 0.1, y: -0.55, z: 0.05 }, T = t.raise + t.drink + t.lower + t.burp;
-  let busy = false, e = 0, applied = false, sip = 0;
+  let busy = false, e = 0, applied = false, sip = 0, sndD = false, sndT = false;
   mesh.visible = false;
   function reset() { busy = false; mesh.visible = false; PD.on = false; PD.gx = PD.gy = PD.gz = PD.grx = PD.camX = PD.camZ = 0; }
   function finish() { reset(); onDrinkEnd(); }
@@ -2399,7 +2407,7 @@ function createPerkDrink({ mesh, onDrinkStart = () => {}, onPerkApplied = () => 
     get busy() { return busy; },
     play() {
       if (busy) return false;
-      busy = true; applied = false; e = 0; sip = 0; PD.on = true;
+      busy = true; applied = false; e = 0; sip = 0; sndD = sndT = false; PD.on = true;
       mesh.position.copy(pose.hidden); mesh.visible = true; mesh.rotation.set(0.2, 0, -0.4);
       onDrinkStart(); return true;
     },
@@ -2421,16 +2429,16 @@ function createPerkDrink({ mesh, onDrinkStart = () => {}, onPerkApplied = () => 
         p.lerpVectors(pose.hold, pose.drink, k); p.y += gulp; p.x += Math.sin(d * 9) * 0.004;
         r.set(lerp(0.15, 1.05, k) + gulp * 4, 0, lerp(-0.15, 0.25, k));
         camZ = Math.sin(d * Math.PI * 2) * 0.035 * k; camX = 0.05 * k + Math.sin(d * Math.PI * 6) * 0.008;
-        const si = Math.floor(d * 3); if (d > 0.2 && si >= sip) { sip = si + 1; sfx('gulp'); }
+        if (!sndD) { sndD = true; sfx('pdrink'); }   // три глотка одним файлом
         if (!applied && d >= 0.3) { applied = true; onPerkApplied(); }
       } else if (e < c) {   // 3) опускание: бутылка быстро вниз, оружие возвращается
         const k = easeIn((e - b) / t.lower);
         gunK = 1 - easeOut((e - b) / t.lower);
         p.lerpVectors(pose.drink, pose.hidden, k); r.set(lerp(1.05, 0.2, k), 0, lerp(0.25, -0.4, k)); camX = lerp(0.05, 0, k);
+        if (!sndT && e - b >= 0.18) { sndT = true; sfx('pthrow'); }   // бутылку швыряют об пол
         if (k > 0.85) mesh.visible = false;
       } else {   // 4) отрыжка: короткий толчок камеры
         const k = (e - c) / t.burp; mesh.visible = false;
-        if (!sip || sip < 99) { sip = 99; sfx('burp'); }
         camX = -Math.sin(k * Math.PI) * 0.045; camZ = Math.sin(k * Math.PI * 3) * 0.01 * (1 - k);
       }
       PD.gx = gunDrop.x * gunK; PD.gy = gunDrop.y * gunK; PD.gz = gunDrop.z * gunK; PD.grx = -0.5 * gunK; PD.camX = camX; PD.camZ = camZ;
@@ -2454,7 +2462,7 @@ const PERK_BOTTLE_COL = { cola: [0x35c84a, 0x0d4a1a, 0xffd24a], dtap: [0xe0561a,
 let perkDrinkKind = 'cola';
 const perkDrink = createPerkDrink({
   mesh: perkBottle,
-  onDrinkStart: () => sfx('pop'),
+  onDrinkStart: () => sfx('popen'),
   onPerkApplied: () => perkMsg(perkDrinkKind),   // иконка перка + звуки — в момент первого глотка
   onDrinkEnd: () => {}
 });
@@ -2580,11 +2588,79 @@ function requestMPBuy(kind, doorIndex) {
   MP.requestPurchase(kind, doorIndex);
   return true;
 }
+// ---------- MAX AMMO: красный бонус с зомби (шанс 8%), даёт максимум патронов всему оружию ----------
+const DROP_CHANCE = 0.08, DROP_LIFE = 30, DROP_R = 1.3, DROP_LIM = 13.6;
+const drops = []; let dropSeq = 0;
+const dropTex = (() => {
+  const [c, g] = cv(128, 128), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,120,90,1)'); gr.addColorStop(0.3, 'rgba(255,30,30,.5)'); gr.addColorStop(1, 'rgba(255,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
+})();
+const dropLabelTex = (() => {
+  const [c, g] = cv(256, 64); g.font = 'bold 40px Georgia'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 7; g.lineJoin = 'round';
+  g.strokeStyle = '#3a0000'; g.strokeText('MAX AMMO', 128, 34); g.fillStyle = '#ff4a3a'; g.fillText('MAX AMMO', 128, 34); return new THREE.CanvasTexture(c);
+})();
+const DM = {
+  crystal: new THREE.MeshStandardMaterial({ color: 0xff1a1a, emissive: 0xd00000, emissiveIntensity: 1.3, roughness: 0.15, metalness: 0.35, transparent: true, opacity: 0.9 }),
+  core: new THREE.MeshBasicMaterial({ color: 0xffd8b0 }),
+  ring: new THREE.MeshBasicMaterial({ color: 0xff3a30, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+  disc: new THREE.MeshBasicMaterial({ color: 0xff2010, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  beam: new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  halo: new THREE.SpriteMaterial({ map: dropTex, color: 0xff3020, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
+  label: new THREE.SpriteMaterial({ map: dropLabelTex, transparent: true, depthWrite: false })
+};
+const DG = { crystal: new THREE.OctahedronGeometry(0.26, 0), core: new THREE.OctahedronGeometry(0.12, 0), ring: new THREE.TorusGeometry(0.46, 0.014, 6, 28),
+  disc: new THREE.CircleGeometry(0.8, 28), beam: new THREE.CylinderGeometry(0.34, 0.52, 2.4, 14, 1, true) };
+function makeDropModel() {
+  const root = new THREE.Group(), fl = new THREE.Group(); fl.position.y = 0.95; root.add(fl);
+  const cr = new THREE.Mesh(DG.crystal, DM.crystal); cr.scale.y = 1.55; fl.add(cr);
+  const co = new THREE.Mesh(DG.core, DM.core); co.scale.y = 1.55; fl.add(co);
+  const mkRing = tilt => { const pv = new THREE.Group(), r = new THREE.Mesh(DG.ring, DM.ring); r.rotation.x = tilt; pv.add(r); fl.add(pv); return pv; };
+  const p1 = mkRing(1.15), p2 = mkRing(-1.15);
+  const halo = new THREE.Sprite(DM.halo); halo.scale.set(1.8, 1.8, 1); fl.add(halo);
+  const lab = new THREE.Sprite(DM.label); lab.scale.set(1.3, 0.33, 1); lab.position.y = 0.8; fl.add(lab);
+  const disc = new THREE.Mesh(DG.disc, DM.disc); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.04; root.add(disc);
+  const beam = new THREE.Mesh(DG.beam, DM.beam); beam.position.y = 1.2; root.add(beam);
+  root.userData = { fl, p1, p2, halo };
+  return root;
+}
+function spawnDrop(info) {   // info: { id, x, y, z } — и для одиночной игры, и из сети
+  if (!info || drops.some(d => d.id === info.id)) return;
+  const x = Math.max(-DROP_LIM, Math.min(DROP_LIM, info.x)), z = Math.max(-DROP_LIM, Math.min(DROP_LIM, info.z));
+  let y = Number.isFinite(info.y) ? info.y : 0; try { y = floorAt(x, z, y + 0.6); } catch (e) {}
+  const m = makeDropModel(); m.position.set(x, y, z); scene.add(m);
+  drops.push({ id: info.id, m, x, y, z, t: 0, req: -1 });
+}
+function removeDropById(id) { const i = drops.findIndex(d => d.id === id); if (i >= 0) { scene.remove(drops[i].m); drops.splice(i, 1); } }
+function maybeDropMaxAmmo(z) {   // одиночная игра: бросок кубика при убийстве
+  if (z.menu || Math.random() >= DROP_CHANCE) return;
+  const p = z.g.position; spawnDrop({ id: 'sp' + (++dropSeq), x: p.x, y: p.y, z: p.z });
+}
+function collectMaxAmmo() {   // всё оружие в инвентаре — полный магазин и максимум запаса
+  for (const i of slots) { if (i < 0) continue; const w = WEAPONS[i]; w.mag = w.magSize; w.reserve = Math.max(w.fullRes, (w.maxReserve || 0) - w.magSize); }
+  reloading = false; updateHUD(); sfx('maxammo'); pop('MAX AMMO', 'head');
+  annEl.textContent = 'MAX AMMO'; annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
+}
+function dropsUpdate(dt) {
+  for (let i = drops.length - 1; i >= 0; i--) {
+    const d = drops[i], u = d.m.userData; d.t += dt;
+    u.fl.rotation.y += dt * 2.2; u.fl.position.y = 0.95 + Math.sin(d.t * 2.6) * 0.12;
+    u.p1.rotation.y += dt * 2.4; u.p2.rotation.y -= dt * 1.7;
+    const k = 1.8 + Math.sin(d.t * 5) * 0.25; u.halo.scale.set(k, k, 1);
+    const left = DROP_LIFE - d.t;
+    d.m.visible = left > 6 || Math.floor(d.t * 7) % 2 === 0;   // последние 6 с мигает
+    if (left <= 0) { scene.remove(d.m); drops.splice(i, 1); continue; }
+    if (!dead && Math.hypot(pos.x - d.x, pos.z - d.z) < DROP_R && Math.abs(PF - d.y) < 1.6) {
+      if (window.MP && MP.active) { if (d.t - d.req > 0.6) { d.req = d.t; if (MP.requestDropPickup) MP.requestDropPickup(d.id); } }   // в сети решает сервер
+      else { scene.remove(d.m); drops.splice(i, 1); collectMaxAmmo(); }
+    }
+  }
+}
 function updateInteract(dt) {
   const T = WEAPONS[1], holdE = !!keys.KeyE, holdR = !!(keys.KeyF || keys.KeyE);
   if (!holdE) buyLock = false;
-  boxUpdate(dt);
-  if (PF < 1.5 && Math.hypot(pos.x - BOX.x, pos.z - (BOX.z + BOX.d / 2)) < 3.0) {
+  boxUpdate(dt); dropsUpdate(dt);
+  if (boxHall && PF < 1.5 && Math.hypot(pos.x - BOX.x, pos.z - (BOX.z + BOX.d / 2)) < 3.0) {
     if (boxS.on) promptEl.innerHTML = `MYSTERY BOX: <span class="ok">${WEAPONS[boxS.shown].name}</span>`;
     else {
       const can = points >= BOX_PRICE;
@@ -2859,7 +2935,7 @@ function hitZombie(z, head, dmg, fx) {
   const wp = WEAPONS[cur]; z.hp -= (dmg != null ? dmg : (head ? wp.head : wp.body)) * (doubleTap ? 2 : 1); z.flash = 1; z.stagger = fx && fx.stagger != null ? fx.stagger : 0.25; sfx('hit');   // fx — только у пуль (Ray Gun без изменений)
   crossEl.classList.add('hit'); setTimeout(() => crossEl.classList.remove('hit'), 110);
   if (head) { crossEl.classList.add('hs'); clearTimeout(hsTO); hsTO = setTimeout(() => crossEl.classList.remove('hs'), 50); }   // крестик на 0.05 c
-  if (z.hp <= 0) { z.state = 'dying'; z.dt = 0; z.eyes.forEach(e => e.visible = false); startRagdoll(z, head, dmg != null ? dmg : (head ? wp.head : wp.body)); kills++;
+  if (z.hp <= 0) { z.state = 'dying'; z.dt = 0; z.eyes.forEach(e => e.visible = false); startRagdoll(z, head, dmg != null ? dmg : (head ? wp.head : wp.body)); kills++; maybeDropMaxAmmo(z);
     if (head) addPoints(100, 'head', 'HEADSHOT'); else addPoints(60, 'kill'); }
   else addPoints(10);
 }
@@ -3172,7 +3248,7 @@ function updateNetworkZombieVisual(z, dt) {
 // ---------- раунды ----------
 function startRound() {
   round++; roundActive = true; toSpawn = Math.round(6 + 3 * (round - 1) + 0.2 * (round - 1) * (round - 1)); spawnTimer = 0;
-  roundEl.textContent = 'ROUND ' + round; annEl.textContent = 'ROUND ' + round;
+  roundEl.textContent = round; annEl.textContent = 'ROUND ' + round;
   annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
   sfx('round');
 }
