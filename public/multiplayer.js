@@ -42,7 +42,7 @@
   //      id, name, desc, img (картинка 16:9 в public/maps/), soon: true = «скоро»
   const MAPS = [
     { id: 'nacht', name: 'NACHT DER UNTOTEN', desc: 'Бункер · 2 этажа · Mystery Box · перки', img: 'maps/nacht.jpg' },
-    { id: 'verruckt', name: 'VERRUCKT', desc: 'Психбольница · круглая · 2 этажа · Mystery Box · перки', img: 'maps/verruckt.jpg' },
+    { id: 'verruckt', name: 'VERRUCKT', desc: 'Двор за оградой · фонтан · 2 корпуса · 2 входа зомби', img: 'maps/verruckt.jpg' },
     { id: 'soon', name: '???', desc: 'Новая карта в разработке', img: 'maps/soon.jpg', soon: true },
   ];
   // Карта, которая сейчас построена в игре (index.html читает ?map=). Другую карту выбрать = перезагрузить страницу с ?map=

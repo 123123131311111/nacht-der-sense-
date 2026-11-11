@@ -232,7 +232,7 @@ body.touch #knife{bottom:32px}
 <p class="hint">Отправь код друзьям. До 4 игроков. Заходи, когда все собрались.</p>
 <button class="mb big" id="bGo">▶ В ИГРУ</button>
 <button class="mb back" id="bLeave">← ВЫЙТИ ИЗ ЛОББИ</button></div>
-<div class="panel" id="pHelp"><h2>ПОМОЩЬ</h2><div id="helpPc"><p>WASD — движение · Shift — бег · Space — прыжок · ЛКМ — стрельба · R — перезарядка · V — нож (перезарядка 2 с, убивает всех перед вами) · Esc — пауза</p><p>Инвентарь: 2 слота. 1 / 2 / колёсико мыши — смена оружия. Новое оружие при полном инвентаре заменяет то, что в руках.</p><p>Зелёный автомат Speed Cola в стартовой комнате: E — купить (4000) — перезарядка вдвое быстрее</p><p>Красный автомат Double Tap на 2 этаже (северо-запад): E — купить (2500) — двойной урон всего оружия</p><p>Зомби ломают доски на окнах и лезут внутрь. Цельтесь в голову!</p><p>E (удерживать) у закрытой двери — открыть проход (1000). Зомби лезут только в окна уже открытых комнат</p><p>F / E (удерживать) — чинить доски · E (удерживать) у стены — купить Thompson (1000) · E у сундука — Mystery Box (950)</p></div><div id="helpTouch"><p>Левый палец — стик движения (выведите палец за круг — бег) · правый палец — поворот камеры</p><p>ОГОНЬ — стрельба (держите кнопку и ведите пальцем — камера поворачивается) · ПРЫЖОК · ПЕРЕЗАР. · СМЕНА — смена оружия · ⏸ — пауза · НОЖ — удар ножом (раз в 2 с, убивает всех перед вами)</p><p>КУПИТЬ (удерживать) у Mystery Box, двери, стены с оружием; Speed Cola — нажать · ЧИНИТЬ (удерживать) у окна — ставить доски</p><p>Зомби ломают доски на окнах и лезут внутрь. Цельтесь в голову!</p></div><button class="mb back" data-back>← НАЗАД</button></div>
+<div class="panel" id="pHelp"><h2>ПОМОЩЬ</h2><div id="helpPc"><p>WASD — движение · Shift — бег · Space — прыжок · ЛКМ — стрельба · R — перезарядка · V — нож (перезарядка 2 с, убивает всех перед вами) · Esc — пауза</p><p>Инвентарь: 2 слота. 1 / 2 / колёсико мыши — смена оружия. Новое оружие при полном инвентаре заменяет то, что в руках.</p><p>Зелёный автомат Speed Cola: E — купить (4000) — перезарядка вдвое быстрее. Красный Double Tap: E — купить (2500) — двойной урон.</p><p>На Verrückt зомби входят через два прохода в ограде; в корпуса можно подняться по лестнице. Mystery Box стоит напротив фонтана.</p><p>На Nacht зомби ломают доски на окнах и лезут внутрь. Цельтесь в голову!</p><p>На Nacht E (удерживать) у двери — открыть проход (1000); F / E у окна — чинить доски. На Verrückt двери покупать не нужно.</p><p>E (удерживать) у стены — купить Thompson (1000) · E у сундука — Mystery Box (950)</p></div><div id="helpTouch"><p>Левый палец — стик движения (выведите палец за круг — бег) · правый палец — поворот камеры</p><p>ОГОНЬ — стрельба (держите кнопку и ведите пальцем — камера поворачивается) · ПРЫЖОК · ПЕРЕЗАР. · СМЕНА — смена оружия · ⏸ — пауза · НОЖ — удар ножом (раз в 2 с, убивает всех перед вами)</p><p>КУПИТЬ (удерживать) у Mystery Box, стен с оружием и автоматов. На Nacht также можно открывать двери и чинить окна.</p><p>Цельтесь в голову; на Verrückt зомби входят через два прохода в ограде.</p></div><button class="mb back" data-back>← НАЗАД</button></div>
 </div></div>
 <div id="rotmsg">Поверните телефон горизонтально</div>
 <!-- Socket.io: сервер сам отдаёт этот файл по адресу /socket.io/socket.io.js -->
@@ -430,46 +430,20 @@ const win = (s, e, lvl) => ({ s, e, b: lvl + 1.2, t: lvl + 2.8, board: true });
 const door = (s, e, lvl) => ({ s, e, b: lvl, t: lvl + 2.9 });
 
 // =====================================================================================
-//  VERRUCKT (прототип v2): круглая психбольница, 2 этажа.
-//  Центр (0,0). Внешний радиус 15, 4 плоские стены (окна) по сторонам света.
-//  Большое центральное ядро (r 9.5) с огромной винтовой лестницей (r 6, 24 ступени).
-//  На 2 этаже над ядром — БАЛКОН: кольцо r 6…9.5 с перилами вокруг атриума (проём лестницы).
-//  Вокруг ядра — 4 палаты E / N / W / S, разделённые диагональными стенами; в ядро ведут двери.
-//  Коллизии у игры только AABB, поэтому круглые стены собраны из маленьких блоков.
+//  VERRUCKT: открытый внутренний двор за оградой с двумя входами для зомби.
+//  По сторонам двора стоят два двухэтажных корпуса, в центре — фонтан и машина.
 // =====================================================================================
-const VK_START = 'E', VK_BOX_ZONE = 'S', VK_RC = 9.5, VK_K = 6.5;
-const VK_LAMPS = [[11.5, 3.3, 0], [0, 3.3, 11.5], [-11.5, 3.3, 0], [0, 3.3, -11.5], [11.5, 7.3, 0], [0, 7.3, 11.5], [-11.5, 7.3, 0], [0, 7.3, -11.5], [0, 3.3, 7.8], [0, 3.3, -7.8]];
-const VK_DOORS = [
-  { ax: 'z', fixed: VK_RC, s: -2, e: 2, a: 'E', b: 'CORE', h: 3.7 },
-  { ax: 'x', fixed: VK_RC, s: -2, e: 2, a: 'N', b: 'CORE', h: 3.7 },
-  { ax: 'z', fixed: -VK_RC, s: -2, e: 2, a: 'W', b: 'CORE', h: 3.7 },
-  { ax: 'x', fixed: -VK_RC, s: -2, e: 2, a: 'S', b: 'CORE', h: 3.7 }
-];
-function vkZone(x, z) {
-  if (Math.hypot(x, z) < VK_RC) return 'CORE';
-  return Math.abs(x) > Math.abs(z) ? (x > 0 ? 'E' : 'W') : (z > 0 ? 'N' : 'S');
-}
+const VK_START = 'YARD', VK_BOX_ZONE = 'YARD', VK_RC = 0, VK_K = 0;
+const VK_LAMPS = [[-8, 3.1, 0], [8, 3.1, 0], [0, 3.1, -8], [0, 3.1, 8], [-9, 7.1, 0], [9, 7.1, 0], [0, 4.2, 0]];
+const VK_DOORS = [];
+function vkZone() { return 'YARD'; }
 function vkBlock(x, z, size, y0, y1, mat) { return addBox(x - size / 2, x + size / 2, y0, y1, z - size / 2, z + size / 2, mat); }
 function vkRing(r, step, size, skip, y0, y1, mat) {   // стена-кольцо из блоков
   const n = Math.round(2 * Math.PI * r / step);
   for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, x = r * Math.cos(a), z = r * Math.sin(a); if (!skip(x, z)) vkBlock(x, z, size, y0, y1, mat); }
 }
 function vkFloors() {
-  const K = VK_K, scaleUV = g => { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3); };
-  const cyl = (y, mat) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 0.5, 48), mat); m.position.y = y; scene.add(m); worldMeshes.push(m); };
-  cyl(-0.25, mats.floor); cyl(7.95, mats.concrete);
-  colliders.push({ x0: -16, x1: 16, y0: -0.5, y1: 0, z0: -16, z1: 16 });   // сам пол 1 этажа
-  // перекрытие 2 этажа: круг R15 с квадратным вырезом (внутри — аналитическая плита с круглым проёмом лестницы, см. buildSpiral)
-  const sh = new THREE.Shape(); sh.absarc(0, 0, 15, 0, Math.PI * 2, false);
-  const h = new THREE.Path(); h.moveTo(-K, -K); h.lineTo(-K, K); h.lineTo(K, K); h.lineTo(K, -K); h.lineTo(-K, -K); sh.holes.push(h);
-  const g = new THREE.ExtrudeGeometry(sh, { depth: 0.3, bevelEnabled: false, curveSegments: 48 }); scaleUV(g);
-  const m = new THREE.Mesh(g, mats.concrete); m.rotation.x = -Math.PI / 2; m.position.y = 3.7; scene.add(m); worldMeshes.push(m);
-  for (let z0 = -15; z0 < 15; z0 += 0.5) {   // коллайдеры перекрытия — полосы по 0.5 м
-    const z1 = z0 + 0.5, xr = Math.sqrt(Math.max(0, 225 - Math.max(z0 * z0, z1 * z1)));
-    if (xr < 0.3) continue;
-    const inSq = z0 >= -K && z1 <= K, seg = (a, b) => colliders.push({ x0: a, x1: b, y0: 3.7, y1: 4, z0, z1 });
-    if (inSq) { seg(-xr, -K); seg(K, xr); } else seg(-xr, xr);
-  }
+  addBox(-18, 18, -0.5, 0, -18, 18, mats.floor);
 }
 // ---- кровь: процедурные текстуры-декали ----
 function vkBloodTex(kind) {
@@ -516,34 +490,104 @@ function vkBlood() {
   }
 }
 function vkWalls() {
-  const B = mats.brick, C = mats.concrete, RC = VK_RC;
-  // 4 плоские внешние стены с окнами на обоих этажах (по два окна на сторону)
-  const wins = lvl => [win(-4.5, -2.1, lvl), win(2.1, 4.5, lvl)];
-  for (const f of [14.2, -14.2]) for (const ax of ['x', 'z']) {
-    wall(ax, f, -4.8, 4.8, 0.6, 0, 3.85, wins(0), B);
-    wall(ax, f, -4.8, 4.8, 0.6, 3.85, 7.7, wins(4), B);
+  const iron = new THREE.MeshStandardMaterial({ color: 0x34383b, roughness: 0.65, metalness: 0.7 });
+  const darkIron = new THREE.MeshStandardMaterial({ color: 0x171a1c, roughness: 0.8, metalness: 0.35 });
+  const invisible = new THREE.MeshBasicMaterial({ visible: false });
+  const fence = (ax, fixed, a0, a1) => {
+    const isX = ax === 'x', width = a1 - a0;
+    addBox(isX ? a0 : fixed - 0.12, isX ? a1 : fixed + 0.12, 0, 3.25, isX ? fixed - 0.12 : a0, isX ? fixed + 0.12 : a1, invisible);
+    const post = (u, w, y0, y1, m) => isX
+      ? addBox(u - w / 2, u + w / 2, y0, y1, fixed - 0.1, fixed + 0.1, m, false)
+      : addBox(fixed - 0.1, fixed + 0.1, y0, y1, u - w / 2, u + w / 2, m, false);
+    post((a0 + a1) / 2, 0.28, 0, 0.62, mats.concrete);
+    for (let u = a0 + 0.25; u < a1; u += 0.85) post(u, 0.09, 0.55, 3.15, iron);
+    for (const y of [0.72, 2.1, 3.12]) {
+      if (isX) addBox(a0, a1, y, y + 0.11, fixed - 0.13, fixed + 0.13, darkIron, false);
+      else addBox(fixed - 0.13, fixed + 0.13, y, y + 0.11, a0, a1, darkIron, false);
+    }
+  };
+  // Полностью ограждённый двор. Два широких проёма напротив друг друга — единственные входы.
+  fence('x', -16, -16, -2.45); fence('x', -16, 2.45, 16);
+  fence('x', 16, -16, -2.45); fence('x', 16, 2.45, 16);
+  fence('z', -16, -16, 16); fence('z', 16, -16, 16);
+  for (const x of [-16, 16]) for (const z of [-16, 16]) addBox(x - 0.24, x + 0.24, 0, 3.55, z - 0.24, z + 0.24, mats.concrete, false);
+  for (const z of [-16, 16]) for (const x of [-2.45, 2.45]) {
+    addBox(x - 0.18, x + 0.18, 0, 3.7, z - 0.22, z + 0.22, mats.concrete, false);
+    addBox(x - 1.1, x + 1.1, 3.25, 3.38, z - 0.08, z + 0.08, iron, false);
   }
-  vkRing(14.6, 0.5, 0.7, (x, z) => (Math.abs(x) > 13 && Math.abs(z) < 4.9) || (Math.abs(z) > 13 && Math.abs(x) < 4.9), 0, 7.7, B);   // скруглённые углы
-  const gap = (x, z) => (Math.abs(z) < 2.05 && Math.abs(x) > 6) || (Math.abs(x) < 2.05 && Math.abs(z) > 6);   // проёмы на сторонах света
-  vkRing(RC, 0.45, 0.65, gap, 0, 3.7, C);                    // стена ядра, 1 этаж (в проёмах двери)
-  vkRing(RC, 0.45, 0.3, gap, 4, 5, mats.frame);              // 2 этаж: БАЛКОН — вместо стены перила, палаты открыты в атриум
-  vkRing(6.35, 0.4, 0.25, (x, z) => z > 0 && x > 0.2 && x < 3.6, 4, 5, mats.frame);   // перила балкона вокруг проёма лестницы (кроме выхода со ступеней)
-  for (const a of [45, 135, 225, 315]) for (let r = RC + 0.3; r <= 14.3; r += 0.5) {   // диагональные стенки между палатами
-    const t = a * Math.PI / 180; vkBlock(r * Math.cos(t), r * Math.sin(t), 0.8, 0, 7.7, C);
+  // Два корпуса 6 × 12 м, по два этажа; входы обращены к фонтану.
+  const build = cx => {
+    const x0 = cx - 3, x1 = cx + 3, z0 = -6, z1 = 6, inwardX = cx < 0 ? x1 : x0, t = 0.34;
+    for (const base of [0, 4]) {
+      const top = base + 3.65;
+      // Наружная продольная стена и внутренняя стена с дверным проёмом.
+      const outerX = cx < 0 ? x0 : x1;
+      addBox(outerX - t / 2, outerX + t / 2, base, top, z0, z1, mats.brick);
+      const doorHalf = 1.35;
+      addBox(inwardX - t / 2, inwardX + t / 2, base, top, z0, -doorHalf, mats.brick);
+      addBox(inwardX - t / 2, inwardX + t / 2, base, top, doorHalf, z1, mats.brick);
+      addBox(inwardX - t / 2, inwardX + t / 2, base + 2.85, top, -doorHalf, doorHalf, mats.brick);
+      // Торцевые стены; высокие проёмы окон оставлены у земли и на втором этаже.
+      for (const z of [z0, z1]) {
+        addBox(x0, x1, base, base + 1.0, z - t / 2, z + t / 2, mats.brick);
+        addBox(x0, x1, base + 2.55, top, z - t / 2, z + t / 2, mats.brick);
+        addBox(x0, cx - 0.85, base + 1.0, base + 2.55, z - t / 2, z + t / 2, mats.brick);
+        addBox(cx + 0.85, x1, base + 1.0, base + 2.55, z - t / 2, z + t / 2, mats.brick);
+        const glass = new THREE.MeshStandardMaterial({ color: 0x292e30, roughness: 0.25, metalness: 0.45, emissive: 0x101516 });
+        addBox(cx - 0.8, cx + 0.8, base + 1.08, base + 2.47, z - 0.035, z + 0.035, glass);
+      }
+      // Пилястры и пояс между этажами подчёркивают высоту зданий.
+      for (const x of [x0, x1]) for (const z of [z0, z1]) addBox(x - 0.2, x + 0.2, base, top + 0.12, z - 0.2, z + 0.2, mats.concrete, false);
+      addBox(x0 - 0.18, x1 + 0.18, base + 3.55, base + 3.72, z0 - 0.18, z1 + 0.18, mats.concrete, false);
+      // Рамы входа с фасада.
+      addBox(inwardX - 0.1, inwardX + 0.1, base, base + 3.0, -1.48, -1.28, mats.concrete, false);
+      addBox(inwardX - 0.1, inwardX + 0.1, base, base + 3.0, 1.28, 1.48, mats.concrete, false);
+      addBox(inwardX - 0.16, inwardX + 0.16, base + 2.95, base + 3.12, -1.48, 1.48, mats.concrete, false);
+    }
+    // Второй этаж разделён вокруг круглого проёма лестницы — обе лестницы остаются проходимыми.
+    const sx = cx, hole = 1.65;
+    for (const [za, zb] of [[z0, -hole], [hole, z1]]) {
+      const c = addBox(x0, x1, 3.7, 4, za, zb, mats.concrete);
+      floors.push(c.userData.col);
+    }
+    for (const [xa, xb] of [[x0, sx - hole], [sx + hole, x1]]) {
+      const c = addBox(xa, xb, 3.7, 4, -hole, hole, mats.concrete);
+      floors.push(c.userData.col);
+    }
+    // Невысокий парапет вместо крыши сохраняет читаемость обоих этажей сверху.
+    addBox(x0 - 0.2, x0 + 0.12, 7.55, 7.9, z0 - 0.2, z1 + 0.2, mats.concrete);
+    addBox(x1 - 0.12, x1 + 0.2, 7.55, 7.9, z0 - 0.2, z1 + 0.2, mats.concrete);
+    for (const z of [z0 - 0.2, z1 + 0.2]) addBox(x0 - 0.2, x1 + 0.2, 7.55, 7.9, z - 0.12, z + 0.12, mats.concrete);
+  };
+  build(-9); build(9);
+  // Лестничные проёмы остаются над открытыми площадками — перила защищают край.
+  for (const cx of [-9, 9]) {
+    const rail = (x0, x1, z0, z1) => {
+      addBox(x0, x1, 4.05, 4.18, z0, z1, iron, false);
+      addBox(x0, x1, 4.9, 5.0, z0, z1, iron, false);
+    };
+    rail(cx - 1.65, cx + 1.65, -1.65, -1.5); rail(cx - 1.65, cx + 1.65, 1.5, 1.65);
+    rail(cx - 1.65, cx - 1.5, -1.5, 1.5); rail(cx + 1.5, cx + 1.65, -1.5, 1.5);
   }
-  vkBlood();
 }
 function vkNodes() {   // узлы навигации (связи считаются автоматически по прямой видимости)
-  const n = {}, rooms = { E: [1, 0], N: [0, 1], W: [-1, 0], S: [0, -1] };
-  for (const [lv, y] of [['', 0], ['u', 4]]) {
-    for (const k in rooms) {
-      const [ux, uz] = rooms[k], px = -uz, pz = ux, at = (r, l) => [ux * r + px * l, uz * r + pz * l, y];
-      n[lv + k + 'a'] = at(10.9, 0); n[lv + k + 'b'] = at(11.9, 0); n[lv + k + 'c'] = at(11.9, 3.5); n[lv + k + 'd'] = at(11.9, -3.5);
-      n[lv + k + 'e'] = at(12.8, 0); n[lv + k + 'f'] = at(12.2, 3.3); n[lv + k + 'g'] = at(12.2, -3.3);
-    }
-    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; n[lv + 'c' + i] = [7.8 * Math.cos(a), 7.8 * Math.sin(a), y]; }
-  }
-  Object.assign(n, { s0: [SP.cx - 0.6, SP.cz + SP.ro + 1.4, 0], s1: spPt(12), s2: spPt(125), s3: spPt(205), s5: spPt(285), s6: spPt(335), s4: [SP.cx + 0.7, SP.cz + SP.ro + 1, 4] });
+  const n = {
+    northGate: [0, -14, 0], northYard: [0, -11.8, 0], northWest: [-4.2, -4.3, 0], northEast: [4.2, -4.3, 0],
+    westNorth: [-4.2, -2.8, 0], westSouth: [-4.2, 2.8, 0], eastNorth: [4.2, -2.8, 0], eastSouth: [4.2, 2.8, 0],
+    southWest: [-4.2, 4.3, 0], southEast: [4.2, 4.3, 0], southYard: [0, 11.8, 0], southGate: [0, 14, 0],
+    leftDoor: [-5.5, 0, 0], leftRoom: [-7, -3.8, 0], leftRoom2: [-7, 3.8, 0],
+    rightDoor: [5.5, 0, 0], rightRoom: [7, -3.8, 0], rightRoom2: [7, 3.8, 0],
+    leftUpper: [-7, -3.8, 4], leftUpper2: [-7, 3.8, 4],
+    rightUpper: [7, -3.8, 4], rightUpper2: [7, 3.8, 4]
+  };
+  const addStair = (pre, stair) => {
+    const point = deg => { const a = stair.a0 + deg * Math.PI / 180, x = stair.cx + stair.rw * Math.cos(a), z = stair.cz + stair.rw * Math.sin(a); return [x, z, spStepTopAt(x, z, stair)]; };
+    n[pre + '0'] = [stair.cx - 0.6, stair.cz + stair.ro + 1.4, 0];
+    n[pre + '1'] = point(12); n[pre + '2'] = point(125); n[pre + '3'] = point(205);
+    n[pre + '5'] = point(285); n[pre + '6'] = point(335);
+    n[pre + '4'] = [stair.cx + 0.7, stair.cz + stair.ro + 1, 4];
+  };
+  addStair('s', SP); if (SP2) addStair('r', SP2);
   return n;
 }
 
@@ -556,54 +600,62 @@ addBox(-15, 8, 3.7, 4, -15, -4, mats.concrete);
 addBox(14, 15, 3.7, 4, -15, -4, mats.concrete);
 addBox(8, 14, 3.7, 4, -15, -14, mats.concrete);
 } else vkFloors();
-// круговая (винтовая) лестница: центр (11, −9), радиус 3 м, полный виток из 16 ступеней по 25 см, в центре — колонна.
-// Идём вверх против часовой стрелки (вид сверху); вход внизу и выход наверху — с севера (z ≈ −4…−6).
-// Ступени, колонна и перекрытие с круглым проёмом считаются аналитически (spStepTop / stairHit), а не набором коробок.
-const SP = MAP_ID === 'nacht' ? { cx: 11, cz: -9, ro: 3.0, rh: 3.0, rc: 0.55, n: 16, rise: 0.25, a0: Math.PI / 2, colTop: 7.7, rw: 1.9 } : { cx: 0, cz: 0, ro: 6.0, rh: 6.0, rc: 1.2, n: 24, rise: 4 / 24, a0: Math.PI / 2, colTop: 7.7, rw: 3.6 };   // rw — радиус «дорожки» для ИИ/узлов
-const SPB = MAP_ID === 'nacht' ? { x0: 8, x1: 14, z0: -14, z1: -4 } : { x0: -6.5, x1: 6.5, z0: -6.5, z1: 6.5 };   // прямоугольник вокруг лестницы: внутри него плита 2 этажа считается аналитически
-SP.da = Math.PI * 2 / SP.n;
+// Для Nacht остаётся прежняя лестница; у Verrückt по одной компактной винтовой лестнице в каждом корпусе.
+const SP = MAP_ID === 'nacht'
+  ? { cx: 11, cz: -9, ro: 3.0, rh: 3.0, rc: 0.55, n: 16, rise: 0.25, a0: Math.PI / 2, colTop: 7.7, rw: 1.9 }
+  : { cx: -9, cz: 0, ro: 1.45, rh: 1.45, rc: 0.32, n: 18, rise: 4 / 18, a0: Math.PI / 2, colTop: 4, rw: 0.9 };
+const SP2 = MAP_ID === 'nacht' ? null : { cx: 9, cz: 0, ro: 1.45, rh: 1.45, rc: 0.32, n: 18, rise: 4 / 18, a0: Math.PI / 2, colTop: 4, rw: 0.9 };
+const STAIRS = SP2 ? [SP, SP2] : [SP];
+const SPB = MAP_ID === 'nacht' ? { x0: 8, x1: 14, z0: -14, z1: -4 } : { x0: -12, x1: -6, z0: -6, z1: 6 };
+STAIRS.forEach(s => s.da = Math.PI * 2 / s.n);
 const STAIR = { yTop: SP.n * SP.rise };
-(function buildSpiral() {
-  const matB = mats.concrete.clone(); matB.color.multiplyScalar(0.8);   // чётные/нечётные ступени чуть разного тона — лестница читается лучше
+function buildSpiral(stair) {
+  const matB = mats.concrete.clone(); matB.color.multiplyScalar(0.8);
   const scaleUV = g => { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3); };
-  const pt = (r, a) => [SP.cx + r * Math.cos(a), -(SP.cz + r * Math.sin(a))];   // форма строится в плоскости XY, после поворота y → −z
-  for (let k = 0; k < SP.n; k++) {
-    const a1 = SP.a0 + k * SP.da, a2 = a1 + SP.da, h = (k + 1) * SP.rise, sh = new THREE.Shape(), seg = 6, ri = SP.rc - 0.02;
+  const pt = (r, a) => [stair.cx + r * Math.cos(a), -(stair.cz + r * Math.sin(a))];
+  for (let k = 0; k < stair.n; k++) {
+    const a1 = stair.a0 + k * stair.da, a2 = a1 + stair.da, h = (k + 1) * stair.rise, sh = new THREE.Shape(), seg = 6, ri = stair.rc - 0.02;
     let q = pt(ri, a1); sh.moveTo(q[0], q[1]);
-    for (let j = 0; j <= seg; j++) { q = pt(SP.ro, a1 + (a2 - a1) * j / seg); sh.lineTo(q[0], q[1]); }
+    for (let j = 0; j <= seg; j++) { q = pt(stair.ro, a1 + (a2 - a1) * j / seg); sh.lineTo(q[0], q[1]); }
     for (let j = seg; j >= 0; j--) { q = pt(ri, a1 + (a2 - a1) * j / seg); sh.lineTo(q[0], q[1]); }
     const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: false }); scaleUV(g);
     const m = new THREE.Mesh(g, k % 2 ? matB : mats.concrete); m.rotation.x = -Math.PI / 2; scene.add(m); worldMeshes.push(m);
   }
-  const col = new THREE.Mesh(new THREE.CylinderGeometry(SP.rc, SP.rc, SP.colTop, 24), mats.concrete);
-  col.position.set(SP.cx, SP.colTop / 2, SP.cz); scene.add(col); worldMeshes.push(col);
-  // перекрытие второго этажа вокруг круглого проёма
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(stair.rc, stair.rc, stair.colTop, 24), mats.concrete);
+  col.position.set(stair.cx, stair.colTop / 2, stair.cz); scene.add(col); worldMeshes.push(col);
+}
+STAIRS.forEach(buildSpiral);
+if (MAP_ID === 'nacht') {
   const sl = new THREE.Shape(); sl.moveTo(SPB.x0, -SPB.z1); sl.lineTo(SPB.x1, -SPB.z1); sl.lineTo(SPB.x1, -SPB.z0); sl.lineTo(SPB.x0, -SPB.z0); sl.lineTo(SPB.x0, -SPB.z1);
   const hole = new THREE.Path(); hole.absarc(SP.cx, -SP.cz, SP.rh - 0.01, 0, Math.PI * 2, true); sl.holes.push(hole);
-  const sg = new THREE.ExtrudeGeometry(sl, { depth: 0.3, bevelEnabled: false, curveSegments: 32 }); scaleUV(sg);
+  const sg = new THREE.ExtrudeGeometry(sl, { depth: 0.3, bevelEnabled: false, curveSegments: 32 });
+  const uv = sg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3);
   const sm = new THREE.Mesh(sg, mats.concrete); sm.rotation.x = -Math.PI / 2; sm.position.y = 3.7; scene.add(sm); worldMeshes.push(sm);
-})();
-const floors = colliders.slice(); // пол и перекрытия (ступени — аналитически, см. spStepTop): только по ним считается высота пола
-addBox(SP.cx - 0.07, SP.cx + 0.07, 4.0, 5.0, SP.cz + SP.rc, SP.cz + SP.rh, mats.concrete);   // низкая стенка на «шве» витка: наверху не шагнуть вниз через край ступеней
-// --- аналитическая геометрия лестницы ---
-const SB = { x0: 0, x1: 0, y0: 0, y1: 0, z0: 0, z1: 0 };   // переиспользуемая «коробка» для результата stairHit
-function spStepTop(x, z) {   // высота верха ступени в точке (0 — вне винта)
-  const dx = x - SP.cx, dz = z - SP.cz, r = Math.hypot(dx, dz);
-  if (r > SP.ro || r < SP.rc) return 0;
-  const T = Math.PI * 2; let t = Math.atan2(dz, dx) - SP.a0; t = ((t % T) + T) % T;
-  return (Math.min(SP.n - 1, Math.floor(t / SP.da)) + 1) * SP.rise;
 }
-function stairHit(x0, x1, z0, z1, ya, yb) {   // пересечение прямоугольника (x0..x1, z0..z1) на высотах ya..yb со ступенями, колонной и перекрытием у проёма
-  if (x1 < SPB.x0 || x0 > SPB.x1 || z1 < SPB.z0 || z0 > SPB.z1) return null;
-  const cx = SP.cx, cz = SP.cz; let top = 0;
-  const nx = Math.min(Math.max(cx, x0), x1), nz = Math.min(Math.max(cz, z0), z1);
-  if (Math.hypot(nx - cx, nz - cz) < SP.rc && yb > 0 && ya < SP.colTop) top = SP.colTop;   // колонна
-  const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
-  const h = Math.max(spStepTop(mx, mz), spStepTop(x0, z0), spStepTop(x1, z0), spStepTop(x0, z1), spStepTop(x1, z1), spStepTop(mx, z0), spStepTop(mx, z1), spStepTop(x0, mz), spStepTop(x1, mz));
-  if (h > top && yb > 0 && ya < h) top = h;   // ступени
-  if (top < 4 && yb > 3.7 && ya < 4 && Math.hypot(Math.max(Math.abs(x0 - cx), Math.abs(x1 - cx)), Math.max(Math.abs(z0 - cz), Math.abs(z1 - cz))) >= SP.rh) top = 4;   // перекрытие вокруг круглого проёма
-  if (!top) return null;
-  SB.y1 = top; return SB;
+const floors = colliders.slice();
+if (MAP_ID === 'nacht') addBox(SP.cx - 0.07, SP.cx + 0.07, 4.0, 5.0, SP.cz + SP.rc, SP.cz + SP.rh, mats.concrete);
+const SB = { x0: 0, x1: 0, y0: 0, y1: 0, z0: 0, z1: 0 };
+function spStepTopAt(x, z, stair) {
+  const dx = x - stair.cx, dz = z - stair.cz, r = Math.hypot(dx, dz);
+  if (r > stair.ro || r < stair.rc) return 0;
+  const T = Math.PI * 2; let t = Math.atan2(dz, dx) - stair.a0; t = ((t % T) + T) % T;
+  return (Math.min(stair.n - 1, Math.floor(t / stair.da)) + 1) * stair.rise;
+}
+function spStepTop(x, z) { return STAIRS.reduce((h, stair) => Math.max(h, spStepTopAt(x, z, stair)), 0); }
+function stairAt(x, z) { return STAIRS.find(stair => Math.hypot(x - stair.cx, z - stair.cz) < stair.ro + 0.15) || null; }
+function stairHit(x0, x1, z0, z1, ya, yb) {
+  for (const stair of STAIRS) {
+    if (x1 < stair.cx - stair.ro - 0.2 || x0 > stair.cx + stair.ro + 0.2 || z1 < stair.cz - stair.ro - 0.2 || z0 > stair.cz + stair.ro + 0.2) continue;
+    const cx = stair.cx, cz = stair.cz; let top = 0;
+    const nx = Math.min(Math.max(cx, x0), x1), nz = Math.min(Math.max(cz, z0), z1);
+    if (Math.hypot(nx - cx, nz - cz) < stair.rc && yb > 0 && ya < stair.colTop) top = stair.colTop;
+    const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+    const h = Math.max(spStepTopAt(mx, mz, stair), spStepTopAt(x0, z0, stair), spStepTopAt(x1, z0, stair), spStepTopAt(x0, z1, stair), spStepTopAt(x1, z1, stair), spStepTopAt(mx, z0, stair), spStepTopAt(mx, z1, stair), spStepTopAt(x0, mz, stair), spStepTopAt(x1, mz, stair));
+    if (h > top && yb > 0 && ya < h) top = h;
+    if (MAP_ID === 'nacht' && top < 4 && yb > 3.7 && ya < 4 && Math.hypot(Math.max(Math.abs(x0 - cx), Math.abs(x1 - cx)), Math.max(Math.abs(z0 - cz), Math.abs(z1 - cz))) >= stair.rh) top = 4;
+    if (top) { SB.y1 = top; return SB; }
+  }
+  return null;
 }
 if (MAP_ID === 'nacht') {
 // внешние стены (оба этажа), окна заколочены; все проёмы шире 2.5 (проходы чистые, без ящиков и колонн)
@@ -759,13 +811,65 @@ shelf(13.5, 11.9, 1.2, 0.55); barrel(13.2, 14.2, 0, 0x2a2a3a); crate(0.2, 13.4, 
 crate(-14.6, -12.5, 1.0, 4, M2.olive); barrel(-3.3, -14.0, 4, 0x3a2a2a);
 table(-6, -8, 2.2, 1.0, 4); chair(-7.1, -8, -1, 0, 4); chair(-4.9, -8, 1, 0, 4);
 cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
-} else {   // Verruckt: немного реквизита (палаты и балкон), всё в стороне от окон
-  for (const lv of [0, 4]) for (const [ux, uz] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
-    const at = (r, l) => [ux * r - uz * l, uz * r + ux * l];
-    let p = at(11, 4.2); barrel(p[0], p[1], lv); p = at(11.7, -4.4); crate(p[0] - 0.4, p[1] - 0.4, 0.9, lv, lv ? M2.olive : mats.crate);
-    p = at(10.6, 2.6); cot(p[0] - (uz ? 0.45 : 1.0), p[1] - (uz ? 1.0 : 0.45), uz ? 'z' : 'x', lv, lv ? M2.white : M2.cloth);
+} else {   // Verruckt: фонтан, брошенная машина и обжитые корпуса
+  const stone = PM(0x77766e, 0.9, 0.05), water = PM(0x31535a, 0.22, 0.28), brass = PM(0x75653e, 0.45, 0.65);
+  // Низкие круглые борта фонтана собраны короткими секциями, чтобы их обходили и игрок, и зомби.
+  const basin = new THREE.Mesh(new THREE.CylinderGeometry(2.35, 2.55, 0.62, 40, 1, true), stone);
+  basin.position.set(0, 0.34, 0); scene.add(basin);
+  const waterTop = new THREE.Mesh(new THREE.CircleGeometry(2.27, 40), water);
+  waterTop.rotation.x = -Math.PI / 2; waterTop.position.y = 0.59; scene.add(waterTop);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(2.42, 0.18, 10, 48), mats.concrete);
+  rim.rotation.x = Math.PI / 2; rim.position.y = 0.68; scene.add(rim);
+  for (let i = 0; i < 24; i++) {
+    const a = i / 24 * Math.PI * 2, x = 2.35 * Math.cos(a), z = 2.35 * Math.sin(a);
+    addBox(x - 0.38, x + 0.38, 0, 0.72, z - 0.38, z + 0.38, stone);
   }
-  for (const a of [30, 120, 210, 300]) barrel(8.3 * Math.cos(a * Math.PI / 180), 8.3 * Math.sin(a * Math.PI / 180), 4);   // на балконе
+  const jet = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 0.82, 12), brass);
+  jet.position.set(0, 0.96, 0); scene.add(jet);
+  const spray = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10), water);
+  spray.position.set(0, 1.48, 0); spray.scale.y = 1.5; scene.add(spray);
+  const fountainLight = new THREE.PointLight(0x7395a0, 0.65, 8, 2); fountainLight.position.set(0, 1.8, 0); scene.add(fountainLight);
+
+  // Старая машина стоит между фонтаном и нижними воротами, как на чертеже.
+  const car = new THREE.Group(), carPaint = PM(0x3e4444, 0.45, 0.6), glass = PM(0x202b30, 0.18, 0.5), rubber = PM(0x111112, 0.95, 0.05), hub = PM(0x77766d, 0.35, 0.7);
+  const part = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); car.add(m); return m; };
+  part(new THREE.BoxGeometry(2.25, 0.72, 4.25), carPaint, 0, 0.78, 0);
+  part(new THREE.BoxGeometry(1.72, 0.76, 2.15), carPaint, 0, 1.46, -0.18);
+  part(new THREE.BoxGeometry(1.64, 0.52, 1.05), glass, 0, 1.48, -0.9);
+  part(new THREE.BoxGeometry(1.64, 0.52, 0.9), glass, 0, 1.48, 0.53);
+  for (const side of [-1, 1]) for (const z of [-1.35, 1.35]) {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.43, 0.22, 16), rubber);
+    wheel.rotation.z = Math.PI / 2; wheel.position.set(side * 1.1, 0.48, z); car.add(wheel);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.235, 12), hub);
+    cap.rotation.z = Math.PI / 2; cap.position.set(side * 1.1, 0.48, z); car.add(cap);
+  }
+  for (const x of [-0.72, 0.72]) {
+    part(new THREE.BoxGeometry(0.35, 0.2, 0.08), PM(0xc5a66a, 0.3, 0.25), x, 0.92, -2.14);
+    part(new THREE.BoxGeometry(0.38, 0.18, 0.08), PM(0x711f18, 0.4, 0.15), x, 0.9, 2.14);
+  }
+  car.position.set(0, 0, 5.25); car.rotation.y = -0.38; scene.add(car);
+  const carCollider = addBox(-1.55, 1.55, 0, 1.95, 3.15, 7.35, new THREE.MeshBasicMaterial({ visible: false }));
+  if (carCollider.userData.col) carCollider.userData.col.prop = true;
+
+  // Парапеты, двери и немного мебели на обоих этажах, не загромождая проходы к лестницам.
+  for (const cx of [-9, 9]) {
+    const tableX = cx + (cx < 0 ? -1.5 : 1.5);
+    table(tableX, -4.25, 1.45, 0.85, 0, 0.82, M2.steel);
+    chair(tableX, -3.35, 0, 1, 0);
+    crate(cx + (cx < 0 ? -1.8 : 1.0), 4.3, 0.8, 0, mats.crate);
+    cot(cx - 1.6, -4.8, 'x', 4, M2.cloth);
+    table(cx + 1.35, 4.2, 1.3, 0.8, 4, 0.82, M2.steel);
+    crate(cx - 1.9, 4.1, 0.8, 4, M2.olive);
+    for (const z of [-5.4, 5.4]) {
+      const panel = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), new THREE.MeshBasicMaterial({ color: 0x57472f }));
+      panel.position.set(cx < 0 ? cx - 2.82 : cx + 2.82, 2.15, z); panel.rotation.y = cx < 0 ? Math.PI / 2 : -Math.PI / 2; scene.add(panel);
+    }
+  }
+  // Разбитые плиты и дорожки ведут от обоих проходов к фонтану.
+  flatPlane(2.8, 13.2, 0, 0.015, -8.2, 0, PM(0x42413d, 1, 0));
+  flatPlane(2.8, 13.2, 0, 0.016, 8.2, 0, PM(0x42413d, 1, 0));
+  trash(-4.5, 4.5, -13.4, -11.8, 0, 10); trash(-4.5, 4.5, 11.8, 13.4, 0, 10);
+  barrel(-13.4, -9.5, 0, 0x37342d); barrel(13.3, 9.2, 0, 0x3a2920);
 }
 
 
@@ -823,7 +927,7 @@ const info = document.getElementById('info');
 controls.addEventListener('lock', () => info.style.display = 'none');
 controls.addEventListener('unlock', () => { if (!dead) info.style.display = 'flex'; });
 scene.add(controls.getObject());
-const SPAWN = MAP_ID === 'nacht' ? new THREE.Vector3(-9.5, 1.7, 9.5) : new THREE.Vector3(10, 1.7, 0), SPAWN_YAW = MAP_ID === 'nacht' ? 0 : Math.PI / 2;   // на Verruckt смотрим из восточной палаты в сторону ядра
+const SPAWN = MAP_ID === 'nacht' ? new THREE.Vector3(-9.5, 1.7, 9.5) : new THREE.Vector3(0, 1.7, 10), SPAWN_YAW = 0;
 const pos = controls.getObject().position.copy(SPAWN);
 camera.rotation.y = SPAWN_YAW;
 const R = 0.35, H = 1.7, STEP = 0.45;
@@ -2233,14 +2337,18 @@ function link(a, b) {
   const w = Math.hypot(A.x - B.x, A.z - B.z, A.y - B.y);
   A.n.push({ j: b, w }); B.n.push({ j: a, w });
 }
-const inStair = (x, z) => Math.hypot(x - SP.cx, z - SP.cz) < SP.ro + 0.15;
+const inStair = (x, z) => !!stairAt(x, z);
 
 // окна первого этажа: откуда лезут зомби
-const WIN = windows.filter(w => w.lvl < 1).map(w => {
+const WIN = MAP_ID === 'nacht' ? windows.filter(w => w.lvl < 1).map(w => {
   const c = (w.s + w.e) / 2, o = w.fixed < 0 ? -1 : 1;
   return w.ax === 'x'
     ? { ...w, o, dir: { x: 0, z: o }, spawn: { x: c, z: w.fixed + o * 3.2 }, entry: { x: c, z: w.fixed - o * 2 } }
     : { ...w, o, dir: { x: o, z: 0 }, spawn: { x: w.fixed + o * 3.2, z: c }, entry: { x: w.fixed - o * 2, z: c } };
+}) : [-1, 1].map(o => {
+  const fixed = o < 0 ? -16 : 16;
+  return { ax: 'x', fixed, s: -2.45, e: 2.45, b: 0, t: 3.25, lvl: -1, boards: [], all: [], pending: [],
+    o, dir: { x: 0, z: o }, spawn: { x: 0, z: fixed + o * 3.2 }, entry: { x: 0, z: fixed - o * 2 } };
 });
 // комната по координате (1 этаж): START — стартовая, CORR — коридор, EAST — восточная, HALL — большой зал с лестницей
 function zoneOf(x, z) { if (MAP_ID !== 'nacht') return vkZone(x, z); return z > 4 ? (x < -4 ? 'START' : x < -2 ? 'CORR' : 'EAST') : (z > 1 && x > -2 ? 'EAST' : 'HALL'); }
@@ -2467,10 +2575,10 @@ function makeChalkSG() {
 
 
 // ---------- MYSTERY BOX (950) ----------
-const BOX_PRICE = 950, BOX = { x: -6, z: 5, w: 2.8, h: 1.5, d: 1.4 };
+const BOX_PRICE = 950, BOX = MAP_ID === 'nacht' ? { x: -6, z: 5, w: 2.8, h: 1.5, d: 1.4 } : { x: 0, z: -10, w: 2.8, h: 1.5, d: 1.4 };
 const BOX_COL = { 8: 0xffd24a, 1: 0xffb040, 2: 0xff4030, 3: 0x40c0ff, 4: 0xe8e060, 5: 0x40ff60, 6: 0xc0c0c0, 7: 0x9ac8ff };
 const _boxN0 = scene.children.length;   // всё, что добавлено в сцену ниже, до boxRoot — части ящика (чтобы переносить его целиком)
-const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = MAP_ID === 'nacht' ? { x: 0.3, z: -13.95 } : { x: 0, z: -13.2 };   // у северной стены зала, между бочками и окном (x 3.5…6.5), лицом в зал   // стартовая комната → центральный зал (после покупки двери)
+const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = MAP_ID === 'nacht' ? { x: 0.3, z: -13.95 } : { x: 0, z: -10 };
 let boxCol = null;
 const mChest = matFrom('chest', 0xffffff, 2, { side: THREE.DoubleSide });
 const mIron = new THREE.MeshStandardMaterial({ color: 0x35363a, roughness: 0.5, metalness: 0.5 });
@@ -2621,7 +2729,7 @@ function updateProjs(dt) {
 }
 
 // ---------- SPEED COLA ----------
-const COLA_PRICE = 4000, MACH = MAP_ID === 'nacht' ? { x: -14.25, z: 7 } : { x: -13.45, z: 0 };
+const COLA_PRICE = 4000, MACH = MAP_ID === 'nacht' ? { x: -14.25, z: 7 } : { x: -7.2, z: 3.2 };
 let speedCola = false, doubleTap = false, juggernog = false;
 const JUGG_PRICE = 2000, JUGG_HP = 175;   // 175 хп = 7 ударов зомби по 25 (обычно 4: +3 удара)
 function applyJugg() { juggernog = true; maxHp = JUGG_HP; hp = maxHp; }
@@ -2731,7 +2839,7 @@ function drinkPerk(k = 'cola') {   // покупка перка: проигра�
 
 
 // ---------- DOUBLE TAP (2 этаж, северо-запад) ----------
-const DTAP_PRICE = 2500, DTAP = MAP_ID === 'nacht' ? { x: -12, z: -14.25 } : { x: 0, z: -13.45 };
+const DTAP_PRICE = 2500, DTAP = MAP_ID === 'nacht' ? { x: -12, z: -14.25, y: 4 } : { x: 8.4, z: 3, y: 0 };
 function makeDtapTex() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 400; const g = c.getContext('2d');
   g.fillStyle = '#c23418'; g.fillRect(0, 0, 256, 400); g.fillStyle = '#4a0f08'; g.fillRect(10, 10, 236, 380);
@@ -2741,13 +2849,13 @@ function makeDtapTex() {
   g.fillStyle = '#000'; g.fillRect(70, 310, 116, 50); g.fillStyle = '#ffd24a'; g.font = 'bold 30px "Courier New"'; g.fillText(String(DTAP_PRICE), 128, 346);
   return new THREE.CanvasTexture(c);
 }
-addBox(DTAP.x - 0.7, DTAP.x + 0.7, 4, 6.2, DTAP.z - 0.45, DTAP.z + 0.45, new THREE.MeshStandardMaterial({ color: 0x8a1a10, roughness: 0.6, emissive: 0x2a0804 }));
+addBox(DTAP.x - 0.7, DTAP.x + 0.7, DTAP.y, DTAP.y + 2.2, DTAP.z - 0.45, DTAP.z + 0.45, new THREE.MeshStandardMaterial({ color: 0x8a1a10, roughness: 0.6, emissive: 0x2a0804 }));
 const dtapFace = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), new THREE.MeshBasicMaterial({ map: makeDtapTex(), color: 0xdddddd }));
-dtapFace.position.set(DTAP.x, 5.1, DTAP.z + 0.46); scene.add(dtapFace);
-const dtapLight = new THREE.PointLight(0xff8a30, 0.9, 7, 2); dtapLight.position.set(DTAP.x, 5.8, DTAP.z + 1.2); scene.add(dtapLight);
+dtapFace.position.set(DTAP.x, DTAP.y + 1.1, DTAP.z + 0.46); scene.add(dtapFace);
+const dtapLight = new THREE.PointLight(0xff8a30, 0.9, 7, 2); dtapLight.position.set(DTAP.x, DTAP.y + 1.8, DTAP.z + 1.2); scene.add(dtapLight);
 
 // ---------- ДЖАГЕР ФАНТА (2 этаж, западная стена) ----------
-const JUGG = MAP_ID === 'nacht' ? { x: -14.25, z: 2, y: 4 } : { x: -13.45, z: 0, y: 4 };
+const JUGG = MAP_ID === 'nacht' ? { x: -14.25, z: 2, y: 4 } : { x: 1000, z: 1000, y: 4 };
 function makeJuggTex() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 400; const g = c.getContext('2d');
   g.fillStyle = '#b01838'; g.fillRect(0, 0, 256, 400); g.fillStyle = '#3a0a1a'; g.fillRect(10, 10, 236, 380);
@@ -2768,7 +2876,8 @@ function rebuildNav() {
     const A = NODES[i], B = NODES[j];
     if (Math.abs(A.y - B.y) < 0.6 && Math.hypot(A.x - B.x, A.z - B.z) < 18 && los(A.x, A.z, B.x, B.z, Math.min(A.y, B.y))) link(i, j);
   }
-  [['s0', 's1'], ['s1', 's2'], ['s2', 's3'], ['s3', 's5'], ['s5', 's6'], ['s6', 's4']].forEach(([a, b]) => link(NI[a], NI[b]));
+  const chains = MAP_ID === 'nacht' ? ['s'] : ['s', 'r'];
+  for (const p of chains) [['0', '1'], ['1', '2'], ['2', '3'], ['3', '5'], ['5', '6'], ['6', '4']].forEach(([a, b]) => link(NI[p + a], NI[p + b]));
 }
 
 // ---------- ДВЕРИ: покупка прохода; зомби спавнятся только в окнах открытых комнат ----------
@@ -2972,7 +3081,7 @@ function updateInteract(dt) {
     }
     repT = 0; buyT = 0; return;
   }
-  if (PF > 3.5 && Math.hypot(pos.x - DTAP.x, pos.z - DTAP.z) < 2.1) {
+  if (Math.abs(PF - DTAP.y) < 1.5 && Math.hypot(pos.x - DTAP.x, pos.z - DTAP.z) < 2.1) {
     if (doubleTap) promptEl.innerHTML = '<span class="ok">Double Tap — куплено</span>';
     else {
       const can = points >= DTAP_PRICE;
@@ -3278,12 +3387,13 @@ function steer(z, tx, tz, spd, dt) {
 }
 function plan(z, targetX = PX, targetZ = PZ, targetFloor = PF, targetVisibility = null) {
   const p = z.g.position, fy = p.y, N = NODES.length;
-  if (inStair(p.x, p.z)) { // на лестнице поиск по узлам бессилен (LOS не видит вверх по ступеням): идём по винту к нужному концу
-    const dy = targetFloor - fy, ang = Math.atan2(p.z - SP.cz, p.x - SP.cx), TT = Math.PI * 2, tz = (((ang - SP.a0) % TT) + TT) % TT;
-    const hx = a => ({ x: SP.cx + SP.rw * Math.cos(a), z: SP.cz + SP.rw * Math.sin(a) });   // точка на винте на радиусе 1.9 м
-    if (dy > 0.25 && fy < STAIR.yTop - 0.15) { z.wp = fy >= 3.7 ? { x: SP.cx + 0.7, z: SP.cz + SP.ro + 1 } : hx(ang + 0.5); return; }   // вверх: точка на винте чуть впереди, у верхних ступеней — сразу на площадку
-    if (dy < -0.25 && fy > 0.15) { z.wp = tz < 0.6 ? { x: SP.cx - 0.6, z: SP.cz + SP.ro + 1.6 } : hx(ang - 0.5); return; }   // вниз: назад по винту, у подножия — на пол
-    if (fy > 0.4 && fy < STAIR.yTop - 0.4) { z.wp = null; return; } // игрок рядом на той же лестнице
+  const stair = stairAt(p.x, p.z);
+  if (stair) { // на лестнице идём по витку к нужному этажу
+    const top = stair.n * stair.rise, dy = targetFloor - fy, ang = Math.atan2(p.z - stair.cz, p.x - stair.cx), TT = Math.PI * 2, tz = (((ang - stair.a0) % TT) + TT) % TT;
+    const hx = a => ({ x: stair.cx + stair.rw * Math.cos(a), z: stair.cz + stair.rw * Math.sin(a) });
+    if (dy > 0.25 && fy < top - 0.15) { z.wp = fy >= 3.7 ? { x: stair.cx + 0.7, z: stair.cz + stair.ro + 1 } : hx(ang + 0.5); return; }
+    if (dy < -0.25 && fy > 0.15) { z.wp = tz < 0.6 ? { x: stair.cx - 0.6, z: stair.cz + stair.ro + 1.6 } : hx(ang - 0.5); return; }
+    if (fy > 0.4 && fy < top - 0.4) { z.wp = null; return; }
   }
   if (Math.abs(targetFloor - fy) < 1.3 && los(p.x, p.z, targetX, targetZ, fy)) { z.wp = null; return; }
   const dist = new Array(N).fill(Infinity), prev = new Array(N).fill(-1), done = new Array(N).fill(false);
@@ -3571,8 +3681,10 @@ function withZombieTargetVisibility(target) {
       target.floor !== cached.floor || now - cached.updatedAt > 400) {
     const visible = NODES.map(n =>
       Math.abs(n.y - target.floor) < 1.3 && los(target.x, target.z, n.x, n.z, target.floor));
-    if (inStair(target.x, target.z) && target.floor > 0.3 && target.floor < STAIR.yTop - 0.3) {
-      visible[target.floor < STAIR.yTop / 2 ? NI.s0 : NI.s4] = true;
+    const targetStair = stairAt(target.x, target.z);
+    if (targetStair && target.floor > 0.3 && target.floor < targetStair.n * targetStair.rise - 0.3) {
+      const pre = targetStair === SP ? 's' : 'r';
+      visible[target.floor < targetStair.n * targetStair.rise / 2 ? NI[pre + '0'] : NI[pre + '4']] = true;
     }
     cached = { x: target.x, z: target.z, floor: target.floor, updatedAt: now, visible };
     zombieTargetVisibility.set(key, cached);
