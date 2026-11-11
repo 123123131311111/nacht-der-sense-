@@ -9,7 +9,7 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 4;
-const DROP_CHANCE = 0.08, DROP_LIFE_MS = 32000;   // красный бонус MAX AMMO: шанс при убийстве зомби
+const DROP_CHANCE = 0.03, DROP_LIFE_MS = 32000;   // красный бонус MAX AMMO: шанс при убийстве зомби
 const rooms = Object.create(null);
 const roomOf = Object.create(null);
 
@@ -21,6 +21,7 @@ const WEAPONS = [
   { body: 250, head: 500, interval: 280, pellets: 1 },
   { body: 620, head: 620, interval: 420, pellets: 24 },
   { body: 110, head: 220, interval: 100, pellets: 1 },
+  { body: 95, head: 190, interval: 90, pellets: 1 },   // M16A1 (только Mystery Box)
 ];
 const DOORS = [
   { x: -9.5, z: 4 }, { x: 4, z: -4 }, { x: -3, z: 4 },
@@ -328,7 +329,7 @@ io.on('connection', socket => {
       if (!near(player, boxPos.x, boxPos.z, 3.5, -1, 3.2)) return failPurchase(socket, 'Подойдите к Mystery Box');
       if (room.game.boxBusyUntil > Date.now()) return failPurchase(socket, 'Mystery Box уже используется');
       price = 950;
-      boxResult = 1 + Math.floor(Math.random() * 6);
+      boxResult = 1 + Math.floor(Math.random() * 7);
     } else return failPurchase(socket, 'Неизвестная покупка');
     if (player.points < price) return failPurchase(socket, 'Не хватает очков');
     player.points -= price;
