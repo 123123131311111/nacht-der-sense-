@@ -570,6 +570,12 @@ function vkWalls() {
       const c = addBox(xa, xb, 3.7, 4, za, zb, mats.concrete);
       floors.push(c.userData.col);
     }
+    // Лестница: сплошные ступени от земли до пола 2-го этажа (тёмные, чтобы не сливались с полом).
+    const stepA = new THREE.MeshStandardMaterial({ color: 0x4a4f52, roughness: 0.85 }), stepB = new THREE.MeshStandardMaterial({ color: 0x2c2f31, roughness: 0.85 });
+    for (let k = 1; k <= sn; k++) {
+      const c = addBox(sx - hw, sx + hw, 0, k * rise, zs + (k - 1) * run, zs + k * run, k % 2 ? stepA : stepB);
+      floors.push(c.userData.col);
+    }
     // Перила по краям проёма на втором этаже (низ и бока; сверху — вход на лестницу).
     const rail = (xa, xb, za, zb) => {
       addBox(xa, xb, 4, 4.95, za, zb, invisible);            // коллизия
