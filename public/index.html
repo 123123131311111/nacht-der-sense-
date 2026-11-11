@@ -556,7 +556,12 @@ function vkWalls() {
       }
       // пилястры и пояс между этажами
       for (const x of [x0, x1]) for (const z of [z0, z1]) addBox(x - 0.2, x + 0.2, base, top + 0.12, z - 0.2, z + 0.2, mats.concrete, false);
-      addBox(x0 - 0.18, x1 + 0.18, base + 3.55, base + 3.72, z0 - 0.18, z1 + 0.18, mats.concrete, false);
+      // пояс между этажами — только рамка по периметру (раньше была сплошная плита и закрывала проём лестницы)
+      { const yb = base + 3.55, yt = base + 3.72;
+        addBox(x0 - 0.18, x1 + 0.18, yb, yt, z0 - 0.18, z0 + 0.22, mats.concrete, false);
+        addBox(x0 - 0.18, x1 + 0.18, yb, yt, z1 - 0.22, z1 + 0.18, mats.concrete, false);
+        addBox(x0 - 0.18, x0 + 0.22, yb, yt, z0 + 0.22, z1 - 0.22, mats.concrete, false);
+        addBox(x1 - 0.22, x1 + 0.18, yb, yt, z0 + 0.22, z1 - 0.22, mats.concrete, false); }
       // рамы входов с фасада
       for (const [gc, gh] of gaps) {
         addBox(inwardX - 0.1, inwardX + 0.1, base, base + 3.0, gc - gh - 0.2, gc - gh, mats.concrete, false);
