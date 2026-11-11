@@ -232,7 +232,7 @@ body.touch #knife{bottom:32px}
 <p class="hint">Отправь код друзьям. До 4 игроков. Заходи, когда все собрались.</p>
 <button class="mb big" id="bGo">▶ В ИГРУ</button>
 <button class="mb back" id="bLeave">← ВЫЙТИ ИЗ ЛОББИ</button></div>
-<div class="panel" id="pHelp"><h2>ПОМОЩЬ</h2><div id="helpPc"><p>WASD — движение · Shift — бег · Space — прыжок · ЛКМ — стрельба · R — перезарядка · V — нож (перезарядка 2 с, убивает всех перед вами) · Esc — пауза</p><p>Инвентарь: 2 слота. 1 / 2 / колёсико мыши — смена оружия. Новое оружие при полном инвентаре заменяет то, что в руках.</p><p>Зелёный автомат Speed Cola: E — купить (4000) — перезарядка вдвое быстрее. Красный Double Tap: E — купить (2500) — двойной урон.</p><p>На Verrückt зомби входят через два прохода в ограде (игрок туда пройти не может); в корпуса можно подняться по лестнице. Thompson продаётся в левом корпусе, дробовик — в правом, на дальней стене. Mystery Box стоит в сарае к северу от правого корпуса — дверь сарая открывается за 1000 (удерживать E).</p><p>На Nacht зомби ломают доски на окнах и лезут внутрь. Цельтесь в голову!</p><p>На Nacht E (удерживать) у двери — открыть проход (1000); F / E у окна — чинить доски. На Verrückt платные двери: вход на 2 этаж каждого корпуса и сарай с ящиком.</p><p>E (удерживать) у стены — купить Thompson (1000) · E у сундука — Mystery Box (950)</p></div><div id="helpTouch"><p>Левый палец — стик движения (выведите палец за круг — бег) · правый палец — поворот камеры</p><p>ОГОНЬ — стрельба (держите кнопку и ведите пальцем — камера поворачивается) · ПРЫЖОК · ПЕРЕЗАР. · СМЕНА — смена оружия · ⏸ — пауза · НОЖ — удар ножом (раз в 2 с, убивает всех перед вами)</p><p>КУПИТЬ (удерживать) у Mystery Box, стен с оружием и автоматов. На Nacht также можно открывать двери и чинить окна.</p><p>Цельтесь в голову; на Verrückt зомби входят через два прохода в ограде.</p></div><button class="mb back" data-back>← НАЗАД</button></div>
+<div class="panel" id="pHelp"><h2>ПОМОЩЬ</h2><div id="helpPc"><p>WASD — движение · Shift — бег · Space — прыжок · ЛКМ — стрельба · R — перезарядка · V — нож (перезарядка 2 с, убивает всех перед вами) · Esc — пауза</p><p>Инвентарь: 2 слота. 1 / 2 / колёсико мыши — смена оружия. Новое оружие при полном инвентаре заменяет то, что в руках.</p><p>Зелёный автомат Speed Cola: E — купить (4000) — перезарядка вдвое быстрее. Красный Double Tap: E — купить (2500) — двойной урон.</p><p>На Verrückt зомби входят через два прохода в ограде (игрок туда пройти не может); в корпуса можно подняться по лестнице. Thompson продаётся в левом корпусе, дробовик — в правом, на дальней стене. Mystery Box стоит в сарае к северу от правого корпуса — дверь сарая открывается за 1000 (удерживать E).</p><p>На Nacht зомби ломают доски на окнах и лезут внутрь. Цельтесь в голову!</p><p>На Nacht E (удерживать) у двери — открыть проход (1000); F / E у окна — чинить доски. На Verrückt все двери платные (удерживать E): главная дверь каждого дома — 1000, вход на 2 этаж — 2000, сарай с ящиком — 1000. Сначала откройте главную дверь, потом лестницу.</p><p>E (удерживать) у стены — купить Thompson (1000) · E у сундука — Mystery Box (950)</p></div><div id="helpTouch"><p>Левый палец — стик движения (выведите палец за круг — бег) · правый палец — поворот камеры</p><p>ОГОНЬ — стрельба (держите кнопку и ведите пальцем — камера поворачивается) · ПРЫЖОК · ПЕРЕЗАР. · СМЕНА — смена оружия · ⏸ — пауза · НОЖ — удар ножом (раз в 2 с, убивает всех перед вами)</p><p>КУПИТЬ (удерживать) у Mystery Box, стен с оружием и автоматов. На Nacht также можно открывать двери и чинить окна.</p><p>Цельтесь в голову; на Verrückt зомби входят через два прохода в ограде.</p></div><button class="mb back" data-back>← НАЗАД</button></div>
 </div></div>
 <div id="rotmsg">Поверните телефон горизонтально</div>
 <!-- Socket.io: сервер сам отдаёт этот файл по адресу /socket.io/socket.io.js -->
@@ -531,11 +531,14 @@ function vkBlood() {
 // Прямая лестница Verrückt: идёт вдоль +Z, 15 ступеней по 0.25 м + пол 2-го этажа (4.0) как последняя ступень.
 const VK_ST = { n: 15, rise: 0.25, run: 0.28, zs: -2.1, hw: 0.8 };
 VK_ST.ze = VK_ST.zs + VK_ST.n * VK_ST.run;   // конец проёма (= начало пола 2-го этажа)
-// Вход на 2-й этаж каждого корпуса — платная дверь у подножия лестницы. Порядок (левый, правый) ДОЛЖЕН совпадать с MAPS.verruckt.doors в server-multiplayer.js.
+// Двери Verrückt: [0, 1] — вход на 2-й этаж (2000), [2] — сарай (1000), [3, 4] — главные двери домов (1000). Порядок и цены ДОЛЖНЫ совпадать с MAPS.verruckt.doors в server-multiplayer.js.
 VK_DOORS.push(
-  { ax: 'x', fixed: VK_ST.zs - 0.25, s: -9 - VK_ST.hw, e: -9 + VK_ST.hw, a: 'YARD', b: 'UPPER_L', h: 3.7, label: 'открыть вход на 2 этаж', msg: 'ВХОД НА 2 ЭТАЖ ОТКРЫТ' },
-  { ax: 'x', fixed: VK_ST.zs - 0.25, s: 9 - VK_ST.hw, e: 9 + VK_ST.hw, a: 'YARD', b: 'UPPER_R', h: 3.7, label: 'открыть вход на 2 этаж', msg: 'ВХОД НА 2 ЭТАЖ ОТКРЫТ' },
-  { ax: 'x', fixed: VK_SHED.zf, s: VK_SHED.cx - VK_SHED.dw, e: VK_SHED.cx + VK_SHED.dw, a: 'YARD', b: 'SHED', h: 2.9, label: 'открыть сарай (Mystery Box)', msg: 'САРАЙ ОТКРЫТ' }   // индекс 2 — как в MAPS.verruckt.doors на сервере
+  { ax: 'x', fixed: VK_ST.zs - 0.25, s: -9 - VK_ST.hw, e: -9 + VK_ST.hw, a: 'HOUSE_L', b: 'UPPER_L', h: 3.7, price: 2000, label: 'открыть вход на 2 этаж', msg: 'ВХОД НА 2 ЭТАЖ ОТКРЫТ' },
+  { ax: 'x', fixed: VK_ST.zs - 0.25, s: 9 - VK_ST.hw, e: 9 + VK_ST.hw, a: 'HOUSE_R', b: 'UPPER_R', h: 3.7, price: 2000, label: 'открыть вход на 2 этаж', msg: 'ВХОД НА 2 ЭТАЖ ОТКРЫТ' },
+  { ax: 'x', fixed: VK_SHED.zf, s: VK_SHED.cx - VK_SHED.dw, e: VK_SHED.cx + VK_SHED.dw, a: 'YARD', b: 'SHED', h: 2.9, price: 1000, label: 'открыть сарай (Mystery Box)', msg: 'САРАЙ ОТКРЫТ' },   // индекс 2 — как в MAPS.verruckt.doors на сервере
+  // Главные двери домов (сторона фонтана, проём |z| < 1.6). Индексы 3 и 4 — как в MAPS.verruckt.doors на сервере. Пока дверь закрыта, внутрь и к лестнице не попасть.
+  { ax: 'z', fixed: -6, s: -1.6, e: 1.6, a: 'YARD', b: 'HOUSE_L', h: 2.85, price: 1000, label: 'открыть главную дверь левого дома', msg: 'ГЛАВНАЯ ДВЕРЬ ОТКРЫТА' },
+  { ax: 'z', fixed: 6, s: -1.6, e: 1.6, a: 'YARD', b: 'HOUSE_R', h: 2.85, price: 1000, label: 'открыть главную дверь правого дома', msg: 'ГЛАВНАЯ ДВЕРЬ ОТКРЫТА' }
 );
 function vkWalls() {
   const iron = new THREE.MeshStandardMaterial({ color: 0x34383b, roughness: 0.65, metalness: 0.7 });
@@ -1211,7 +1214,7 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
       // --- Коридор ---
       rug(6.3, 8.0, -0.9, 0.9, Y, F.rug1); rug(10.0, 16.2, -0.9, 0.9, Y, F.rug1);
       fb(10.2, 12.4, -4.65, -4.25, Y, Y + 0.8, F.wood); fb(10.5, 11.9, 4.25, 4.65, Y, Y + 0.8, F.wood);              // консоли у стен
-      if (sg < 0) pad(7.8, 9.4, 2.5, 4.4, Y); else pad(7.5, 9.4, 3.55, 4.65, Y);                                      // зелёная зона перков у автомата
+      if (sg < 0) pad(7.8, 9.4, 2.5, 4.4, Y); else pad(7.3, 8.8, 2.25, 3.55, Y);                                      // зелёная зона перков у автомата
 
       // --- Библиотека ---
       bookcase(13.9, 16.4, 8.25, 8.8, Y, 2.2, 0, -1); bookcase(18.2, 19.7, 8.25, 8.8, Y, 2.2, 0, -1); bookcase(11.5, 12.1, 8.25, 8.8, Y, 2.2, 0, -1);
@@ -1248,8 +1251,141 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
   flatPlane(2.8, 17, 0, 0.015, -23.5, 0, PM(0x42413d, 1, 0));
   flatPlane(2.8, 17, 0, 0.016, 23.5, 0, PM(0x42413d, 1, 0));
   trash(-4.5, 4.5, -30, -27, 0, 10); trash(-4.5, 4.5, 27, 30, 0, 10); trash(-20, 20, -20, 20, 0, 14);
-  barrel(-13.4, -11.5, 0, 0x37342d); barrel(13.3, 11.5, 0, 0x3a2920); barrel(-28, -20, 0, 0x37342d); barrel(28, 22, 0, 0x3a2920); barrel(-26, 25, 0, 0x3a2920); barrel(25, -26, 0, 0x37342d);
+  barrel(-13.4, -11.5, 0, 0x37342d); barrel(13.3, 11.5, 0, 0x3a2920); barrel(-30.8, -11.2, 0, 0x37342d); barrel(30.8, 11.2, 0, 0x3a2920); barrel(-26, 25, 0, 0x3a2920); barrel(25, -26, 0, 0x37342d);
   crate(-24, 8, 1.0, 0, mats.crate); crate(24, -8, 1.0, 0, mats.crate); crate(-10, -24, 0.8, 0, mats.crate); crate(12, 24, 0.9, 0, mats.crate);
+
+  // ===== УЛИЦА Verrückt: две парковки во дворе, живые деревья, кольцевая дорога с припаркованными машинами за оградой =====
+  (function vkStreet() {
+    let seed = 20260611; const SR = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;   // детерминированный генератор: расстановка у всех игроков одинаковая
+    const INVM = new THREE.MeshBasicMaterial({ visible: false });
+    const asphalt = PM(0x2b2c2e, 0.95, 0.05), walk = PM(0x57554d, 0.95, 0.02), curbM = PM(0x6d6b62, 0.9, 0.05);
+    const paintM = new THREE.MeshBasicMaterial({ color: 0x8f8b76 });
+    const ring = (a, b, y, m) => {   // квадратное кольцо между |x|,|z| = a и b
+      flatPlane(2 * b, b - a, 0, y, -(a + b) / 2, 0, m); flatPlane(2 * b, b - a, 0, y, (a + b) / 2, 0, m);
+      flatPlane(b - a, 2 * a, -(a + b) / 2, y, 0, 0, m); flatPlane(b - a, 2 * a, (a + b) / 2, y, 0, 0, m);
+    };
+
+    // ---------- машины: четыре InstancedMesh на все (кузов, кабина, стёкла, колёса) ----------
+    const CAR_COL = [0x7a2d24, 0x34546a, 0x66643f, 0x8a8472, 0x4d5656, 0x94722f, 0x232325, 0x5a4468, 0x6a7a6a];
+    const cars = [], MX = new THREE.Matrix4(), QQ = new THREE.Quaternion(), EU = new THREE.Euler(), V3 = new THREE.Vector3(), SC = new THREE.Vector3();
+    function addCar(x, z, ry, color, van) { cars.push({ x, z, ry, color, van }); }
+    function buildCars() {
+      const n = cars.length; if (!n) return;
+      const mk = (geo, mat, cnt) => { const im = new THREE.InstancedMesh(geo, mat, cnt); im.frustumCulled = false; scene.add(im); return im; };
+      const box = new THREE.BoxGeometry(1, 1, 1), whG = new THREE.CylinderGeometry(0.43, 0.43, 0.24, 14).rotateZ(Math.PI / 2);
+      const bodyIM = mk(box, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.25 }), n);
+      const cabIM = mk(box, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.25 }), n);
+      const glassIM = mk(box, new THREE.MeshStandardMaterial({ color: 0x121a1e, roughness: 0.15, metalness: 0.5 }), n);
+      const wheelIM = mk(whG, new THREE.MeshStandardMaterial({ color: 0x0e0e0f, roughness: 0.95, metalness: 0.05 }), n * 4);
+      const C = new THREE.Color();
+      cars.forEach((c, i) => {
+        QQ.setFromEuler(EU.set(0, c.ry, 0));
+        const put = (im, idx, lx, ly, lz, sx, sy, sz) => {   // локальная часть → мировая матрица
+          V3.set(lx, ly, lz).applyQuaternion(QQ);
+          MX.compose(V3.set(c.x + V3.x, ly, c.z + V3.z), QQ, SC.set(sx, sy, sz)); im.setMatrixAt(idx, MX);
+        };
+        const L = c.van ? 5.0 : 4.3;
+        if (c.van) { put(bodyIM, i, 0, 1.15, 0, 2.2, 1.45, L); put(cabIM, i, 0, 0.2, 0, 0.01, 0.01, 0.01); put(glassIM, i, 0, 1.6, 1.95, 2.24, 0.55, 1.0); }
+        else { put(bodyIM, i, 0, 0.78, 0, 2.1, 0.72, L); put(cabIM, i, 0, 1.44, -0.2, 1.75, 0.62, 2.1); put(glassIM, i, 0, 1.46, -0.2, 1.79, 0.42, 2.14); }
+        let k = 0; for (const sx of [-1, 1]) for (const sz of [-1, 1]) put(wheelIM, i * 4 + k++, sx * (c.van ? 1.06 : 1.03), 0.43, sz * L * 0.32, 1, 1, 1);
+        C.setHex(c.color); bodyIM.setColorAt(i, C); cabIM.setColorAt(i, C);
+      });
+    }
+    const carCol = (x, z, van) => {   // коллизия машины во дворе: игрока она держит, зомби проходят (prop), как остальная мебель
+      const hx = van ? 1.15 : 1.1, hz = van ? 2.5 : 2.15, b = addBox(x - hx, x + hx, 0, van ? 2.0 : 1.9, z - hz, z + hz, INVM);
+      if (b.userData.col) b.userData.col.prop = true;
+    };
+
+    // ---------- парковка во дворе ----------
+    // sg = 1: юго-восток (x 13…31.5, z 12.5…29.5); sg = -1: северо-запад (всё зеркально). rowA/rowB: 0 — пусто, 1 — седан, 2 — фургон.
+    const paintLines = [];
+    function lot(sg, rowA, rowB) {
+      const x0 = 13, x1 = 31.5, z0 = 12.5, z1 = 29.5, cx = sg * (x0 + x1) / 2, cz = sg * (z0 + z1) / 2;
+      flatPlane(x1 - x0, z1 - z0, cx, 0.02, cz, 0, asphalt);
+      const cb = (ax0, ax1, az0, az1) => addBox(Math.min(sg * ax0, sg * ax1), Math.max(sg * ax0, sg * ax1), 0, 0.1, Math.min(sg * az0, sg * az1), Math.max(sg * az0, sg * az1), curbM, false);
+      cb(x0 - 0.15, x1, z0 - 0.15, z0); cb(x0 - 0.15, x1, z1, z1 + 0.15); cb(x0 - 0.15, x0, z0, z1);
+      for (let k = 0; k <= 6; k++) for (const zc of [16, 26]) paintLines.push([sg * (13.5 + 3 * k), sg * zc]);   // разметка машиномест
+      [[rowA, 16, 0], [rowB, 26, Math.PI]].forEach(([row, zc, ry]) => row.forEach((t, k) => {
+        if (!t) return; const x = 15 + 3 * k + (SR() - 0.5) * 0.3, z = zc + (SR() - 0.5) * 0.4, van = t === 2;
+        addCar(sg * x, sg * z, ry + (SR() - 0.5) * 0.08, CAR_COL[(SR() * CAR_COL.length) | 0], van); carCol(sg * x, sg * z, van);
+      }));
+      // табличка «P» на столбе у въезда (смотрит на двор)
+      const [c, g] = cv(128, 128); g.fillStyle = '#1b4a8a'; g.fillRect(0, 0, 128, 128); g.strokeStyle = '#e8e8e8'; g.lineWidth = 7; g.strokeRect(6, 6, 116, 116);
+      g.fillStyle = '#f2f2f2'; g.font = 'bold 92px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('P', 64, 70);
+      const px = sg * 12.4, pz = sg * 20.5, pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.7, 8), lampIron); pole.position.set(px, 1.35, pz); scene.add(pole);
+      const sgn = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.85), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: 0xb0b0b0, side: THREE.DoubleSide }));
+      sgn.position.set(px - sg * 0.05, 2.45, pz); sgn.rotation.y = -sg * Math.PI / 2; scene.add(sgn);
+    }
+    lot(1, [1, 1, 0, 1, 2, 0], [1, 0, 1, 1, 0, 1]);
+    lot(-1, [1, 0, 2, 1, 0, 0], [0, 1, 1, 0, 1, 1]);
+    { // разметка: один InstancedMesh на все полосы
+      const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.12, 5.0).rotateX(-Math.PI / 2), paintM, paintLines.length), q0 = new THREE.Quaternion();
+      paintLines.forEach((p, i) => { MX.compose(V3.set(p[0], 0.035, p[1]), q0, SC.set(1, 1, 1)); im.setMatrixAt(i, MX); });
+      im.frustumCulled = false; scene.add(im);
+    }
+
+    // ---------- деревья: живые, тёмно-зелёные (один InstancedMesh на все стволы и кроны) ----------
+    const treeList = [];
+    const plant = (x, z, s = 1, solid = false) => treeList.push({ x, z, s, ry: SR() * 6.28, solid });
+    function buildTrees() {
+      const n = treeList.length; if (!n) return;
+      const BL = [[0, 1.4, 0, 1.9], [0.9, 0.5, 0.3, 1.4], [-0.8, 0.7, -0.4, 1.5], [0.2, 2.4, -0.1, 1.2]], GR = [0x2c4a22, 0x35592a, 0x263f1f, 0x3b5e2c, 0x2a4a2a];
+      const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.3, 1, 8), new THREE.MeshStandardMaterial({ color: 0x3d2d1f, roughness: 1 }), n);
+      const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x070d06 }), n * BL.length);
+      const C = new THREE.Color();
+      treeList.forEach((t, i) => {
+        const h = 3.0 * t.s; QQ.setFromEuler(EU.set(0, t.ry, 0));
+        MX.compose(V3.set(t.x, h / 2, t.z), QQ, SC.set(t.s, h, t.s)); trunk.setMatrixAt(i, MX);
+        BL.forEach((b, k) => {
+          const lp = new THREE.Vector3(b[0] * t.s, 0, b[2] * t.s).applyQuaternion(QQ), r = b[3] * t.s;
+          MX.compose(V3.set(t.x + lp.x, h + b[1] * t.s, t.z + lp.z), QQ, SC.set(r, r * 0.85, r)); crown.setMatrixAt(i * BL.length + k, MX);
+          crown.setColorAt(i * BL.length + k, C.setHex(GR[(i + k) % GR.length]));
+        });
+        if (t.solid) { const c = addBox(t.x - 0.36 * t.s, t.x + 0.36 * t.s, 0, 3.6, t.z - 0.36 * t.s, t.z + 0.36 * t.s, INVM); if (c.userData.col) c.userData.col.prop = true; }   // ствол держит игрока и пули
+      });
+      trunk.frustumCulled = false; crown.frustumCulled = false; scene.add(trunk); scene.add(crown);
+    }
+    // во дворе (стволы — коллизия): углы и края, вдали от проходов зомби (|x| < 4 у ворот) и от парковок
+    [[-28.5, -6.5, 1.1], [-28.5, 6.5, 1.0], [28.5, -6.5, 1.0], [28.5, 6.5, 1.1],
+     [22.5, -13, 1.0], [29.5, -17, 1.2], [27.5, -29.5, 1.0], [22, -29.5, 1.1], [19.5, -31, 0.9],
+     [-22.5, 13, 1.0], [-29.5, 17, 1.2], [-27.5, 29.5, 1.0], [-22, 29.5, 1.1], [-30.2, 24.5, 0.9], [-17.5, 14.5, 1.0],
+     [-8, -29.5, 1.0], [7, -29.5, 1.1], [14.5, -30, 1.0], [-8, 29.5, 1.1], [-14.5, 30, 1.0], [7, 29.5, 1.0]
+    ].forEach(t => plant(t[0], t[1], t[2], true));
+    // за оградой: на тротуаре (решётка забора видна сквозь листву), ствол без коллизии
+    for (const t of [-30, -22, -14, 14, 22, 30]) { plant(t, -34.2, 1.1); plant(t, 34.2, 1.1); }
+    for (const t of [-26, -18, -10, 0, 10, 18, 26]) { plant(-34.2, t, 1.1); plant(34.2, t, 1.1); }
+    for (const t of [-34, -22, -10, 10, 22, 34]) { plant(t, -43.4, 1.2); plant(t, 43.4, 1.2); plant(-43.4, t, 1.2); plant(43.4, t, 1.2); }
+
+    // ---------- дорога вокруг ограды: тротуар, асфальт, разделительная пунктирная линия, фонари, припаркованные машины ----------
+    ring(32.2, 35.6, 0.02, walk); ring(35.6, 42, 0.03, asphalt); ring(42, 44.4, 0.02, walk);
+    { const dashes = [], mid = 38.8;
+      for (let t = -mid; t < mid - 1; t += 5.2) { dashes.push([t + 1.2, -mid, 0], [t + 1.2, mid, 0], [-mid, t + 1.2, 1], [mid, t + 1.2, 1]); }
+      const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(2.4, 0.2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x9a7a1c }), dashes.length);
+      dashes.forEach((d, i) => { QQ.setFromEuler(EU.set(0, d[2] ? Math.PI / 2 : 0, 0)); MX.compose(V3.set(d[0], 0.045, d[1]), QQ, SC.set(1, 1, 1)); im.setMatrixAt(i, MX); });
+      im.frustumCulled = false; scene.add(im); }
+    { // фонари: столбы и светящиеся плафоны (без реальных источников света, чтобы не нагружать сцену)
+      const pts = []; for (const t of [-32, -16, 16, 32]) { pts.push([t, -35.1], [t, 35.1]); }
+      for (const t of [-28, -14, 0, 14, 28]) { pts.push([-35.1, t], [35.1, t]); }
+      const pm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.1, 5.2, 8), lampIron, pts.length);
+      const bm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.26, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffdca0, fog: false }), pts.length);
+      const hm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.95, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.13, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }), pts.length);
+      const q0 = new THREE.Quaternion();
+      pts.forEach((p, i) => {
+        MX.compose(V3.set(p[0], 2.6, p[1]), q0, SC.set(1, 1, 1)); pm.setMatrixAt(i, MX);
+        MX.compose(V3.set(p[0], 5.35, p[1]), q0, SC.set(1, 1, 1)); bm.setMatrixAt(i, MX); hm.setMatrixAt(i, MX);
+      });
+      for (const im of [pm, bm, hm]) { im.frustumCulled = false; scene.add(im); } }
+    // машины у внешней обочины: вдоль каждой стороны, кроме подъезда к воротам (|x| < 8 на севере и юге)
+    for (const side of [0, 1, 2, 3]) {
+      const lim = side < 2 ? 38 : 31;
+      for (let t = -lim; t <= lim; t += 6.4) {
+        const r = SR(); if (r < 0.4 || (side < 2 && Math.abs(t) < 8)) continue;
+        const d = side % 2 ? 40.3 : -40.3, van = r > 0.9, col = CAR_COL[(SR() * CAR_COL.length) | 0], j = (SR() - 0.5) * 0.8;
+        if (side < 2) addCar(t + j, d, Math.PI / 2 + (SR() - 0.5) * 0.06, col, van); else addCar(d, t + j, (side === 2 ? 0 : Math.PI) + (SR() - 0.5) * 0.06, col, van);
+      }
+    }
+    buildCars(); buildTrees();
+  })();
 }
 
 
@@ -1280,8 +1416,8 @@ function house(x, z, ry, burn) {
   }
   g.position.set(x, 0, z); g.rotation.y = ry; scene.add(g);
 }
-house(-12, -46, 0.1, true); house(-48, -6, Math.PI / 2, true); house(48, -3, -Math.PI / 2, true); house(-12, 48, Math.PI, true); house(40, 42, -2.4, true);
-house(14, -50, -0.2, false); house(-42, 42, 2.6, false); house(44, -38, -1.0, false);
+house(-12, -52, 0.1, true); house(-48, -6, Math.PI / 2, true); house(48, -3, -Math.PI / 2, true); house(-12, 48, Math.PI, true); house(54, 52, -2.4, true);
+house(14, -50, -0.2, false); house(-54, 52, 2.6, false); house(56, -40, -1.0, false);
 for (const [a, r] of [[0.5, 58], [2.1, 58], [3.6, 58], [5.1, 58]]) { const s = spr2(GL, true); s.scale.set(46, 22, 1); s.material.opacity = 0.3; s.position.set(Math.cos(a) * r, 6, Math.sin(a) * r); scene.add(s); }
 const TRM = BM(0x0b0907);
 function tree(x, z) {
@@ -1292,7 +1428,7 @@ function tree(x, z) {
   }
   g.position.set(x, 0, z); g.rotation.y = Math.random() * 6; scene.add(g);
 }
-for (let i = 0, n = 0; i < 400 && n < 44; i++) { const a = Math.random() * 6.28, r = RR(37, 58), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.max(Math.abs(x), Math.abs(z)) < 37) continue; tree(x, z); n++; }
+for (let i = 0, n = 0; i < 400 && n < 44; i++) { const a = Math.random() * 6.28, r = RR(37, 58), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.max(Math.abs(x), Math.abs(z)) < 46) continue; tree(x, z); n++; }
 function animFires(t) {
   for (const o of fires) {
     if (o.f) { const p = o.f.userData.p; o.f.scale.set(1 + 0.18 * Math.sin(t * 9 + p), 1 + 0.3 * Math.sin(t * 6.3 + p * 2), 1 + 0.18 * Math.cos(t * 8 + p)); }
@@ -3219,7 +3355,7 @@ function drinkPerk(k = 'cola') {   // покупка перка: проигра�
 
 
 // ---------- DOUBLE TAP (2 этаж, северо-запад) ----------
-const DTAP_PRICE = 2500, DTAP = MAP_ID === 'nacht' ? { x: -12, z: -14.25, y: 4 } : { x: 8.4, z: 3, y: 4 };
+const DTAP_PRICE = 2500, DTAP = MAP_ID === 'nacht' ? { x: -12, z: -14.25, y: 4, f: 0 } : { x: 6.67, z: 2.9, y: 4, f: 1 };   // f: 0 — табличка смотрит в +Z; ±1 — вдоль X. В Verrückt автомат стоит вплотную к стене у фасада (раньше стоял посреди коридора)
 function makeDtapTex() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 400; const g = c.getContext('2d');
   g.fillStyle = '#c23418'; g.fillRect(0, 0, 256, 400); g.fillStyle = '#4a0f08'; g.fillRect(10, 10, 236, 380);
@@ -3229,10 +3365,12 @@ function makeDtapTex() {
   g.fillStyle = '#000'; g.fillRect(70, 310, 116, 50); g.fillStyle = '#ffd24a'; g.font = 'bold 30px "Courier New"'; g.fillText(String(DTAP_PRICE), 128, 346);
   return new THREE.CanvasTexture(c);
 }
-addBox(DTAP.x - 0.7, DTAP.x + 0.7, DTAP.y, DTAP.y + 2.2, DTAP.z - 0.45, DTAP.z + 0.45, new THREE.MeshStandardMaterial({ color: 0x8a1a10, roughness: 0.6, emissive: 0x2a0804 }));
+{ const hx = DTAP.f ? 0.45 : 0.7, hz = DTAP.f ? 0.7 : 0.45; addBox(DTAP.x - hx, DTAP.x + hx, DTAP.y, DTAP.y + 2.2, DTAP.z - hz, DTAP.z + hz, new THREE.MeshStandardMaterial({ color: 0x8a1a10, roughness: 0.6, emissive: 0x2a0804 })); }
 const dtapFace = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), new THREE.MeshBasicMaterial({ map: makeDtapTex(), color: 0xdddddd }));
-dtapFace.position.set(DTAP.x, DTAP.y + 1.1, DTAP.z + 0.46); scene.add(dtapFace);
-const dtapLight = new THREE.PointLight(0xff8a30, 0.9, 7, 2); dtapLight.position.set(DTAP.x, DTAP.y + 1.8, DTAP.z + 1.2); scene.add(dtapLight);
+if (DTAP.f) { dtapFace.position.set(DTAP.x + 0.46 * DTAP.f, DTAP.y + 1.1, DTAP.z); dtapFace.rotation.y = Math.PI / 2 * DTAP.f; } else dtapFace.position.set(DTAP.x, DTAP.y + 1.1, DTAP.z + 0.46);
+scene.add(dtapFace);
+const dtapLight = new THREE.PointLight(0xff8a30, 0.9, 7, 2); if (DTAP.f) dtapLight.position.set(DTAP.x + 1.2 * DTAP.f, DTAP.y + 1.8, DTAP.z); else dtapLight.position.set(DTAP.x, DTAP.y + 1.8, DTAP.z + 1.2);
+scene.add(dtapLight);
 
 // ---------- ДЖАГЕР ФАНТА (2 этаж, западная стена) ----------
 const JUGG = MAP_ID === 'nacht' ? { x: -14.25, z: 2, y: 4 } : { x: 1000, z: 1000, y: 4 };
@@ -3508,12 +3646,12 @@ function updateInteract(dt) {
   }
   const dr = nearDoor();
   if (dr) {
-    const can = points >= DOOR_PRICE;
+    const dPrice = dr.price || DOOR_PRICE, can = points >= dPrice;
     if (holdE && can && !buyLock) {
       buyT += dt;
-      if (buyT >= BUY_TIME) { buyT = 0; if (!requestMPBuy('door', DOORS.indexOf(dr))) { buyLock = true; spend(DOOR_PRICE); openDoor(dr); } }
+      if (buyT >= BUY_TIME) { buyT = 0; if (!requestMPBuy('door', DOORS.indexOf(dr))) { buyLock = true; spend(dPrice); openDoor(dr); } }
     } else buyT = 0;
-    promptEl.innerHTML = `Зажмите ${KE()} — ${dr.label || 'открыть дверь'} за ${DOOR_PRICE} очков` + (can ? '' : ' <span class="no">— не хватает очков</span>') + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
+    promptEl.innerHTML = `Зажмите ${KE()} — ${dr.label || 'открыть дверь'} за ${dPrice} очков` + (can ? '' : ' <span class="no">— не хватает очков</span>') + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
     repT = 0; return;
   }
   buyT = 0;

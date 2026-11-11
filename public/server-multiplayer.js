@@ -49,13 +49,14 @@ const MAPS = {
     },
   },
   verruckt: {
-    doors: [{ x: -9, z: -2.35 }, { x: 9, z: -2.35 }, { x: 13, z: -17 }],   // платный вход на 2 этаж: левый и правый корпус (порядок как в VK_DOORS на клиенте)
+    // Порядок и цены как в VK_DOORS на клиенте: [0, 1] — вход на 2 этаж (2000), [2] — сарай с ящиком (1000), [3, 4] — главные двери левого и правого дома (1000).
+    doors: [{ x: -9, z: -2.35, price: 2000 }, { x: 9, z: -2.35, price: 2000 }, { x: 13, z: -17, price: 1000 }, { x: -6, z: 0, price: 1000 }, { x: 6, z: 0, price: 1000 }],
     windows: [],
     wall: { thompson: { x: -19.8, z: 2.75 }, shotgun: { x: 19.8, z: -2.75 } },   // внутри корпусов: Thompson — левый, дробовик — правый
     box: { x: 13, z: -21.35, available: dr => !!dr[2] },   // Mystery Box в сарае: доступен после покупки двери №2 (клиент: VK_SHED.cx, boxZ + 0.7)
     perks: {
       cola: { x: -7.2, z: 3.2, minY: 3.2, maxY: 7.5 },
-      doubleTap: { x: 8.4, z: 3, minY: 3.2, maxY: 7.5 },
+      doubleTap: { x: 6.67, z: 2.9, minY: 3.2, maxY: 7.5 },   // у стены правого дома, 2 этаж (как DTAP на клиенте)
       juggernog: { x: 1000, z: 1000, minY: 3.2, maxY: 7.5 },
     },
   },
@@ -368,7 +369,7 @@ io.on('connection', socket => {
       const door = cfg.doors[doorIndex];
       if (!door || room.game.doors[doorIndex]) return failPurchase(socket, 'Эта дверь уже открыта');
       if (!near(player, door.x, door.z, 3.2, -1, 3.2)) return failPurchase(socket, 'Подойдите ближе к двери');
-      price = 1000;
+      price = door.price || 1000;
     } else if (kind === 'cola') {
       const pk = cfg.perks.cola;
       if (!near(player, pk.x, pk.z, 2.8, pk.minY, pk.maxY)) return failPurchase(socket, 'Подойдите к автомату Speed Cola');
