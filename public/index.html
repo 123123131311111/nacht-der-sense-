@@ -434,7 +434,7 @@ const door = (s, e, lvl) => ({ s, e, b: lvl, t: lvl + 2.9 });
 //  По сторонам двора стоят два двухэтажных корпуса, в центре — фонтан и машина.
 // =====================================================================================
 const VK_START = 'YARD', VK_BOX_ZONE = 'YARD', VK_RC = 0, VK_K = 0;
-const VK_LAMPS = [[-8, 3.1, 0], [8, 3.1, 0], [0, 3.1, -8], [0, 3.1, 8], [-9, 7.1, 0], [9, 7.1, 0], [0, 4.2, 0]];
+const VK_LAMPS = [[-8, 3.1, 0], [8, 3.1, 0], [0, 3.1, -8], [0, 3.1, 8], [-9, 7.1, 0], [9, 7.1, 0], [0, 4.2, 0], [0, 3.1, -22], [0, 3.1, 22], [-22, 3.1, 0], [22, 3.1, 0], [-22, 3.1, -22], [22, 3.1, 22], [-22, 3.1, 22], [22, 3.1, -22]];
 const VK_DOORS = [];
 function vkZone() { return 'YARD'; }
 function vkBlock(x, z, size, y0, y1, mat) { return addBox(x - size / 2, x + size / 2, y0, y1, z - size / 2, z + size / 2, mat); }
@@ -443,7 +443,7 @@ function vkRing(r, step, size, skip, y0, y1, mat) {   // стена-кольцо
   for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, x = r * Math.cos(a), z = r * Math.sin(a); if (!skip(x, z)) vkBlock(x, z, size, y0, y1, mat); }
 }
 function vkFloors() {
-  addBox(-18, 18, -0.5, 0, -18, 18, mats.floor);
+  addBox(-36, 36, -0.5, 0, -36, 36, mats.floor);
 }
 // ---- кровь: процедурные текстуры-декали ----
 function vkBloodTex(kind) {
@@ -493,27 +493,31 @@ function vkWalls() {
   const iron = new THREE.MeshStandardMaterial({ color: 0x34383b, roughness: 0.65, metalness: 0.7 });
   const darkIron = new THREE.MeshStandardMaterial({ color: 0x171a1c, roughness: 0.8, metalness: 0.35 });
   const invisible = new THREE.MeshBasicMaterial({ visible: false });
+  const woodPost = mats.wood2.clone(); woodPost.color.multiplyScalar(0.7);
   const fence = (ax, fixed, a0, a1) => {
     const isX = ax === 'x', width = a1 - a0;
     addBox(isX ? a0 : fixed - 0.12, isX ? a1 : fixed + 0.12, 0, 3.25, isX ? fixed - 0.12 : a0, isX ? fixed + 0.12 : a1, invisible);
     const post = (u, w, y0, y1, m) => isX
       ? addBox(u - w / 2, u + w / 2, y0, y1, fixed - 0.1, fixed + 0.1, m, false)
       : addBox(fixed - 0.1, fixed + 0.1, y0, y1, u - w / 2, u + w / 2, m, false);
-    post((a0 + a1) / 2, 0.28, 0, 0.62, mats.concrete);
-    for (let u = a0 + 0.25; u < a1; u += 0.85) post(u, 0.09, 0.55, 3.15, iron);
-    for (const y of [0.72, 2.1, 3.12]) {
-      if (isX) addBox(a0, a1, y, y + 0.11, fixed - 0.13, fixed + 0.13, darkIron, false);
-      else addBox(fixed - 0.13, fixed + 0.13, y, y + 0.11, a0, a1, darkIron, false);
+    // Деревянный забор: горизонтальные доски + толстые столбы через каждые ~3 м.
+    const nP = Math.max(1, Math.round(width / 3)), stepP = width / nP;
+    for (let i = 0; i <= nP; i++) post(a0 + i * stepP, 0.3, 0, 3.5, woodPost);
+    for (let i = 0; i < 7; i++) {
+      const y = 0.12 + i * 0.46, m = i % 2 ? mats.wood : mats.wood2;
+      if (isX) addBox(a0, a1, y, y + 0.38, fixed - 0.07, fixed + 0.07, m, false);
+      else addBox(fixed - 0.07, fixed + 0.07, y, y + 0.38, a0, a1, m, false);
     }
   };
   // Полностью ограждённый двор. Два широких проёма напротив друг друга — единственные входы.
-  fence('x', -16, -16, -2.45); fence('x', -16, 2.45, 16);
-  fence('x', 16, -16, -2.45); fence('x', 16, 2.45, 16);
-  fence('z', -16, -16, 16); fence('z', 16, -16, 16);
-  for (const x of [-16, 16]) for (const z of [-16, 16]) addBox(x - 0.24, x + 0.24, 0, 3.55, z - 0.24, z + 0.24, mats.concrete, false);
-  for (const z of [-16, 16]) for (const x of [-2.45, 2.45]) {
-    addBox(x - 0.18, x + 0.18, 0, 3.7, z - 0.22, z + 0.22, mats.concrete, false);
-    addBox(x - 1.1, x + 1.1, 3.25, 3.38, z - 0.08, z + 0.08, iron, false);
+  const F = 32;   // половина стороны двора (раньше 16 — карта увеличена вдвое)
+  fence('x', -F, -F, -2.45); fence('x', -F, 2.45, F);
+  fence('x', F, -F, -2.45); fence('x', F, 2.45, F);
+  fence('z', -F, -F, F); fence('z', F, -F, F);
+  for (const x of [-F, F]) for (const z of [-F, F]) addBox(x - 0.22, x + 0.22, 0, 3.7, z - 0.22, z + 0.22, woodPost, false);
+  for (const z of [-F, F]) {
+    for (const x of [-2.45, 2.45]) addBox(x - 0.22, x + 0.22, 0, 3.9, z - 0.22, z + 0.22, woodPost, false);
+    addBox(-2.45, 2.45, 3.6, 3.9, z - 0.1, z + 0.1, woodPost, false);   // перекладина над воротами
   }
   // Два корпуса 6 × 12 м, по два этажа; входы обращены к фонтану.
   const build = cx => {
@@ -572,9 +576,9 @@ function vkWalls() {
 }
 function vkNodes() {   // узлы навигации (связи считаются автоматически по прямой видимости)
   const n = {
-    northGate: [0, -14, 0], northYard: [0, -11.8, 0], northWest: [-4.2, -4.3, 0], northEast: [4.2, -4.3, 0],
+    northGate: [0, -30, 0], northYard: [0, -27.8, 0], northMid: [0, -20, 0], northMid2: [0, -12, 0], southMid2: [0, 12, 0], southMid: [0, 20, 0], farWest: [-20, 0, 0], farEast: [20, 0, 0], nwCorner: [-22, -22, 0], neCorner: [22, -22, 0], swCorner: [-22, 22, 0], seCorner: [22, 22, 0], westMid: [-14, -10, 0], eastMid: [14, -10, 0], westMid2: [-14, 10, 0], eastMid2: [14, 10, 0], northWest: [-4.2, -4.3, 0], northEast: [4.2, -4.3, 0],
     westNorth: [-4.2, -2.8, 0], westSouth: [-4.2, 2.8, 0], eastNorth: [4.2, -2.8, 0], eastSouth: [4.2, 2.8, 0],
-    southWest: [-4.2, 4.3, 0], southEast: [4.2, 4.3, 0], southYard: [0, 11.8, 0], southGate: [0, 14, 0],
+    southWest: [-4.2, 4.3, 0], southEast: [4.2, 4.3, 0], southYard: [0, 27.8, 0], southGate: [0, 30, 0],
     leftDoor: [-5.5, 0, 0], leftRoom: [-7, -3.8, 0], leftRoom2: [-7, 3.8, 0],
     rightDoor: [5.5, 0, 0], rightRoom: [7, -3.8, 0], rightRoom2: [7, 3.8, 0],
     leftUpper: [-7, -3.8, 4], leftUpper2: [-7, 3.8, 4],
@@ -868,8 +872,11 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
   // Разбитые плиты и дорожки ведут от обоих проходов к фонтану.
   flatPlane(2.8, 13.2, 0, 0.015, -8.2, 0, PM(0x42413d, 1, 0));
   flatPlane(2.8, 13.2, 0, 0.016, 8.2, 0, PM(0x42413d, 1, 0));
-  trash(-4.5, 4.5, -13.4, -11.8, 0, 10); trash(-4.5, 4.5, 11.8, 13.4, 0, 10);
-  barrel(-13.4, -9.5, 0, 0x37342d); barrel(13.3, 9.2, 0, 0x3a2920);
+  flatPlane(2.8, 17, 0, 0.015, -23.5, 0, PM(0x42413d, 1, 0));
+  flatPlane(2.8, 17, 0, 0.016, 23.5, 0, PM(0x42413d, 1, 0));
+  trash(-4.5, 4.5, -30, -27, 0, 10); trash(-4.5, 4.5, 27, 30, 0, 10); trash(-20, 20, -20, 20, 0, 14);
+  barrel(-13.4, -9.5, 0, 0x37342d); barrel(13.3, 9.2, 0, 0x3a2920); barrel(-28, -20, 0, 0x37342d); barrel(28, 22, 0, 0x3a2920); barrel(-26, 25, 0, 0x3a2920); barrel(25, -26, 0, 0x37342d);
+  crate(-24, 8, 1.0, 0, mats.crate); crate(24, -8, 1.0, 0, mats.crate); crate(-10, -24, 0.8, 0, mats.crate); crate(12, 24, 0.9, 0, mats.crate);
 }
 
 
@@ -900,8 +907,8 @@ function house(x, z, ry, burn) {
   }
   g.position.set(x, 0, z); g.rotation.y = ry; scene.add(g);
 }
-house(-12, -40, 0.1, true); house(-42, -6, Math.PI / 2, true); house(42, -3, -Math.PI / 2, true); house(-12, 42, Math.PI, true); house(30, 34, -2.4, true);
-house(8, -46, -0.2, false); house(-32, 34, 2.6, false); house(34, -30, -1.0, false);
+house(-12, -46, 0.1, true); house(-48, -6, Math.PI / 2, true); house(48, -3, -Math.PI / 2, true); house(-12, 48, Math.PI, true); house(40, 42, -2.4, true);
+house(14, -50, -0.2, false); house(-42, 42, 2.6, false); house(44, -38, -1.0, false);
 for (const [a, r] of [[0.5, 58], [2.1, 58], [3.6, 58], [5.1, 58]]) { const s = spr2(GL, true); s.scale.set(46, 22, 1); s.material.opacity = 0.3; s.position.set(Math.cos(a) * r, 6, Math.sin(a) * r); scene.add(s); }
 const TRM = BM(0x0b0907);
 function tree(x, z) {
@@ -912,7 +919,7 @@ function tree(x, z) {
   }
   g.position.set(x, 0, z); g.rotation.y = Math.random() * 6; scene.add(g);
 }
-for (let i = 0, n = 0; i < 400 && n < 44; i++) { const a = Math.random() * 6.28, r = RR(22, 58), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.max(Math.abs(x), Math.abs(z)) < 22) continue; tree(x, z); n++; }
+for (let i = 0, n = 0; i < 400 && n < 44; i++) { const a = Math.random() * 6.28, r = RR(37, 58), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.max(Math.abs(x), Math.abs(z)) < 37) continue; tree(x, z); n++; }
 function animFires(t) {
   for (const o of fires) {
     if (o.f) { const p = o.f.userData.p; o.f.scale.set(1 + 0.18 * Math.sin(t * 9 + p), 1 + 0.3 * Math.sin(t * 6.3 + p * 2), 1 + 0.18 * Math.cos(t * 8 + p)); }
@@ -2346,7 +2353,7 @@ const WIN = MAP_ID === 'nacht' ? windows.filter(w => w.lvl < 1).map(w => {
     ? { ...w, o, dir: { x: 0, z: o }, spawn: { x: c, z: w.fixed + o * 3.2 }, entry: { x: c, z: w.fixed - o * 2 } }
     : { ...w, o, dir: { x: o, z: 0 }, spawn: { x: w.fixed + o * 3.2, z: c }, entry: { x: w.fixed - o * 2, z: c } };
 }) : [-1, 1].map(o => {
-  const fixed = o < 0 ? -16 : 16;
+  const fixed = o < 0 ? -32 : 32;
   return { ax: 'x', fixed, s: -2.45, e: 2.45, b: 0, t: 3.25, lvl: -1, boards: [], all: [], pending: [],
     o, dir: { x: 0, z: o }, spawn: { x: 0, z: fixed + o * 3.2 }, entry: { x: 0, z: fixed - o * 2 } };
 });
@@ -2552,11 +2559,11 @@ function makeChalk() {
   for (let i = 0; i < 700; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.12})`; g.fillRect(Math.random() * 512, Math.random() * 256, 2, 2); }
   return new THREE.CanvasTexture(c);
 }
-const WALLBUY = MAP_ID === 'nacht' ? { x: -14.7, z: 10, n: [1, 0] } : { x: 13.9, z: 0, n: [-1, 0] };   // n — нормаль стены (куда смотрит табличка)
+const WALLBUY = MAP_ID === 'nacht' ? { x: -14.7, z: 10, n: [1, 0] } : { x: 31.85, z: 0, n: [-1, 0] };   // n — нормаль стены (куда смотрит табличка)
 const wbMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), new THREE.MeshBasicMaterial({ map: makeChalk(), transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
 wbMesh.position.set(WALLBUY.x + WALLBUY.n[0] * 0.015, 1.75, WALLBUY.z + WALLBUY.n[1] * 0.015); wbMesh.rotation.y = Math.atan2(WALLBUY.n[0], WALLBUY.n[1]); scene.add(wbMesh);
 
-const SG_PRICE = 1200, SG_AMMO = 600, WB2 = MAP_ID === 'nacht' ? { x: -14.7, z: -11.5, n: [1, 0] } : { x: 0, z: 13.9, n: [0, -1] };
+const SG_PRICE = 1200, SG_AMMO = 600, WB2 = MAP_ID === 'nacht' ? { x: -14.7, z: -11.5, n: [1, 0] } : { x: 0, z: 31.85, n: [0, -1] };
 WEAPONS[2].maxReserve = 48;
 function makeChalkSG() {
   const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d');
