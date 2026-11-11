@@ -527,15 +527,28 @@ function vkWalls() {
     for (const x of [-2.45, 2.45]) addBox(x - 0.22, x + 0.22, 0, 3.9, z - 0.22, z + 0.22, woodPost, false);
     addBox(-2.45, 2.45, 3.6, 3.9, z - 0.1, z + 0.1, woodPost, false);   // перекладина над воротами
   }
-  // Два больших корпуса 9 × 18 м, по два этажа. Внутренняя стена осталась на |x|=6 (у фонтана), наружная отодвинута до |x|=15.
+  // Два больших корпуса 14 × 18 м, по два этажа. Внутренняя стена осталась на |x|=6 (у фонтана), наружная отодвинута до |x|=20.
   // Первый этаж: главный дверной проём 3.6 м + два боковых входа 2.4 м (удобно входить и убегать). Окна в торцах — по два на этаж.
   const build = cx => {
     const sgn = cx < 0 ? -1 : 1;
-    const x0 = sgn < 0 ? -15 : 6, x1 = sgn < 0 ? -6 : 15, z0 = -9, z1 = 9, wc = (x0 + x1) / 2;
+    const x0 = sgn < 0 ? -20 : 6, x1 = sgn < 0 ? -6 : 20, z0 = -9, z1 = 9, wc = (x0 + x1) / 2;
     const inwardX = sgn < 0 ? x1 : x0, outerX = sgn < 0 ? x0 : x1, t = 0.34;
+    const glass = new THREE.MeshStandardMaterial({ color: 0x292e30, roughness: 0.25, metalness: 0.45, emissive: 0x101516 });
+    const trim = mats.concrete, o = sgn;   // o — направление «наружу» от корпуса по X
     for (const base of [0, 4]) {
       const top = base + 3.65;
-      addBox(outerX - t / 2, outerX + t / 2, base, top, z0, z1, mats.brick);
+      // наружная (длинная) стена: три окна на этаж, глухие простенки, рамы и подоконники
+      addBox(outerX - t / 2, outerX + t / 2, base, base + 1.0, z0, z1, mats.brick);
+      addBox(outerX - t / 2, outerX + t / 2, base + 2.55, top, z0, z1, mats.brick);
+      { let pz = z0;
+        for (const w of [-5.5, 0, 5.5]) {
+          if (w - 0.9 > pz) addBox(outerX - t / 2, outerX + t / 2, base + 1.0, base + 2.55, pz, w - 0.9, mats.brick);
+          addBox(outerX - 0.035, outerX + 0.035, base + 1.08, base + 2.47, w - 0.8, w + 0.8, glass);
+          addBox(Math.min(outerX, outerX + o * 0.2), Math.max(outerX, outerX + o * 0.2), base + 0.94, base + 1.06, w - 1.0, w + 1.0, trim, false);   // подоконник
+          addBox(Math.min(outerX, outerX + o * 0.14), Math.max(outerX, outerX + o * 0.14), base + 2.5, base + 2.64, w - 1.0, w + 1.0, trim, false);   // перемычка
+          pz = w + 0.9;
+        }
+        addBox(outerX - t / 2, outerX + t / 2, base + 1.0, base + 2.55, pz, z1, mats.brick); }
       // внутренняя стена: проёмы (центр, полуширина); на втором этаже только главный
       const gaps = base === 0 ? [[-5.8, 1.2], [0, 1.6], [5.8, 1.2]] : [[0, 1.6]];
       let prev = z0;
@@ -546,15 +559,16 @@ function vkWalls() {
       }
       addBox(inwardX - t / 2, inwardX + t / 2, base, top, prev, z1, mats.brick);
       // торцевые стены: два окна на этаж
-      const glass = new THREE.MeshStandardMaterial({ color: 0x292e30, roughness: 0.25, metalness: 0.45, emissive: 0x101516 });
       for (const z of [z0, z1]) {
         addBox(x0, x1, base, base + 1.0, z - t / 2, z + t / 2, mats.brick);
         addBox(x0, x1, base + 2.55, top, z - t / 2, z + t / 2, mats.brick);
-        const wins = [wc - 2.3, wc + 2.3];
+        const wins = [wc - 4.3, wc, wc + 4.3], zo = z < 0 ? -1 : 1;
         let px = x0;
         for (const w of wins) {
           if (w - 0.9 > px) addBox(px, w - 0.9, base + 1.0, base + 2.55, z - t / 2, z + t / 2, mats.brick);
           addBox(w - 0.8, w + 0.8, base + 1.08, base + 2.47, z - 0.035, z + 0.035, glass);
+          addBox(w - 1.0, w + 1.0, base + 0.94, base + 1.06, Math.min(z, z + zo * 0.2), Math.max(z, z + zo * 0.2), trim, false);   // подоконник
+          addBox(w - 1.0, w + 1.0, base + 2.5, base + 2.64, Math.min(z, z + zo * 0.14), Math.max(z, z + zo * 0.14), trim, false);   // перемычка
           px = w + 0.9;
         }
         addBox(px, x1, base + 1.0, base + 2.55, z - t / 2, z + t / 2, mats.brick);
@@ -574,6 +588,21 @@ function vkWalls() {
         addBox(inwardX - 0.16, inwardX + 0.16, base + 2.95, base + 3.12, gc - gh - 0.2, gc + gh + 0.2, mats.concrete, false);
       }
     }
+    // Архитектура фасада (без коллизий): цоколь, пилястры наружной стены, карниз, козырёк над главным входом.
+    { const lo = (a, b) => [Math.min(a, b), Math.max(a, b)];
+      const [px0, px1] = lo(outerX, outerX + o * 0.24);
+      addBox(px0, px1, 0, 0.5, z0 - 0.24, z1 + 0.24, trim, false);                      // цоколь по наружной стене
+      for (const z of [z0, z1]) { const [za, zb] = lo(z, z + (z < 0 ? -0.24 : 0.24)); addBox(x0 - 0.24, x1 + 0.24, 0, 0.5, za, zb, trim, false); }   // цоколь торцов
+      for (const z of [-2.75, 2.75, -8.25, 8.25]) for (const [yb, yt] of [[0, 3.75], [4, 7.65]]) { const [a, b] = lo(outerX, outerX + o * 0.3); addBox(a, b, yb, yt, z - 0.22, z + 0.22, trim, false); }   // пилястры простенков
+      const [ca, cb] = lo(outerX, outerX + o * 0.5);
+      addBox(x0 - 0.5, x1 + 0.5, 7.9, 8.12, z0 - 0.5, z0 + 0.1, trim, false);           // карниз по периметру
+      addBox(x0 - 0.5, x1 + 0.5, 7.9, 8.12, z1 - 0.1, z1 + 0.5, trim, false);
+      addBox(ca, cb, 7.9, 8.12, z0 - 0.5, z1 + 0.5, trim, false);
+      { const [ia, ib] = lo(inwardX, inwardX - o * 0.5); addBox(ia, ib, 7.9, 8.12, z0 - 0.5, z1 + 0.5, trim, false); }
+      for (let z = z0 + 1.5; z < z1; z += 3) { const [a, b] = lo(outerX, outerX + o * 0.3); addBox(a, b, 7.9, 8.5, z - 0.35, z + 0.35, trim, false); }   // зубцы над карнизом
+      const [ka, kb] = lo(inwardX - o * 0.05, inwardX - o * 1.6);                        // козырёк над главным входом (сторона фонтана)
+      addBox(ka, kb, 3.12, 3.3, -2.1, 2.1, trim, false);
+      for (const z of [-1.95, 1.95]) addBox(Math.min(kb, kb - o * 0.2), Math.max(kb, kb - o * 0.2), 0, 3.12, z - 0.1, z + 0.1, trim, false); }
     // Перекрытие второго этажа с прямоугольным проёмом под лестницу.
     const { n: sn, rise, run, zs, ze, hw } = VK_ST, sx = cx;
     for (const [xa, xb, za, zb] of [[x0, x1, z0, zs], [x0, x1, ze, z1], [x0, sx - hw, zs, ze], [sx + hw, x1, zs, ze]]) {
@@ -606,12 +635,14 @@ function vkWalls() {
 }
 function vkNodes() {   // узлы навигации (связи считаются автоматически по прямой видимости)
   const n = {
-    northGate: [0, -30, 0], northYard: [0, -27.8, 0], northMid: [0, -20, 0], northMid2: [0, -12, 0], southMid2: [0, 12, 0], southMid: [0, 20, 0], farWest: [-20, 0, 0], farEast: [20, 0, 0], nwCorner: [-22, -22, 0], neCorner: [22, -22, 0], swCorner: [-22, 22, 0], seCorner: [22, 22, 0], westMid: [-14, -10, 0], eastMid: [14, -10, 0], westMid2: [-14, 10, 0], eastMid2: [14, 10, 0], northWest: [-4.2, -4.3, 0], northEast: [4.2, -4.3, 0],
+    northGate: [0, -30, 0], northYard: [0, -27.8, 0], northMid: [0, -20, 0], northMid2: [0, -12, 0], southMid2: [0, 12, 0], southMid: [0, 20, 0], farWest: [-24, 0, 0], farEast: [24, 0, 0], nwCorner: [-22, -22, 0], neCorner: [22, -22, 0], swCorner: [-22, 22, 0], seCorner: [22, 22, 0], westMid: [-14, -10, 0], eastMid: [14, -10, 0], westMid2: [-14, 10, 0], eastMid2: [14, 10, 0], northWest: [-4.2, -4.3, 0], northEast: [4.2, -4.3, 0],
     westNorth: [-4.2, -2.8, 0], westSouth: [-4.2, 2.8, 0], eastNorth: [4.2, -2.8, 0], eastSouth: [4.2, 2.8, 0],
     southWest: [-4.2, 4.3, 0], southEast: [4.2, 4.3, 0], southYard: [0, 27.8, 0], southGate: [0, 30, 0],
     leftDoor: [-5.5, 0, 0], leftRoom: [-7, -3.8, 0], leftRoom2: [-7, 3.8, 0],
     rightDoor: [5.5, 0, 0], rightRoom: [7, -3.8, 0], rightRoom2: [7, 3.8, 0],
     leftDoorN: [-5.5, -5.8, 0], leftDoorS: [-5.5, 5.8, 0], rightDoorN: [5.5, -5.8, 0], rightDoorS: [5.5, 5.8, 0],
+    leftFar4: [-17, -7.2, 0], leftFar5: [-17, 7.2, 0], leftFar6: [-17, 0.4, 0], rightFar4: [17, -7.2, 0], rightFar5: [17, 7.2, 0], rightFar6: [17, 0.4, 0],
+    leftUpperFar3: [-17, -2.5, 4], leftUpperFar4: [-17, 7, 4], rightUpperFar3: [17, -2.5, 4], rightUpperFar4: [17, 7, 4],
     leftFar: [-12.5, -7.2, 0], leftFar2: [-12.5, 7.2, 0], leftFar3: [-12.5, 0.4, 0], rightFar: [12.5, -7.2, 0], rightFar2: [12.5, 7.2, 0], rightFar3: [12.5, 0.4, 0],
     leftUpper: [-7, -3.8, 4], leftUpper2: [-7, 3.8, 4],
     rightUpper: [7, -3.8, 4], rightUpper2: [7, 3.8, 4],
