@@ -86,6 +86,9 @@ body.touch{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-t
 #tRepair{right:calc(env(safe-area-inset-right) + var(--u)*100px);bottom:calc(env(safe-area-inset-bottom) + var(--u)*166px);width:calc(var(--u)*68px);height:calc(var(--u)*68px)}
 #tSwap{right:calc(env(safe-area-inset-right) + var(--u)*188px);bottom:calc(env(safe-area-inset-bottom) + var(--u)*150px);width:calc(var(--u)*52px);height:calc(var(--u)*52px)}
 #tPause{right:calc(env(safe-area-inset-right) + var(--u)*10px);top:calc(env(safe-area-inset-top) + var(--u)*10px);width:calc(var(--u)*42px);height:calc(var(--u)*42px);font-size:calc(var(--u)*16px)}
+#tExit{right:calc(env(safe-area-inset-right) + var(--u)*60px);top:calc(env(safe-area-inset-top) + var(--u)*10px);width:calc(var(--u)*74px);height:calc(var(--u)*42px);border-radius:calc(var(--u)*21px);font-size:calc(var(--u)*12px);background:rgba(90,16,16,.55)}
+#tui .tb.armed{background:rgba(200,30,30,.8);border-color:#fff}
+#bExit{display:none}#info.pause #bExit{display:block}
 #stickHint,#stick{position:absolute;border-radius:50%;pointer-events:none;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.07)}
 #stickHint{left:calc(env(safe-area-inset-left) + var(--u)*40px);bottom:calc(env(safe-area-inset-bottom) + var(--u)*40px);width:calc(var(--u)*120px);height:calc(var(--u)*120px);opacity:.55}
 #stick{display:none;width:120px;height:120px;margin:-60px 0 0 -60px}
@@ -173,7 +176,7 @@ body.touch #knife{bottom:32px}
 <div id="info"><div id="menu" data-view="main">
 <h1 class="logo"><small>ЗОМБИ · ВЫЖИВАНИЕ</small>NACHT<br>DER BUNKER</h1>
 <p id="infoMsg">Продержись как можно дольше</p>
-<div id="mainBtns"><button class="mb big" id="bPlay">▶ ИГРАТЬ</button><button class="mb" id="bSet">⚙ НАСТРОЙКА</button><button class="mb" id="bHelp">? ПОМОЩЬ</button></div>
+<div id="mainBtns"><button class="mb big" id="bPlay">▶ ИГРАТЬ</button><button class="mb" id="bSet">⚙ НАСТРОЙКА</button><button class="mb" id="bHelp">? ПОМОЩЬ</button><button class="mb" id="bExit">✕ ВЫЙТИ В МЕНЮ</button></div>
 <div class="panel" id="pSet"><h2>НАСТРОЙКА</h2>
 <div class="row"><span>Управление</span><div id="devs"><button id="devPc">🖥 ПК</button><button id="devTouch">📱 ТЕЛЕФОН</button></div></div>
 <label class="row" id="sensBox"><span>Чувствительность</span><input type="range" id="sens" min="40" max="220" value="100"><b id="sensV"></b></label>
@@ -397,14 +400,54 @@ addBox(-15, 15, 3.7, 4, -4, 15, mats.concrete);
 addBox(-15, 8, 3.7, 4, -15, -4, mats.concrete);
 addBox(14, 15, 3.7, 4, -15, -4, mats.concrete);
 addBox(8, 14, 3.7, 4, -15, -14, mats.concrete);
-// лестница (проём x 8..14, z -14..-4)
-const SRISE = 0.307, SRUN = 0.77, SSTEPS = 13;
-const STAIR = { x0: 8, x1: 14, cx: 11, zBot: -4, zTop: -4 - SSTEPS * SRUN, yTop: SRISE * SSTEPS }; // ось подъёма: к -z
-for (let i = 0; i < SSTEPS; i++) {
-  const z1 = STAIR.zBot - i * SRUN;
-  addBox(STAIR.x0, STAIR.x1, 0, SRISE * (i + 1), z1 - SRUN, z1, mats.concrete);
+// круговая (винтовая) лестница: центр (11, −9), радиус 3 м, полный виток из 16 ступеней по 25 см, в центре — колонна.
+// Идём вверх против часовой стрелки (вид сверху); вход внизу и выход наверху — с севера (z ≈ −4…−6).
+// Ступени, колонна и перекрытие с круглым проёмом считаются аналитически (spStepTop / stairHit), а не набором коробок.
+const SP = { cx: 11, cz: -9, ro: 3.0, rh: 3.0, rc: 0.55, n: 16, rise: 0.25, a0: Math.PI / 2, colTop: 7.7 };
+SP.da = Math.PI * 2 / SP.n;
+const STAIR = { yTop: SP.n * SP.rise };
+(function buildSpiral() {
+  const matB = mats.concrete.clone(); matB.color.multiplyScalar(0.8);   // чётные/нечётные ступени чуть разного тона — лестница читается лучше
+  const scaleUV = g => { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3); };
+  const pt = (r, a) => [SP.cx + r * Math.cos(a), -(SP.cz + r * Math.sin(a))];   // форма строится в плоскости XY, после поворота y → −z
+  for (let k = 0; k < SP.n; k++) {
+    const a1 = SP.a0 + k * SP.da, a2 = a1 + SP.da, h = (k + 1) * SP.rise, sh = new THREE.Shape(), seg = 6, ri = SP.rc - 0.02;
+    let q = pt(ri, a1); sh.moveTo(q[0], q[1]);
+    for (let j = 0; j <= seg; j++) { q = pt(SP.ro, a1 + (a2 - a1) * j / seg); sh.lineTo(q[0], q[1]); }
+    for (let j = seg; j >= 0; j--) { q = pt(ri, a1 + (a2 - a1) * j / seg); sh.lineTo(q[0], q[1]); }
+    const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: false }); scaleUV(g);
+    const m = new THREE.Mesh(g, k % 2 ? matB : mats.concrete); m.rotation.x = -Math.PI / 2; scene.add(m); worldMeshes.push(m);
+  }
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(SP.rc, SP.rc, SP.colTop, 24), mats.concrete);
+  col.position.set(SP.cx, SP.colTop / 2, SP.cz); scene.add(col); worldMeshes.push(col);
+  // перекрытие второго этажа вокруг круглого проёма
+  const sl = new THREE.Shape(); sl.moveTo(8, 4); sl.lineTo(14, 4); sl.lineTo(14, 14); sl.lineTo(8, 14); sl.lineTo(8, 4);
+  const hole = new THREE.Path(); hole.absarc(SP.cx, -SP.cz, SP.rh - 0.01, 0, Math.PI * 2, true); sl.holes.push(hole);
+  const sg = new THREE.ExtrudeGeometry(sl, { depth: 0.3, bevelEnabled: false, curveSegments: 32 }); scaleUV(sg);
+  const sm = new THREE.Mesh(sg, mats.concrete); sm.rotation.x = -Math.PI / 2; sm.position.y = 3.7; scene.add(sm); worldMeshes.push(sm);
+})();
+const floors = colliders.slice(); // пол и перекрытия (ступени — аналитически, см. spStepTop): только по ним считается высота пола
+addBox(SP.cx - 0.07, SP.cx + 0.07, 4.0, 5.0, SP.cz + SP.rc, SP.cz + SP.rh, mats.concrete);   // низкая стенка на «шве» витка: наверху не шагнуть вниз через край ступеней
+// --- аналитическая геометрия лестницы ---
+const SB = { x0: 0, x1: 0, y0: 0, y1: 0, z0: 0, z1: 0 };   // переиспользуемая «коробка» для результата stairHit
+function spStepTop(x, z) {   // высота верха ступени в точке (0 — вне винта)
+  const dx = x - SP.cx, dz = z - SP.cz, r = Math.hypot(dx, dz);
+  if (r > SP.ro || r < SP.rc) return 0;
+  const T = Math.PI * 2; let t = Math.atan2(dz, dx) - SP.a0; t = ((t % T) + T) % T;
+  return (Math.min(SP.n - 1, Math.floor(t / SP.da)) + 1) * SP.rise;
 }
-const floors = colliders.slice(); // пол, перекрытия и ступени: только по ним считается высота пола
+function stairHit(x0, x1, z0, z1, ya, yb) {   // пересечение прямоугольника (x0..x1, z0..z1) на высотах ya..yb со ступенями, колонной и перекрытием у проёма
+  if (x1 < 8 || x0 > 14 || z1 < -14 || z0 > -4) return null;
+  const cx = SP.cx, cz = SP.cz; let top = 0;
+  const nx = Math.min(Math.max(cx, x0), x1), nz = Math.min(Math.max(cz, z0), z1);
+  if (Math.hypot(nx - cx, nz - cz) < SP.rc && yb > 0 && ya < SP.colTop) top = SP.colTop;   // колонна
+  const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+  const h = Math.max(spStepTop(mx, mz), spStepTop(x0, z0), spStepTop(x1, z0), spStepTop(x0, z1), spStepTop(x1, z1), spStepTop(mx, z0), spStepTop(mx, z1), spStepTop(x0, mz), spStepTop(x1, mz));
+  if (h > top && yb > 0 && ya < h) top = h;   // ступени
+  if (top < 4 && yb > 3.7 && ya < 4 && Math.hypot(Math.max(Math.abs(x0 - cx), Math.abs(x1 - cx)), Math.max(Math.abs(z0 - cz), Math.abs(z1 - cz))) >= SP.rh) top = 4;   // перекрытие вокруг круглого проёма
+  if (!top) return null;
+  SB.y1 = top; return SB;
+}
 // внешние стены (оба этажа), окна заколочены; все проёмы шире 2.5 (проходы чистые, без ящиков и колонн)
 wall('x', -15, -15, 15, 0.6, 0, 3.85, [win(-9.5, -6.5, 0), win(3.5, 6.5, 0)], mats.brick);
 wall('x', -15, -15, 15, 0.6, 3.85, 7.7, [win(-9.5, -6.5, 4), win(3.5, 6.5, 4)], mats.brick);
@@ -433,7 +476,7 @@ function lamp(x, y, z, intensity = 1.3, real = true) {
   bulbs.push({ l, base: intensity, ph: Math.random() * 10, bad: Math.random() < 0.15 });
 }
 // 7 ламп: каждая освещает свой участок карты (небольшой радиус), между ними остаётся темнота
-[[-9.5, 3.3, 9.5], [7, 3.3, 9], [-9, 3.3, -8], [4, 3.3, -6], [-8, 7.3, 8], [9, 7.3, 10], [-6, 7.3, -9]].forEach(p => lamp(p[0], p[1], p[2], 1.6));
+[[-9.5, 3.3, 9.5], [7, 3.3, 9], [-9, 3.3, -8], [4, 3.3, -6], [-8, 7.3, 8], [9, 7.3, 10], [-6, 7.3, -9], [12.6, 6.9, -9]].forEach(p => lamp(p[0], p[1], p[2], 1.6));   // последняя — над круговой лестницей
 
 // ---------- интерьер: мебель, комнаты, мусор ----------
 const PM = (c, r = 0.85, m = 0.1) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
@@ -666,6 +709,19 @@ const view = v => menuEl.dataset.view = v;
 devPc.addEventListener('click', () => { selDev = 'pc'; showHelp('pc'); });
 devTouch.addEventListener('click', () => { selDev = 'touch'; showHelp('touch'); });
 bPlay.addEventListener('click', () => { if (device && selDev === device) controls.lock(); else startDevice(selDev); });   // играть / продолжить
+// выход в главное меню: перезагрузка даёт чистое меню; в мультиплеере соединение закрывается, и сервер убирает игрока из комнаты.
+// Нужно подтверждение вторым нажатием в течение 3 секунд, чтобы не выйти случайно.
+let exitArmedUntil = 0, exitTimer = 0;
+function requestExit(els) {
+  const now = performance.now();
+  if (now < exitArmedUntil) { location.reload(); return; }
+  exitArmedUntil = now + 3000;
+  els.forEach(([el, , armed]) => { el.textContent = armed; el.classList.add('armed'); });
+  clearTimeout(exitTimer);
+  exitTimer = setTimeout(() => { exitArmedUntil = 0; els.forEach(([el, idle]) => { el.textContent = idle; el.classList.remove('armed'); }); }, 3000);
+}
+const exitUi = () => [[document.getElementById('bExit'), '✕ ВЫЙТИ В МЕНЮ', 'НАЖМИ ЕЩЁ РАЗ — ВЫЙТИ'], [document.getElementById('tExit'), 'ВЫЙТИ', 'ТОЧНО?']];
+document.getElementById('bExit').addEventListener('click', () => requestExit(exitUi()));
 document.getElementById('bSet').addEventListener('click', () => view('set'));
 document.getElementById('bHelp').addEventListener('click', () => { showHelp(selDev); view('help'); });
 menuEl.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => view('main')));
@@ -685,7 +741,7 @@ controls.addEventListener('unlock', () => {
 const tui = document.createElement('div'); tui.id = 'tui';
 tui.innerHTML = '<div id="stickHint"></div><div id="stick"><i></i></div>' +
   '<div class="tb" id="tFire">ОГОНЬ</div><div class="tb" id="tJump">ПРЫЖОК</div><div class="tb" id="tReload">ПЕРЕ-<br>ЗАР.</div>' +
-  '<div class="tb dim" id="tBuy">КУПИТЬ</div><div class="tb dim" id="tRepair">ЧИНИТЬ</div><div class="tb" id="tSwap">СМЕНА</div><div class="tb" id="tKnife">НОЖ</div><div class="tb" id="tPause">⏸</div>';
+  '<div class="tb dim" id="tBuy">КУПИТЬ</div><div class="tb dim" id="tRepair">ЧИНИТЬ</div><div class="tb" id="tSwap">СМЕНА</div><div class="tb" id="tKnife">НОЖ</div><div class="tb" id="tPause">⏸</div><div class="tb" id="tExit">ВЫЙТИ</div>';
 document.body.appendChild(tui);
 const stickEl = document.getElementById('stick'), knobEl = stickEl.firstChild, STICK_R = 60;
 function sizeTouchUi() { tui.style.setProperty('--u', Math.max(0.75, Math.min(1.3, innerHeight / 360))); }
@@ -735,6 +791,7 @@ bindHold('tRepair', () => { keys.KeyF = true; }, () => { keys.KeyF = false; }); 
 bindHold('tSwap', () => cycleWeapon());
 bindHold('tKnife', () => knifeAttack());
 bindHold('tPause', () => controls.unlock());
+bindHold('tExit', () => requestExit(exitUi()));   // кнопка «ВЫЙТИ» во время игры (телефон); на ПК — Esc → «ВЫЙТИ В МЕНЮ»
 // кнопки КУПИТЬ / ЧИНИТЬ подсвечиваются, когда игра показывает соответствующую подсказку
 const tBuyEl = document.getElementById('tBuy'), tRepEl = document.getElementById('tRepair');
 setInterval(() => {
@@ -777,7 +834,7 @@ function hit(x, y, z) {
   const y0 = y - H, y1 = y + 0.15;
   for (const b of colliders)
     if (x + R > b.x0 && x - R < b.x1 && z + R > b.z0 && z - R < b.z1 && y1 > b.y0 && y0 < b.y1) return b;
-  return null;
+  return stairHit(x - R, x + R, z - R, z + R, y0, y1);   // круговая лестница
 }
 function moveAxis(axis, d) {
   const n = pos.clone(); n[axis] += d;
@@ -830,6 +887,7 @@ const CF = {
   savedQ: new THREE.Quaternion(), savedP: new THREE.Vector3(), tmp: new THREE.Vector3()
 };
 const GS = { x: 0, y: 0, rx: 0, ry: 0, rz: 0 };   // итоговые смещения оружия (читает updateWeapon)
+const PD = { on: false, gx: 0, gy: 0, gz: 0, grx: 0, camX: 0, camZ: 0 };   // анимация питья перка: смещения оружия и камеры (см. createPerkDrink)
 const CFG = {
   strafeRoll: 0.032,   // рад (~1.8°) при движении вбок
   turnRoll: 0.0035,    // крен на скорость поворота мыши
@@ -890,6 +948,7 @@ function camFxUpdate(dt, t) {
   CF.oRoll = sn(3, t * 55) * 0.008 * sA + sn(13, t * 23) * 0.11 * hA + CF.roll + CF.hr;
   CF.oX = sn(4, t * 50) * 0.004 * sA + sn(14, t * 28) * 0.05 * hA;
   CF.oY = sn(5, t * 50) * 0.004 * sA + sn(15, t * 30) * 0.05 * hA + CF.jy;
+  if (PD.on) { CF.oPitch += PD.camX; CF.oRoll += PD.camZ; }   // питьё перка: запрокидывание головы, крен, толчок отрыжки
 
   // оружие: следует за камерой с запаздыванием (пружина с лёгким перелётом)
   CF.lagY = clampN(CF.lagY + dYaw * CFG.weaponLag, -0.14, 0.14);
@@ -953,8 +1012,8 @@ const gun = new THREE.Group(); weaponScene.add(gun);
 const mSteel = new THREE.MeshStandardMaterial({ color: 0x5a5d62, metalness: 0.8, roughness: 0.35 });
 const mDark = new THREE.MeshStandardMaterial({ color: 0x1b1b1d, metalness: 0.7, roughness: 0.45 });
 const mGrip = new THREE.MeshStandardMaterial({ color: 0x2e1f14, roughness: 0.9 });
-const pistolG = new THREE.Group(), tommyG = new THREE.Group(), shotG = new THREE.Group(), rifleG = new THREE.Group(), garandG = new THREE.Group(), rayG = new THREE.Group();
-gun.add(pistolG); gun.add(tommyG); gun.add(shotG); gun.add(rifleG); gun.add(garandG); gun.add(rayG); tommyG.visible = shotG.visible = rifleG.visible = garandG.visible = rayG.visible = false;
+const pistolG = new THREE.Group(), tommyG = new THREE.Group(), shotG = new THREE.Group(), rifleG = new THREE.Group(), garandG = new THREE.Group(), rayG = new THREE.Group(), lmgG = new THREE.Group();
+gun.add(pistolG); gun.add(tommyG); gun.add(shotG); gun.add(rifleG); gun.add(garandG); gun.add(rayG); gun.add(lmgG); tommyG.visible = shotG.visible = rifleG.visible = garandG.visible = rayG.visible = lmgG.visible = false;
 const mWood = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.85 });
 function part(w, h, d, x, y, z, m, rx = 0, tg = pistolG) {
   const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -1154,6 +1213,39 @@ function buildModel(i, g) {
     ARC(0.03, 0.0035, 0, -0.07, 0.035, WM.blue);
     for (const sx of [-1, 1]) B(0.003, 0.02, 0.006, sx * 0.01, 0.07, -0.77, WM.dark);
     RB(0.047, 0.1, 0.012, 0, -0.025, 0.47, WM.dark, 0.004);
+  } else if (i === 6) {   // ---- ручной пулемёт 7.62 (ленточное питание) ----
+    const L = (WM._lp = WM._lp || (() => { const f = m => { const c = m.clone(); c.flatShading = true; return c; }; return { blue: f(WM.blue), steel: f(WM.steel), dark: f(WM.dark), wood: f(WM.wood), brass: f(WM.brass) }; })());
+    // ресивер, крышка подачи ленты, окно выброса
+    B(0.062, 0.078, 0.52, 0, 0.032, -0.04, L.blue);
+    B(0.054, 0.022, 0.34, 0, 0.082, -0.08, L.dark);
+    B(0.058, 0.012, 0.1, 0, 0.1, -0.1, L.blue);
+    for (let k = 0; k < 4; k++) B(0.066, 0.004, 0.012, 0, 0.06, 0.05 + k * 0.045, L.dark);
+    B(0.003, 0.03, 0.09, 0.0325, 0.04, -0.02, L.dark);
+    // подвижная рукоять заряжания (справа)
+    mv('bolt');
+    B(0.012, 0.012, 0.03, 0.04, 0.062, -0.12, L.steel); B(0.016, 0.016, 0.016, 0.05, 0.062, -0.12, L.dark);
+    base();
+    // кожух ствола с вентиляционными отверстиями, ствол, пламегаситель
+    Z(0.027, 0.027, 0.46, 0, 0.04, -0.49, L.blue, 8);
+    for (let k = 0; k < 6; k++) { B(0.058, 0.012, 0.03, 0, 0.04, -0.34 - k * 0.07, L.dark); B(0.012, 0.058, 0.03, 0, 0.04, -0.34 - k * 0.07, L.dark); }
+    Z(0.0115, 0.0115, 0.28, 0, 0.04, -0.8, L.steel, 8);
+    Z(0.019, 0.019, 0.07, 0, 0.04, -0.95, L.dark, 8);
+    B(0.004, 0.022, 0.01, 0, 0.082, -0.75, L.steel);   // мушка
+    // сошки (сложены под стволом)
+    for (const sx of [-1, 1]) B(0.006, 0.006, 0.26, sx * 0.022, -0.012, -0.62, L.steel);
+    B(0.056, 0.012, 0.02, 0, -0.012, -0.5, L.dark);
+    // короб с лентой слева и лента в окно подачи
+    B(0.07, 0.11, 0.16, -0.07, -0.07, -0.04, L.dark);
+    B(0.074, 0.01, 0.164, -0.07, -0.018, -0.04, L.blue);
+    for (let k = 0; k < 7; k++) B(0.012, 0.014, 0.011, -0.055 + k * 0.01, 0.0 + k * 0.012, -0.04 + (k % 2) * 0.004, L.brass);
+    // прицельная планка, цевьё-рукоять, пистолетная рукоять, скоба
+    B(0.026, 0.02, 0.03, 0, 0.114, 0.08, L.steel); B(0.004, 0.022, 0.008, -0.01, 0.13, 0.08, L.steel); B(0.004, 0.022, 0.008, 0.01, 0.13, 0.08, L.steel);
+    B(0.04, 0.05, 0.1, 0, -0.025, -0.36, L.wood);
+    B(0.034, 0.11, 0.042, 0, -0.085, 0.1, L.wood, -0.28);
+    B(0.008, 0.006, 0.1, 0, -0.04, 0.05, L.blue); B(0.008, 0.036, 0.006, 0, -0.022, 0.0, L.blue); B(0.008, 0.036, 0.006, 0, -0.022, 0.1, L.blue);
+    // приклад
+    PF(stockPts(-0.1), 0.044, 0, 0, 0, L.wood, 0.004);
+    RB(0.047, 0.1, 0.012, 0, -0.025, 0.47, L.dark, 0.004);
   } else {   // ---- Ray Gun ----
     const pr = [[0.001, -0.15], [0.03, -0.14], [0.05, -0.1], [0.056, -0.05], [0.052, 0.0], [0.045, 0.06], [0.04, 0.12], [0.034, 0.16], [0.03, 0.2], [0.022, 0.24], [0.018, 0.3], [0.02, 0.34], [0.026, 0.37], [0.001, 0.385]];
     const lg = new THREE.LatheGeometry(pr.map(p => new THREE.Vector2(p[0], p[1])), 24).rotateX(-Math.PI / 2);
@@ -1169,7 +1261,7 @@ function buildModel(i, g) {
     base(); ARC(0.026, 0.0035, 0, 0.0, 0.0, WM.cream);
   }
 }
-[pistolG, tommyG, shotG, rifleG, garandG, rayG].forEach((gr, i) => buildModel(i, gr));   // в руках и в Mystery Box — одни и те же модели
+[pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG].forEach((gr, i) => buildModel(i, gr));   // в руках и в Mystery Box — одни и те же модели
 gun.rotation.order = 'YXZ';
 
 // вспышка выстрела
@@ -1194,7 +1286,7 @@ flash.add(new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), new THREE.MeshBa
 const flashLocal = new THREE.PointLight(0xffa030, 5, 3.5); flashLocal.position.set(0, 0.05, -0.2); gun.add(flashLocal); flashLocal.visible = false;
 const flashWorld = new THREE.PointLight(0xffa030, 0, 12, 2); scene.add(flashWorld); // подсвечивает комнату
 
-const RAY_DMG = Math.ceil(100 * Math.pow(1.15, 16)) + 4;   // = 940: убивает любого зомби с одного выстрела до 16 раунда включительно
+const RAY_DMG = Math.ceil(100 * Math.pow(1.15, 13)) + 4;   // = 620: убивает любого зомби с одного выстрела до 13 раунда включительно (раньше 940 — до 16)
 // ---------- арсенал и инвентарь (2 слота) ----------
 const WEAPONS = [
   { name: 'M1911', own: true, mag: 8, magSize: 8, reserve: 80, fullRes: 80, interval: 150, body: 50, head: 100, auto: false, reload: 1.25, spin: { turns: 2, k: 0.1, pivot: [0, -0.025, 0.01], push: [-0.1, 0.1, -0.08] }, spread: 0, rk: 1,
@@ -1207,8 +1299,10 @@ const WEAPONS = [
     base: [0.19, -0.2, -0.4], flash: [0, 0.045, -0.84] },
   { name: 'GARAND', own: false, mag: 10, magSize: 10, reserve: 60, fullRes: 60, interval: 280, body: 250, head: 500, auto: false, reload: 2.4, spin: { turns: 1, k: 0.4, pivot: [0, 0.01, -0.19], push: [-0.17, 0.2, -0.95] }, spread: 0, rk: 1.3,
     base: [0.19, -0.2, -0.4], flash: [0, 0.045, -0.84] },
-  { name: 'RAY GUN', own: false, mag: 20, magSize: 20, reserve: 100, fullRes: 100, interval: 350, dmg: RAY_DMG, proj: true, auto: false, reload: 1.9, spin: { turns: -1, k: 0.2, pivot: [0, -0.01, -0.14], push: [-0.1, 0.12, -0.05] }, spread: 0, rk: 0.8,
-    base: [0.2, -0.17, -0.4], flash: [0, 0.03, -0.38] }
+  { name: 'RAY GUN', own: false, mag: 20, magSize: 20, reserve: 80, fullRes: 80, interval: 420, dmg: RAY_DMG, proj: true, auto: false, reload: 1.9, spin: { turns: -1, k: 0.2, pivot: [0, -0.01, -0.14], push: [-0.1, 0.12, -0.05] }, spread: 0, rk: 0.8,
+    base: [0.2, -0.17, -0.4], flash: [0, 0.03, -0.38] },
+  { name: 'LMG', own: false, mag: 100, magSize: 100, reserve: 200, fullRes: 200, maxReserve: 200, interval: 100, body: 110, head: 220, auto: true, reload: 4.5, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.02, rk: 0.6,
+    base: [0.19, -0.2, -0.42], flash: [0, 0.04, -1.0] }
 ];
 // единый прокрут для всего оружия: одинаковая скорость и кривая, число оборотов зависит только от времени перезарядки; вынос к центру минимальный
 const SPIN_SEC = 0.95;
@@ -1216,9 +1310,9 @@ WEAPONS.forEach(w => { w.spin.k = 0.3; w.spin.turns = 1; w.spin.push = [-0.03, 0
 const spinTurns = rl => Math.max(1, Math.round(rl / SPIN_SEC));
 // разброс (в долях половины высоты экрана; круг на экране = реальная область попаданий): spread — от бедра, bloom — прирост за выстрел
 // (bmax — потолок, bd — скорость спада в секунду), fs — размер вспышки
-[[.012, .03, .05, 1.1], [.005, .03, .05, 1.3], [.02, .04, .06, 1.9], [.02, .03, .05, 1.6], [.016, .035, .05, 1.6], [.01, .02, .05, 1.2]]
+[[.012, .03, .05, 1.1], [.005, .03, .05, 1.3], [.02, .04, .06, 1.9], [.02, .03, .05, 1.6], [.016, .035, .05, 1.6], [.01, .02, .05, 1.2], [.008, .045, .05, 1.5]]
   .forEach((a, i) => { const w = WEAPONS[i]; w.bloom = a[0]; w.bmax = a[1]; w.bd = a[2]; w.fs = a[3]; });
-[[280, 4], [300, 4], [200, 2.5], [480, 7], [450, 6], [0, 0]].forEach((a, i) => { WEAPONS[i].bv = a[0]; WEAPONS[i].tl = a[1]; });   // скорость пули (м/с) и длина следа (м); Ray Gun не трогаем
+[[280, 4], [300, 4], [200, 2.5], [480, 7], [450, 6], [0, 0], [320, 5]].forEach((a, i) => { WEAPONS[i].bv = a[0]; WEAPONS[i].tl = a[1]; });   // скорость пули (м/с) и длина следа (м); Ray Gun не трогаем
 const AIM = { move: 0, bloom: 0, cur: 0, g: -1 };   // движение/прыжок и стрельба раздвигают прицел, он сразу же определяет реальный разброс
 const WR = { z: 0, zV: 0, p: 0, pV: 0, y: 0, yV: 0, yw: 0, ywV: 0, r: 0, rV: 0 };   // пружины отдачи оружия (та же механика, что и инерция при повороте)
 function weaponKick(w) {
@@ -1240,13 +1334,13 @@ function updateHUD() {
 function switchWeapon(i) {
   if (i === cur || !WEAPONS[i] || !WEAPONS[i].own) return;
   cur = i; reloading = false; swapT = SWAP_TIME; mouseDown = false; ANIM.t = 99; ANIM.ej = true;
-  [pistolG, tommyG, shotG, rifleG, garandG, rayG].forEach((g, k) => g.visible = k === i);
+  [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG].forEach((g, k) => g.visible = k === i);
   coneMat.color.setHex(i === 5 ? 0x40ff60 : 0xffa020); flashLocal.color.setHex(i === 5 ? 0x40ff60 : 0xffa030); flashWorld.color.setHex(i === 5 ? 0x40ff60 : 0xffa030);
   const f = WEAPONS[i].flash; flash.position.set(f[0], f[1], f[2]); flashLocal.position.set(f[0], f[1] + 0.02, f[2] - 0.02);
   flash.visible = flashLocal.visible = false; flashT = 0;
   updateHUD();
 }
-function switchSlot(s) { const i = slots[s]; if (i >= 0) switchWeapon(i); }
+function switchSlot(s) { if (PD.on) return; const i = slots[s]; if (i >= 0) switchWeapon(i); }   // во время питья перка смена оружия заблокирована
 function cycleWeapon() { switchSlot(1 - slots.indexOf(cur)); } // 2 слота: колёсико переключает на другой
 // положить оружие в инвентарь: пустой слот -> туда; иначе заменяет оружие в руках
 function equip(i) {
@@ -1388,7 +1482,7 @@ function updateBlood(dt) {
 }
 function shoot() {
   const w = WEAPONS[cur], now = performance.now();
-  if (!controls.isLocked || dead || reloading || swapT > 0 || knifeT > 0 || now - lastShot < w.interval) return;
+  if (!controls.isLocked || dead || PD.on || reloading || swapT > 0 || knifeT > 0 || now - lastShot < w.interval) return;
   if (w.mag <= 0) { if (w.reserve > 0) startReload(); else { lastShot = now; sfx('dry'); } return; }
   lastShot = now; w.mag--; ANIM.t = 0; ANIM.ej = false; ANIM.clip = (cur === 4 && w.mag === 0); recoil = 1; flashT = FLASH_T; flashS = (w.fs || 1) * (0.85 + Math.random() * 0.4); updateHUD(); camShoot(w); weaponKick(w);
   const shotId = window.MP && MP.active ? MP.registerShot(cur) : null;
@@ -1407,7 +1501,7 @@ function shoot() {
 }
 function startReload() {
   const w = WEAPONS[cur];
-  if (reloading || w.mag >= w.magSize || w.reserve <= 0 || !controls.isLocked) return;
+  if (PD.on || reloading || w.mag >= w.magSize || w.reserve <= 0 || !controls.isLocked) return;
   reloading = true; reloadT = 0; twCaught = false; updateHUD();
   { const rl0 = w.reload * (speedCola ? 0.5 : 1); w.spin.turns = spinTurns(rl0); reloadSnd(rl0, w.spin); }
 }
@@ -1476,16 +1570,16 @@ function updateAim(dt, w) {   // динамичный прицел: бедро +
 // ANIM.t — время с последнего выстрела. У каждого оружия своя подвижная деталь: затвор пистолета (при пустом магазине остаётся открытым),
 // рукоять затвора Thompson, помповое цевьё, цикл затвора Kar98k, шток Garand (+ вылет обоймы с «пингом»), пульсация колец Ray Gun.
 const ANIM = { t: 99, ej: true, lock: 0, clip: false };
-const GROUPS = [pistolG, tommyG, shotG, rifleG, garandG, rayG];
+const GROUPS = [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG];
 const aEase = x => x * x * (3 - 2 * x), aClamp = x => Math.max(0, Math.min(1, x));
 const aPulse = (t, a, b, c) => t < a ? 0 : t < a + b ? aEase((t - a) / b) : t < a + b + c ? 1 - aEase((t - a - b) / c) : 0;
-const EJECT_AT = [0.012, 0.01, 0.29, 0.27, 0.012, -1];   // когда вылетает гильза (у помпы и болтовки — когда затвор уже отошёл назад)
-const SHELL_PORT = [[0.285, -0.165, -0.42], [0.29, -0.2, -0.5], [0.3, -0.2, -0.42], [0.3, -0.22, -0.4], [0.3, -0.22, -0.4]];   // окно выброса в координатах камеры
+const EJECT_AT = [0.012, 0.01, 0.29, 0.27, 0.012, -1, 0.012];   // когда вылетает гильза (у помпы и болтовки — когда затвор уже отошёл назад)
+const SHELL_PORT = [[0.285, -0.165, -0.42], [0.29, -0.2, -0.5], [0.3, -0.2, -0.42], [0.3, -0.22, -0.4], [0.3, -0.22, -0.4], [0, 0, 0], [0.3, -0.2, -0.4]];   // окно выброса в координатах камеры
 const CASE_MAT = new THREE.MeshStandardMaterial({ color: 0xd0a843, metalness: 0.85, roughness: 0.3, emissive: 0x3a2a08 });
 const SHELL_RED = new THREE.MeshStandardMaterial({ color: 0xb02020, roughness: 0.6, emissive: 0x2a0606 });
 const CLIP_MAT = new THREE.MeshStandardMaterial({ color: 0xb0b4ba, metalness: 0.8, roughness: 0.35, emissive: 0x20222a });
 const CASE_G = [new THREE.CylinderGeometry(0.0055, 0.006, 0.023, 7), new THREE.CylinderGeometry(0.0055, 0.006, 0.023, 7), null,
-  new THREE.CylinderGeometry(0.0062, 0.0085, 0.064, 7), new THREE.CylinderGeometry(0.006, 0.0085, 0.063, 7)];
+  new THREE.CylinderGeometry(0.0062, 0.0085, 0.064, 7), new THREE.CylinderGeometry(0.006, 0.0085, 0.063, 7), null, new THREE.CylinderGeometry(0.0062, 0.0085, 0.064, 7)];
 const SHELL_G1 = new THREE.CylinderGeometry(0.0105, 0.0105, 0.05, 8), SHELL_G2 = new THREE.CylinderGeometry(0.011, 0.011, 0.018, 8), CLIP_G = new THREE.BoxGeometry(0.026, 0.005, 0.1);
 function ejectShell(i) {
   if (i === 5) return;
@@ -1519,6 +1613,7 @@ function weaponAnim(dt) {
     ud.bolt.rotation.z = 1.1 * (aEase(aClamp((t - 0.1) / 0.12)) - aEase(aClamp((t - 0.42) / 0.12)));
     ud.bolt.position.z = 0.075 * (aEase(aClamp((t - 0.22) / 0.1)) - aEase(aClamp((t - 0.32) / 0.1)));
   } else if (cur === 4) ud.oprod.position.z = 0.055 * aPulse(t, 0, 0.03, 0.07);
+  else if (cur === 6) ud.bolt.position.z = 0.06 * aPulse(t, 0, 0.02, 0.05);
   else { const k = 1 + 0.2 * aPulse(t, 0, 0.04, 0.18); ud.fx.scale.set(k, k, 1); }
   if (!ANIM.ej && t >= EJECT_AT[cur]) { ANIM.ej = true; ejectShell(cur); }
 }
@@ -1565,6 +1660,7 @@ function updateWeapon(dt, t) {
   gun.position.x += GS.x; gun.position.y += GS.y;
   gun.rotation.x += GS.rx; gun.rotation.y += GS.ry; gun.rotation.z += GS.rz;
   gun.position.z += WR.z; gun.position.y += WR.y; gun.rotation.x += WR.p; gun.rotation.y += WR.yw; gun.rotation.z += WR.r;   // отдача выстрела
+  if (PD.on) { perkDrink.update(dt); gun.position.x += PD.gx; gun.position.y += PD.gy; gun.position.z += PD.gz; gun.rotation.x += PD.grx; }   // питьё перка: оружие убрано вниз
   if (tw && spin !== 0) {   // вращаем вокруг «пальца» (pivot), а не вокруг начала модели: сдвигаем так, чтобы точка pivot осталась на месте
     TW_PVA.set(tw.pivot[0], tw.pivot[1], tw.pivot[2]); TW_PVB.copy(TW_PVA);
     TW_E0.set(gun.rotation.x - spin, gun.rotation.y, gun.rotation.z, 'YXZ');
@@ -1598,6 +1694,7 @@ const knifeG = new THREE.Group(); knifeG.visible = false; knifeG.rotation.order 
 }
 const knifeEl = document.getElementById('knife');
 function knifeAttack() {
+  if (PD.on) return;
   if (!controls.isLocked || dead || knifeCd > 0 || knifeT > 0) return;
   knifeCd = KNIFE_CD; knifeT = 0.0001; knifeHit = false; mouseDown = false; sfx('swish');
 }
@@ -1680,12 +1777,15 @@ function noise(dur, vol, type, f0, f1, at = 0, q = 1) {
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   s.connect(f); f.connect(g); g.connect(MASTER); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
 }
-// записанные выстрелы (папка /sounds): 0 — M1911, 1 — Thompson (4 варианта одиночного выстрела, чередуются)
+// записанные выстрелы (папка /sounds): 0 — M1911, 1 — Thompson (4 варианта, чередуются), 2 — дробовик, 5 — Ray Gun
 const SHOT_FILES = {
   0: ['sounds/m1911-shot.wav'],
   1: ['sounds/thompson-shot-1.wav', 'sounds/thompson-shot-2.wav', 'sounds/thompson-shot-3.wav', 'sounds/thompson-shot-4.wav'],
+  2: ['sounds/shotgun-shot.mp3'],   // дробовик
+  5: ['sounds/raygun-shot.mp3'],    // Ray Gun
+  6: ['sounds/lmg-shot-1.wav', 'sounds/lmg-shot-2.wav', 'sounds/lmg-shot-3.wav', 'sounds/lmg-shot-4.wav'],   // пулемёт: куски очереди по ~3 выстрела
 };
-const SHOT_GAIN = { 0: 0.9, 1: 0.7 };
+const SHOT_GAIN = { 0: 0.9, 1: 0.7, 2: 0.9, 5: 0.85, 6: 0.8 };
 const shotBufs = {}, shotLast = {};
 function loadShotBufs() {
   if (!AC) return;
@@ -1697,9 +1797,60 @@ function loadShotBufs() {
   }
 }
 // записанные эффекты: мистический ящик, начало раунда, падение гильзы
-const SFX_FILES = { box: 'sounds/mystery-box-spin.mp3', round: 'sounds/round-start.mp3', shell: 'sounds/shell-drop.mp3' };
-const SFX_GAIN = { box: 0.8, round: 0.8, shell: 0.55 }, SFX_SINGLE = { box: 1, round: 1 };   // box/round — одновременно звучит только один экземпляр
+const SFX_FILES = { box: 'sounds/mystery-box-spin.mp3', round: 'sounds/round-start.mp3', shell: 'sounds/shell-drop.mp3',
+  bh1: 'sounds/board-hit-1.wav', bh2: 'sounds/board-hit-2.wav', bh3: 'sounds/board-hit-3.wav', bh4: 'sounds/board-hit-4.wav', bh5: 'sounds/board-hit-5.wav',   // заколачивание досок
+  zg1: 'sounds/zombie-growl-1.mp3', zg2: 'sounds/zombie-growl-2.mp3', zfar: 'sounds/zombie-far-scream.mp3' };   // рык рядом ×2, далёкий крик
+const SFX_GAIN = { box: 0.8, round: 0.8, shell: 0.55, bh1: 0.9, bh2: 0.9, bh3: 0.9, bh4: 0.9, bh5: 0.9 }, SFX_SINGLE = { box: 1, round: 1 };   // box/round — одновременно звучит только один экземпляр
 const sfxBufs = {}, sfxLive = {};
+
+// позиционный звук из буфера: громкость по расстоянию, панорама по направлению относительно камеры, опциональный ФНЧ (для далёких звуков)
+function playSfxAt(k, x, z, maxD, gain, lp, rate) {
+  const buf = sfxBufs[k]; if (!AC || !buf) return null;
+  const dx = x - PX, dz = z - PZ, d = Math.hypot(dx, dz); if (d > maxD) return null;
+  const att = Math.pow(1 - d / maxD, 1.5);
+  const fw = new THREE.Vector3(); camera.getWorldDirection(fw);
+  const fl = Math.hypot(fw.x, fw.z) || 1, rx = -fw.z / fl, rz = fw.x / fl;
+  const pan = d > 0.5 ? Math.max(-0.85, Math.min(0.85, (dx * rx + dz * rz) / d)) : 0;
+  const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = buf; s.playbackRate.value = rate || 1; g.gain.value = gain * att;
+  let node = s;
+  if (lp) { const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; node.connect(f); node = f; }
+  node.connect(g); node = g;
+  if (AC.createStereoPanner) { const pn = AC.createStereoPanner(); pn.pan.value = pan; node.connect(pn); node = pn; }
+  node.connect(MASTER); s.start(); return s;
+}
+// звук заколачивания (записанный): случайный удар из 5 вариантов, не повторяя предыдущий
+let boardLast = 0;
+function boardSnd(gain = 1) {
+  ensureAC(); if (!AC) return;
+  let n; do { n = 1 + (Math.random() * 5 | 0); } while (n === boardLast); boardLast = n;
+  const buf = sfxBufs['bh' + n]; if (!buf) { tone(90, 0.14, 'square', 0.1, 45); noise(0.12, 0.3, 'bandpass', 1400, 400, 0, 2); return; }
+  const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = buf; s.playbackRate.value = 0.96 + Math.random() * 0.08; g.gain.value = (SFX_GAIN['bh' + n] || 1) * gain;
+  s.connect(g); g.connect(MASTER); s.start();
+}
+// голоса зомби: рык рядом — только у части зомби (z.voc), с паузами; далёкий крик — от зомби, которые ещё идут снаружи карты
+let growlGap = 0, farGap = 4, farLive = null;
+function zombieVoices(dt) {
+  if (!AC || !sfxBufs.zg1) return;
+  growlGap -= dt; farGap -= dt;
+  let outside = null, outsideN = 0;
+  for (const z of zombies) {
+    if (z.state === 'dying' || z.menu) continue;
+    const p = z.g.position;
+    if (z.state === 'window') { if (Math.random() * (++outsideN) < 1) outside = z; }   // случайный из «снаружи»
+    if (z.voc === undefined) z.voc = Math.random() < 0.25;   // рычит примерно каждый четвёртый
+    if (!z.voc) continue;
+    z.vocT = (z.vocT === undefined ? 2 + Math.random() * 6 : z.vocT) - dt;
+    if (z.vocT > 0 || z.state === 'window') continue;
+    z.vocT = 8 + Math.random() * 10;
+    if (growlGap > 0 || Math.abs(p.y - pos.y + H) > 3.5) continue;   // не чаще одного рыка в ~1.5 с и не с другого этажа
+    if (playSfxAt(Math.random() < 0.5 ? 'zg1' : 'zg2', p.x, p.z, 16, 0.75, 0, 0.94 + Math.random() * 0.12)) growlGap = 1.5;
+  }
+  if (farGap <= 0 && outside && !farLive) {   // далёкий крик: приглушённый, из-за стен
+    farGap = 6 + Math.random() * 9;
+    const p = outside.g.position, s = playSfxAt('zfar', p.x, p.z, 45, 0.9, 1100, 0.92 + Math.random() * 0.16);
+    if (s) { farLive = s; s.onended = () => { farLive = null; }; }
+  }
+}
 function loadSfxBufs() {
   if (!AC) return;
   for (const k in SFX_FILES) fetch(SFX_FILES[k]).then(r => r.arrayBuffer())
@@ -1739,12 +1890,13 @@ function playShotFile(i) {
 // выстрелы: 0 пистолет, 1 автомат, 2 дробовик, 3 винтовка, 4 Гаранд, 5 Ray Gun
 function shotSnd(i) {
   ensureAC(); if (!AC) return;
-  if ((i === 0 || i === 1) && playShotFile(i)) return;
+  if (SHOT_FILES[i] && playShotFile(i)) return;   // записанный звук, если уже загружен; иначе ниже — синтезированный
   if (i === 0) { noise(0.14, 0.5, 'bandpass', 2200, 500, 0, 0.8); tone(240, 0.12, 'triangle', 0.35, 60); }
   else if (i === 1) { noise(0.08, 0.4, 'bandpass', 3000, 900, 0, 0.7); tone(180, 0.08, 'square', 0.12, 70); }
   else if (i === 2) { noise(0.45, 0.8, 'lowpass', 2500, 180); noise(0.1, 0.5, 'highpass', 1500, 1500); tone(100, 0.3, 'sine', 0.6, 35); }
   else if (i === 3) { noise(0.25, 0.6, 'bandpass', 1600, 250, 0, 0.6); tone(130, 0.22, 'triangle', 0.45, 45); }
   else if (i === 4) { noise(0.2, 0.6, 'bandpass', 2600, 400, 0, 0.7); tone(320, 0.14, 'sawtooth', 0.18, 90); tone(110, 0.2, 'sine', 0.4, 50); tone(1800, 0.5, 'sine', 0.05, 1700, 0.05); }
+  else if (i === 6) { noise(0.1, 0.6, 'bandpass', 2000, 500, 0, 0.7); tone(140, 0.09, 'sawtooth', 0.2, 60); }
   else { tone(1500, 0.35, 'sawtooth', 0.22, 160); tone(750, 0.35, 'square', 0.12, 90); tone(60, 0.3, 'sine', 0.4, 30); noise(0.25, 0.15, 'bandpass', 4000, 800); }
 }
 function stepSnd() { ensureAC(); noise(0.07, 0.07, 'lowpass', 350 + Math.random() * 120, 150); tone(75, 0.06, 'sine', 0.05, 45); }
@@ -1774,6 +1926,9 @@ function sfx(k) {
   else if (k === 'thud') { tone(85, 0.24, 'sine', 0.4, 36); noise(0.14, 0.35, 'lowpass', 1100, 180); tone(170, 0.09, 'square', 0.08, 70); }
   else if (k === 'nail') { noise(0.03, 0.22, 'highpass', 4500, 4500, 0, 2); tone(2400, 0.07, 'square', 0.045, 1700); tone(220, 0.05, 'square', 0.09, 100); }
   else if (k === 'swish') noise(0.28, 0.14, 'bandpass', 350, 1800, 0, 1.5);
+  else if (k === 'pop') { noise(0.05, 0.3, 'highpass', 3500, 3500, 0, 2); tone(900, 0.06, 'square', 0.06, 400); noise(0.25, 0.1, 'highpass', 5000, 7000, 0.05, 1); }   // откупорить бутылку, шипение
+  else if (k === 'gulp') { tone(190, 0.1, 'sine', 0.18, 85); noise(0.08, 0.12, 'lowpass', 500, 200); }
+  else if (k === 'burp') { tone(95, 0.32, 'sawtooth', 0.16, 48); tone(70, 0.3, 'square', 0.06, 40); noise(0.28, 0.14, 'lowpass', 420, 120); }
   else if (k === 'knock') tone(130, 0.08, 'square', 0.05, 60);
   else if (k === 'shell') { if (!playSfxFile('shell')) { tone(3200 + Math.random() * 1200, 0.07, 'triangle', 0.05, 2300); noise(0.03, 0.05, 'highpass', 5000, 5000, 0, 2); } }
   else if (k === 'ping') { tone(2800, 0.7, 'sine', 0.12, 2700); tone(5600, 0.45, 'sine', 0.04, 5500); }
@@ -1791,11 +1946,14 @@ function zhit(x, z, feet, ghost) {
     if (b.prop || (ghost && b.win)) continue; // зомби у окна не упираются в подоконник и доски
     if (x + ZR > b.x0 && x - ZR < b.x1 && z + ZR > b.z0 && z - ZR < b.z1 && b.y1 > y0 && b.y0 < y1) return true;
   }
+  if (stairHit(x - ZR, x + ZR, z - ZR, z + ZR, y0, y1)) return true;   // ступени выше шага, колонна, кромка перекрытия
   return feet - floorAt(x, z, feet) > 0.6; // обрыв (проём лестницы сверху): шагать туда нельзя, спуск — только по ступеням
 }
 function floorAt(x, z, feet) {
   let g = 0;
   for (const b of floors) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && b.y1 <= feet + 0.5 && b.y1 > g) g = b.y1;
+  const sh = spStepTop(x, z); if (sh && sh <= feet + 0.5 && sh > g) g = sh;   // ступени винтовой лестницы
+  if (x > 8 && x < 14 && z > -14 && z < -4 && 4 <= feet + 0.5 && g < 4 && Math.hypot(x - SP.cx, z - SP.cz) >= SP.rh) g = 4;   // перекрытие вокруг проёма
   return g;
 }
 function los(x0, z0, x1, z1, feet) {
@@ -1803,13 +1961,14 @@ function los(x0, z0, x1, z1, feet) {
   for (let i = 1; i < n; i++) { const t = i / n; if (zhit(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, feet)) return false; }
   return true;
 }
+const spPt = deg => { const a = SP.a0 + deg * Math.PI / 180, x = SP.cx + 1.9 * Math.cos(a), z = SP.cz + 1.9 * Math.sin(a); return [x, z, spStepTop(x, z)]; };   // точка на винте: угол от подножия, высота ступени
 const ND = {
   a0: [-9.5, 9.5, 0], a1: [-12, 6, 0], a2: [-6, 7, 0], a3: [-6, 12.5, 0], a4: [-12, 12.5, 0],
   d1: [-9.5, 4, 0], d2: [-4, 10, 0], cor: [-3, 10, 0], cn: [-3, 3, 0], d3: [-2, 10, 0],
   c0: [1, 12.5, 0], c1: [1, 4.5, 0], c2: [6, 5, 0], c3: [6, 12, 0], c4: [12, 6, 0], c5: [13, 13, 0], c6: [8, 8.5, 0], d4: [7, 1, 0],
   n0: [7, -1, 0], n1: [-3, -1, 0], n2: [-9.5, 2.5, 0], n3: [-12, -3, 0], n4: [-12, -12, 0], n5: [-5, -12, 0], n6: [-4, -4, 0],
   n7: [3, -3, 0], n8: [3, -12, 0], n9: [6, -8, 0],
-  s0: [11, -3, 0], s1: [11, -6.5, 1.15], s2: [11, -10, 2.4], s3: [11, -13.6, 3.95], s4: [11, -14.35, 4],
+  s0: [10.4, -4.6, 0], s1: spPt(12), s2: spPt(125), s3: spPt(205), s5: spPt(285), s6: spPt(335), s4: [11.7, -5, 4],   // s1…s6 — по винту (r = 1.9 м), s4 — площадка наверху
   u1: [5, -12, 4], u2: [-3, -12, 4], u3: [-10, -12, 4], u4: [-10, -5, 4], u5: [-3, -6, 4], u6: [3, -1, 4], u7: [-10, 1, 4],
   u8: [-4, 2, 4], u9: [5, 2, 4], u10: [12, -1, 4], u11: [-2, 6, 4], u12: [-8, 6, 4], u13: [-8, 12, 4], u14: [10, 6, 4],
   u15: [10, 12, 4], u16: [2, 9, 4]
@@ -1822,7 +1981,7 @@ function link(a, b) {
   const w = Math.hypot(A.x - B.x, A.z - B.z, A.y - B.y);
   A.n.push({ j: b, w }); B.n.push({ j: a, w });
 }
-const inStair = (x, z) => x > STAIR.x0 && x < STAIR.x1 && z < STAIR.zBot + 0.4 && z > STAIR.zTop - 0.5;
+const inStair = (x, z) => Math.hypot(x - SP.cx, z - SP.cz) < SP.ro + 0.15;
 
 // окна первого этажа: откуда лезут зомби
 const WIN = windows.filter(w => w.lvl < 1).map(w => {
@@ -1955,7 +2114,7 @@ function updateBoardFx(dt) {
       if (!f.w.boards.includes(m)) f.w.boards.push(m);
       colliders.push(m.userData.col); worldMeshes.push(m);
       m.userData.nails.out.forEach(g => g.visible = true);
-      sfx('thud'); CF.kickV += 1.6 * near; CF.shoot = Math.min(1, CF.shoot + 0.12 * near);
+      boardSnd(1); CF.kickV += 1.6 * near; CF.shoot = Math.min(1, CF.shoot + 0.12 * near);
       const vel = [sp.N[0] * inw * 0.8, sp.N[1] * inw * 0.8];
       for (let j = 0; j < 9; j++) {
         const t = R1() * sp.len;
@@ -1974,7 +2133,7 @@ function updateBoardFx(dt) {
       const ng = m.userData.nails.inn[j], kk = Math.min(1, Math.max(0, (a - (NAIL_AT[j] - NAIL_DRIVE)) / NAIL_DRIVE));
       setNail(ng, sp, NAIL_HOVER * (1 - kk * kk));
       if (!f.hit[j] && a >= NAIL_AT[j]) {
-        f.hit[j] = true; f.nk += 0.014; sfx('nail'); CF.kickV += 0.45 * near;
+        f.hit[j] = true; f.nk += 0.014; boardSnd(0.6); CF.kickV += 0.45 * near;
         m.updateMatrixWorld(true); const wp = m.localToWorld(ng.position.clone());
         sparks(wp.x + sp.N[0] * inw * 0.03, wp.y, wp.z + sp.N[1] * inw * 0.03, 5);
         splinters(wp.x, wp.y, wp.z, 2, 1.2, f.w.lvl + 0.03, [sp.N[0] * inw * 0.5, sp.N[1] * inw * 0.5]);
@@ -2057,7 +2216,10 @@ function makeChalkSG() {
 
 // ---------- MYSTERY BOX (950) ----------
 const BOX_PRICE = 950, BOX = { x: -6, z: 5, w: 2.8, h: 1.5, d: 1.4 };
-const BOX_COL = { 1: 0xffb040, 2: 0xff4030, 3: 0x40c0ff, 4: 0xe8e060, 5: 0x40ff60 };
+const BOX_COL = { 1: 0xffb040, 2: 0xff4030, 3: 0x40c0ff, 4: 0xe8e060, 5: 0x40ff60, 6: 0xc0c0c0 };
+const _boxN0 = scene.children.length;   // всё, что добавлено в сцену ниже, до boxRoot — части ящика (чтобы переносить его целиком)
+const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = { x: 3, z: -7 };   // стартовая комната → центральный зал (после покупки двери)
+let boxCol = null;
 const mChest = matFrom('chest', 0xffffff, 2, { side: THREE.DoubleSide });
 const mIron = new THREE.MeshStandardMaterial({ color: 0x35363a, roughness: 0.5, metalness: 0.5 });
 const mBrass = new THREE.MeshStandardMaterial({ color: 0xc09a30, roughness: 0.4, metalness: 0.5, emissive: 0x3a2806 });
@@ -2065,7 +2227,7 @@ const mBand = mIron;
 { // корпус (с коллайдером)
   const bm = new THREE.Mesh(new THREE.BoxGeometry(BOX.w, BOX.h, BOX.d), mChest);
   bm.position.set(BOX.x, BOX.h / 2, BOX.z); scene.add(bm); worldMeshes.push(bm);
-  const col = { x0: BOX.x - BOX.w / 2, x1: BOX.x + BOX.w / 2, y0: 0, y1: BOX.h, z0: BOX.z - BOX.d / 2, z1: BOX.z + BOX.d / 2 }; colliders.push(col); bm.userData.col = col;
+  const col = { x0: BOX.x - BOX.w / 2, x1: BOX.x + BOX.w / 2, y0: 0, y1: BOX.h, z0: BOX.z - BOX.d / 2, z1: BOX.z + BOX.d / 2 }; colliders.push(col); bm.userData.col = col; boxCol = col;
 }
 const RIV_G = new THREE.SphereGeometry(0.03, 6, 4);
 const bx = (w, h, d, mt, x, y, z, par) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mt); m.position.set(x, y, z); (par || scene).add(m); return m; };
@@ -2107,28 +2269,40 @@ boxBeam.position.set(BOX.x, BOX.h + 1.1, BOX.z); boxBeam.visible = false; scene.
 const boxLight = new THREE.PointLight(0xffc040, 0, 6, 2); boxLight.position.set(BOX.x, BOX.h + 0.6, BOX.z); scene.add(boxLight);
 const token = new THREE.Group(); token.position.set(BOX.x, 2.6, BOX.z); token.visible = false; scene.add(token);
 const boxModels = [];
-for (let i = 1; i <= 5; i++) {
+for (let i = 1; i <= 6; i++) {
   const wr = new THREE.Group(), md = new THREE.Group(); buildModel(i, md);
   const c = new THREE.Box3().setFromObject(md).getCenter(new THREE.Vector3()); md.position.sub(c);
   wr.add(md); wr.scale.setScalar(1.9); wr.visible = false; token.add(wr); boxModels[i] = wr;
 }
-function showBoxModel(i) { for (let k = 1; k <= 5; k++) boxModels[k].visible = k === i; }
+function showBoxModel(i) { for (let k = 1; k <= 6; k++) boxModels[k].visible = k === i; }
 const boxS = { on: false, t: 0, tick: 0, shown: 1, final: 1, reward: true };
-function boxStart(finalWeapon, reward = true) { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = finalWeapon || (1 + (Math.random() * 5 | 0)); boxS.reward = reward; sfx('box'); }
+function boxStart(finalWeapon, reward = true) { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = finalWeapon || (1 + (Math.random() * 6 | 0)); boxS.reward = reward; sfx('box'); }
 // оружие из Mystery Box: если оно уже есть — пополняем патроны; иначе equip (пустой слот или замена удерживаемого)
 function giveWeapon(i) {
   const w = WEAPONS[i]; w.mag = w.magSize; w.reserve = w.fullRes;
   if (slots.includes(i)) { if (cur === i) updateHUD(); else switchWeapon(i); }
   else equip(i);
 }
+const boxRoot = new THREE.Group(); scene.add(boxRoot);
+scene.children.slice(_boxN0, scene.children.length - 1).forEach(o => boxRoot.add(o));   // весь ящик (корпус, крышка, свет, жетон) — в одну группу
+let boxHall = false, boxMovePending = false;
+function placeBox(toHall) {
+  const t = toHall ? BOX_HALL : BOX_START, dx = t.x - BOX_START.x, dz = t.z - BOX_START.z;
+  boxRoot.position.set(dx, 0, dz); boxRoot.updateMatrixWorld(true);
+  boxCol.x0 = BOX_START.x - BOX.w / 2 + dx; boxCol.x1 = BOX_START.x + BOX.w / 2 + dx; boxCol.z0 = BOX_START.z - BOX.d / 2 + dz; boxCol.z1 = BOX_START.z + BOX.d / 2 + dz;
+  BOX.x = t.x; BOX.z = t.z;
+  if (PF < 1.5 && pos.x > boxCol.x0 - 0.4 && pos.x < boxCol.x1 + 0.4 && pos.z > boxCol.z0 - 0.4 && pos.z < boxCol.z1 + 0.4) pos.z = boxCol.z1 + 0.6;   // если игрок стоит на новом месте ящика — выталкиваем
+}
+function relocateBox(toHall) { if (toHall === boxHall) return; boxHall = toHall; boxMovePending = true; }   // сам перенос — в boxUpdate, когда ящик не крутится
 function boxUpdate(dt) {
+  if (boxMovePending && !boxS.on) { boxMovePending = false; placeBox(boxHall); rebuildNav(); if (boxHall) pop('MYSTERY BOX — В ЦЕНТРАЛЬНОМ ЗАЛЕ', 'head'); }
   lid.rotation.x += ((boxS.on ? -1.1 : 0) - lid.rotation.x) * Math.min(1, dt * 7);
   boxGlow.visible = boxBeam.visible = lid.rotation.x < -0.2; boxLight.intensity += ((boxS.on ? 3.5 : 0) - boxLight.intensity) * Math.min(1, dt * 8);
   if (!boxS.on) { token.visible = false; return; }
   boxS.t += dt; token.visible = true; token.rotation.y += dt * 3; token.position.y = 2.6 + Math.sin(boxS.t * 5) * 0.08;
   if (boxS.t < 5) {
     boxS.tick -= dt;
-    if (boxS.tick <= 0) { boxS.tick = 0.11; boxS.shown = 1 + (Math.random() * 5 | 0); showBoxModel(boxS.shown); sfx('tick'); }
+    if (boxS.tick <= 0) { boxS.tick = 0.11; boxS.shown = 1 + (Math.random() * 6 | 0); showBoxModel(boxS.shown); sfx('tick'); }
   } else {
     boxS.shown = boxS.final; showBoxModel(boxS.final);
     if (boxS.t >= 5.6) { boxS.on = false; if (boxS.reward) giveWeapon(boxS.final); pop(WEAPONS[boxS.final].name, 'head'); sfx('buy'); }
@@ -2210,6 +2384,86 @@ const PERK_ICONS = {
   dtap: '<span class="pk" title="Double Tap — двойной урон" style="background:#4a0f08;border-color:#ff8a30;color:#d9501a"><svg viewBox="0 0 46 46" width="38" height="38"><g stroke="#5a3200" stroke-width="1" stroke-linejoin="round"><path d="M7 40V19Q7 11 14 5q7 6 7 14v21z" fill="#ffd24a"/><rect x="7" y="27" width="14" height="13" fill="#c98a1a"/><path d="M25 40V19Q25 11 32 5q7 6 7 14v21z" fill="#ffd24a"/><rect x="25" y="27" width="14" height="13" fill="#c98a1a"/></g><path d="M9 27h10M27 27h10" stroke="#5a3200" stroke-width="1.5"/></svg></span>'
 };
 function perkMsg(k = 'cola') { $('perks').insertAdjacentHTML('beforeend', PERK_ICONS[k]); sfx('buy'); sfx('perk'); }
+// ---------- анимация питья перка (от первого лица): подъём 0.4 → глоток 1.2 → опускание 0.6 → отрыжка 0.4 ----------
+// Блокирует стрельбу, перезарядку, нож и смену оружия (PD.on). Колбэки: onDrinkStart / onPerkApplied (первый глоток) / onDrinkEnd.
+function createPerkDrink({ mesh, onDrinkStart = () => {}, onPerkApplied = () => {}, onDrinkEnd = () => {}, t = { raise: 0.4, drink: 1.2, lower: 0.6, burp: 0.4 } }) {
+  const clamp01 = x => Math.min(1, Math.max(0, x)), lerp = (a, b, k) => a + (b - a) * k;
+  const easeOut = k => 1 - Math.pow(1 - k, 3), easeIn = k => k * k * k, easeIO = k => k * k * (3 - 2 * k);
+  const pose = { hidden: new THREE.Vector3(0.3, -0.5, -0.4), hold: new THREE.Vector3(0.1, -0.1, -0.4), drink: new THREE.Vector3(0.02, -0.1, -0.22) };   // в координатах weaponCam
+  const gunDrop = { x: 0.1, y: -0.55, z: 0.05 }, T = t.raise + t.drink + t.lower + t.burp;
+  let busy = false, e = 0, applied = false, sip = 0;
+  mesh.visible = false;
+  function reset() { busy = false; mesh.visible = false; PD.on = false; PD.gx = PD.gy = PD.gz = PD.grx = PD.camX = PD.camZ = 0; }
+  function finish() { reset(); onDrinkEnd(); }
+  return {
+    get busy() { return busy; },
+    play() {
+      if (busy) return false;
+      busy = true; applied = false; e = 0; sip = 0; PD.on = true;
+      mesh.position.copy(pose.hidden); mesh.visible = true; mesh.rotation.set(0.2, 0, -0.4);
+      onDrinkStart(); return true;
+    },
+    cancel() { if (busy) finish(); },
+    update(dt) {   // вызывается из updateWeapon каждый кадр, пока PD.on
+      if (!busy) return;
+      if (dead) return finish();
+      e += dt; if (e >= T) return finish();
+      const a = t.raise, b = a + t.drink, c = b + t.lower, p = mesh.position, r = mesh.rotation;
+      let gunK = 0, camX = 0, camZ = 0;
+      if (e < a) {   // 1) подъём: оружие вниз, бутылка снизу к центру
+        const k = easeOut(e / a);
+        gunK = easeOut(clamp01(e / (a * 0.6)));
+        p.lerpVectors(pose.hidden, pose.hold, k); r.set(lerp(0.2, 0.15, k), 0, lerp(-0.4, -0.15, k));
+      } else if (e < b) {   // 2) глоток: ближе к лицу, наклон горлышком к «рту», покачивание и крен
+        const d = (e - a) / t.drink, k = easeIO(clamp01(d / 0.25));
+        gunK = 1;
+        const gulp = Math.sin(d * Math.PI * 6) * 0.01 * k;
+        p.lerpVectors(pose.hold, pose.drink, k); p.y += gulp; p.x += Math.sin(d * 9) * 0.004;
+        r.set(lerp(0.15, 1.05, k) + gulp * 4, 0, lerp(-0.15, 0.25, k));
+        camZ = Math.sin(d * Math.PI * 2) * 0.035 * k; camX = 0.05 * k + Math.sin(d * Math.PI * 6) * 0.008;
+        const si = Math.floor(d * 3); if (d > 0.2 && si >= sip) { sip = si + 1; sfx('gulp'); }
+        if (!applied && d >= 0.3) { applied = true; onPerkApplied(); }
+      } else if (e < c) {   // 3) опускание: бутылка быстро вниз, оружие возвращается
+        const k = easeIn((e - b) / t.lower);
+        gunK = 1 - easeOut((e - b) / t.lower);
+        p.lerpVectors(pose.drink, pose.hidden, k); r.set(lerp(1.05, 0.2, k), 0, lerp(0.25, -0.4, k)); camX = lerp(0.05, 0, k);
+        if (k > 0.85) mesh.visible = false;
+      } else {   // 4) отрыжка: короткий толчок камеры
+        const k = (e - c) / t.burp; mesh.visible = false;
+        if (!sip || sip < 99) { sip = 99; sfx('burp'); }
+        camX = -Math.sin(k * Math.PI) * 0.045; camZ = Math.sin(k * Math.PI * 3) * 0.01 * (1 - k);
+      }
+      PD.gx = gunDrop.x * gunK; PD.gy = gunDrop.y * gunK; PD.gz = gunDrop.z * gunK; PD.grx = -0.5 * gunK; PD.camX = camX; PD.camZ = camZ;
+    }
+  };
+}
+// бутылка перка (рисуется в weaponScene вместе с оружием); цвета меняются под перк
+const perkBottle = new THREE.Group();
+const pbMat = { glass: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.55 }),
+  liquid: new THREE.MeshStandardMaterial({ color: 0x35c84a, roughness: 0.3, emissive: 0x0d4a1a }),
+  label: new THREE.MeshStandardMaterial({ color: 0x0d4a1a, roughness: 0.7 }), cap: new THREE.MeshStandardMaterial({ color: 0xffd24a, roughness: 0.4, metalness: 0.6 }) };
+{
+  const cyl = (rt, rb, h, y, m, seg = 16) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m); o.position.y = y; perkBottle.add(o); return o; };
+  cyl(0.034, 0.034, 0.11, -0.03, pbMat.glass); cyl(0.031, 0.031, 0.1, -0.035, pbMat.liquid);          // корпус и жидкость
+  cyl(0.034, 0.034, 0.05, -0.03, pbMat.label, 16).scale.set(1.02, 1, 1.02);                             // этикетка
+  cyl(0.013, 0.034, 0.04, 0.045, pbMat.glass); cyl(0.012, 0.012, 0.045, 0.085, pbMat.glass, 12);       // плечо и горлышко
+  cyl(0.0145, 0.0145, 0.016, 0.115, pbMat.cap, 12);                                                      // крышка
+  perkBottle.scale.setScalar(1.25); perkBottle.visible = false; weaponScene.add(perkBottle);
+}
+const PERK_BOTTLE_COL = { cola: [0x35c84a, 0x0d4a1a, 0xffd24a], dtap: [0xe0561a, 0x4a0f08, 0xffd24a] };
+let perkDrinkKind = 'cola';
+const perkDrink = createPerkDrink({
+  mesh: perkBottle,
+  onDrinkStart: () => sfx('pop'),
+  onPerkApplied: () => perkMsg(perkDrinkKind),   // иконка перка + звуки — в момент первого глотка
+  onDrinkEnd: () => {}
+});
+function drinkPerk(k = 'cola') {   // покупка перка: проиграть анимацию (если уже идёт или это синхронизация — просто выдать иконку)
+  perkDrinkKind = k; const c = PERK_BOTTLE_COL[k] || PERK_BOTTLE_COL.cola;
+  pbMat.liquid.color.setHex(c[0]); pbMat.liquid.emissive.setHex(c[1]); pbMat.label.color.setHex(c[1]); pbMat.cap.color.setHex(c[2]);
+  if (!perkDrink.play()) perkMsg(k);
+}
+
 
 // ---------- DOUBLE TAP (2 этаж, северо-запад) ----------
 const DTAP_PRICE = 2500, DTAP = { x: -12, z: -14.25 };
@@ -2233,7 +2487,7 @@ function rebuildNav() {
     const A = NODES[i], B = NODES[j];
     if (Math.abs(A.y - B.y) < 0.6 && Math.hypot(A.x - B.x, A.z - B.z) < 18 && los(A.x, A.z, B.x, B.z, Math.min(A.y, B.y))) link(i, j);
   }
-  [['s0', 's1'], ['s1', 's2'], ['s2', 's3'], ['s3', 's4']].forEach(([a, b]) => link(NI[a], NI[b]));
+  [['s0', 's1'], ['s1', 's2'], ['s2', 's3'], ['s3', 's5'], ['s5', 's6'], ['s6', 's4']].forEach(([a, b]) => link(NI[a], NI[b]));
 }
 
 // ---------- ДВЕРИ: покупка прохода; зомби спавнятся только в окнах открытых комнат ----------
@@ -2289,6 +2543,7 @@ function recomputeZones() { // открытые комнаты = всё, что 
   const open = new Set(['START']);
   for (let ch = true; ch;) { ch = false; for (const d of DOORS) if (d.open && open.has(d.a) !== open.has(d.b)) { open.add(d.a); open.add(d.b); ch = true; } }
   activeWin = WIN.filter(w => open.has(w.zone));
+  relocateBox(open.has('HALL'));   // центральный зал открыт — Mystery Box переезжает туда
 }
 function openDoor(d) {
   d.open = true;
@@ -2342,7 +2597,7 @@ function updateInteract(dt) {
     if (speedCola) promptEl.innerHTML = '<span class="ok">Speed Cola — куплено</span>';
     else {
       const can = points >= COLA_PRICE;
-      if (holdE && can && !buyLock) { if (!requestMPBuy('cola')) { buyLock = true; spend(COLA_PRICE); speedCola = true; perkMsg(); } }
+      if (holdE && can && !buyLock) { if (!requestMPBuy('cola')) { buyLock = true; spend(COLA_PRICE); speedCola = true; drinkPerk('cola'); } }
       promptEl.innerHTML = `Нажмите ${KE()}: Купить Speed Cola [${COLA_PRICE} очков]` + (can ? '' : ' <span class="no">— не хватает очков</span>');
     }
     repT = 0; buyT = 0; return;
@@ -2351,7 +2606,7 @@ function updateInteract(dt) {
     if (doubleTap) promptEl.innerHTML = '<span class="ok">Double Tap — куплено</span>';
     else {
       const can = points >= DTAP_PRICE;
-      if (holdE && can && !buyLock) { if (!requestMPBuy('doubleTap')) { buyLock = true; spend(DTAP_PRICE); doubleTap = true; perkMsg('dtap'); } }
+      if (holdE && can && !buyLock) { if (!requestMPBuy('doubleTap')) { buyLock = true; spend(DTAP_PRICE); doubleTap = true; drinkPerk('dtap'); } }
       promptEl.innerHTML = `Нажмите ${KE()}: Купить Double Tap [${DTAP_PRICE} очков]` + (can ? '' : ' <span class="no">— не хватает очков</span>');
     }
     repT = 0; buyT = 0; return;
@@ -2637,10 +2892,11 @@ function steer(z, tx, tz, spd, dt) {
 }
 function plan(z, targetX = PX, targetZ = PZ, targetFloor = PF, targetVisibility = null) {
   const p = z.g.position, fy = p.y, N = NODES.length;
-  if (inStair(p.x, p.z)) { // на лестнице поиск по узлам бессилен (LOS не видит вверх по ступеням): идём по оси к нужному концу
-    const dy = targetFloor - fy;
-    if (dy > 0.25 && fy < STAIR.yTop - 0.15) { z.wp = { x: STAIR.cx, z: Math.max(STAIR.zTop - 0.35, p.z - 1.5) }; return; }   // цель с упреждением по оси лестницы: зомби не жмётся к краю перекрытия
-    if (dy < -0.25 && fy > 0.15) { z.wp = { x: STAIR.cx, z: Math.min(STAIR.zBot + 0.9, p.z + 1.5) }; return; }
+  if (inStair(p.x, p.z)) { // на лестнице поиск по узлам бессилен (LOS не видит вверх по ступеням): идём по винту к нужному концу
+    const dy = targetFloor - fy, ang = Math.atan2(p.z - SP.cz, p.x - SP.cx), TT = Math.PI * 2, tz = (((ang - SP.a0) % TT) + TT) % TT;
+    const hx = a => ({ x: SP.cx + 1.9 * Math.cos(a), z: SP.cz + 1.9 * Math.sin(a) });   // точка на винте на радиусе 1.9 м
+    if (dy > 0.25 && fy < STAIR.yTop - 0.15) { z.wp = fy >= 3.7 ? { x: 11.7, z: -5 } : hx(ang + 0.5); return; }   // вверх: точка на винте чуть впереди, у верхних ступеней — сразу на площадку
+    if (dy < -0.25 && fy > 0.15) { z.wp = tz < 0.6 ? { x: 10.4, z: -4.4 } : hx(ang - 0.5); return; }   // вниз: назад по винту, у подножия — на пол
     if (fy > 0.4 && fy < STAIR.yTop - 0.4) { z.wp = null; return; } // игрок рядом на той же лестнице
   }
   if (Math.abs(targetFloor - fy) < 1.3 && los(p.x, p.z, targetX, targetZ, fy)) { z.wp = null; return; }
@@ -2988,6 +3244,7 @@ function updateGame(dt) {
       updateZombie(z, dt);
       if (z.state === 'dying' && z.gone) { scene.remove(z.g); z.mats.forEach(m => m.dispose()); zombies.splice(i, 1); }
     }
+    zombieVoices(dt);
     for (let i = 0; i < zombies.length; i++) for (let j = i + 1; j < zombies.length; j++) { // расталкивание
       const a = zombies[i], c = zombies[j];
       if (a.state === 'dying' || c.state === 'dying') continue;

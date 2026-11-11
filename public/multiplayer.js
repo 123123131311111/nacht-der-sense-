@@ -294,9 +294,9 @@
     } else if (event.kind === 'box') {
       boxStart(event.boxResult, own);
     } else if (own && event.kind === 'cola') {
-      speedCola = true; perkMsg('cola');
+      speedCola = true; drinkPerk('cola');
     } else if (own && event.kind === 'doubleTap') {
-      doubleTap = true; perkMsg('dtap');
+      doubleTap = true; drinkPerk('dtap');
     } else if (own && event.kind === 'thompson') {
       const w = WEAPONS[1];
       w.mag = w.magSize; w.reserve = w.maxReserve - w.magSize;
