@@ -24,15 +24,54 @@ const WEAPONS = [
   { body: 95, head: 190, interval: 90, pellets: 1 },   // M16A1 (только Mystery Box)
   { body: 55, head: 110, interval: 140, pellets: 2 },  // двойные пистолеты (только Mystery Box): 2 пули за выстрел
 ];
-const DOORS = [
-  { x: -9.5, z: 4 }, { x: 4, z: -4 }, { x: -3, z: 4 },
-  { x: 10, z: -2 }, { x: 7, z: 1 },
-];
-const WINDOWS = [
-  [-8, -15, 1.7], [5, -15, 1.7], [-8, -15, 5.7], [5, -15, 5.7],
-  [-12, 15, 1.7], [-7, 15, 1.7], [-2, 15, 5.7], [6, 15, 5.7],
-  [-15, -5.5, 1.7], [-15, 7, 5.7], [15, -2, 1.7], [15, 4, 5.7],
-];
+// Всё, что привязано к карте. Порядок дверей и окон ОБЯЗАН совпадать с клиентом (index.html):
+//   nacht:    массив DOORS и массив windows (стены строятся в этом порядке)
+//   verruckt: VK_DOORS и массив windows из vkWalls (оба этажа: для каждой стены сначала окна 1 этажа, затем 2 этажа)
+// windows: [x, z, y] — центр окна на стене и высота глаз игрока на этом этаже (1.7 / 5.7 на Verruckt).
+// Игрок «рядом», если он в радиусе 2.7 м по XZ и по высоте y ± 1.6.
+// perks: x, z — позиция автомата; minY/maxY — допустимая высота игрока (этаж).
+// box: x, z — точка у ящика (как на клиенте: BOX_HALL + половина глубины); available(doors) — когда ящик уже в зале.
+const MAPS = {
+  nacht: {
+    doors: [
+      { x: -9.5, z: 4 }, { x: 4, z: -4 }, { x: -3, z: 4 },
+      { x: 10, z: -2 }, { x: 7, z: 1 },
+    ],
+    windows: [
+      [-8, -15, 1.7], [5, -15, 1.7], [-8, -15, 5.7], [5, -15, 5.7],
+      [-12, 15, 1.7], [-7, 15, 1.7], [-2, 15, 5.7], [6, 15, 5.7],
+      [-15, -5.5, 1.7], [-15, 7, 5.7], [15, -2, 1.7], [15, 4, 5.7],
+    ],
+    wall: { thompson: { x: -14.7, z: 10 }, shotgun: { x: -14.7, z: -11.5 } },
+    box: { x: 0.3, z: -13.25, available: dr => !!(dr[0] || dr[2] || dr[4]) },
+    perks: {
+      cola: { x: -14.25, z: 7, minY: -1, maxY: 3.2 },
+      doubleTap: { x: -12, z: -14.25, minY: 3.2, maxY: 7.5 },
+      juggernog: { x: -14.25, z: 2, minY: 3.2, maxY: 7.5 },
+    },
+  },
+  verruckt: {
+    doors: [   // E, N, W, S (как VK_DOORS)
+      { x: 9.5, z: 0 }, { x: 0, z: 9.5 }, { x: -9.5, z: 0 }, { x: 0, z: -9.5 },
+    ],
+    windows: [   // 16 окон: 4 стены × (2 окна 1 этажа + 2 окна 2 этажа), порядок как в vkWalls
+      [-3.3, 14.2, 1.7], [3.3, 14.2, 1.7], [-3.3, 14.2, 5.7], [3.3, 14.2, 5.7],
+      [14.2, -3.3, 1.7], [14.2, 3.3, 1.7], [14.2, -3.3, 5.7], [14.2, 3.3, 5.7],
+      [-3.3, -14.2, 1.7], [3.3, -14.2, 1.7], [-3.3, -14.2, 5.7], [3.3, -14.2, 5.7],
+      [-14.2, -3.3, 1.7], [-14.2, 3.3, 1.7], [-14.2, -3.3, 5.7], [-14.2, 3.3, 5.7],
+    ],
+    wall: { thompson: { x: 13.9, z: 0 }, shotgun: { x: 0, z: 13.9 } },
+    // ящик переезжает в южную палату, когда она достижима из стартовой: двери E (0) и S (3) открыты
+    box: { x: 0, z: -12.5, available: dr => !!(dr[0] && dr[3]) },
+    perks: {
+      cola: { x: -13.45, z: 0, minY: -1, maxY: 3.2 },
+      doubleTap: { x: 0, z: -13.45, minY: 3.2, maxY: 7.5 },
+      juggernog: { x: -13.45, z: 0, minY: 3.2, maxY: 7.5 },
+    },
+  },
+};
+const mapOf = id => (typeof id === 'string' && Object.prototype.hasOwnProperty.call(MAPS, id)) ? id : 'nacht';   // белый список, неизвестная карта = nacht
+const cfgOf = room => MAPS[room.map];
 
 // no-cache: браузер каждый раз проверяет (ETag), поэтому новые звуки/скрипты сразу доходят до всех игроков
 app.use(express.static(path.join(__dirname, 'public'), { etag: true, lastModified: true, setHeaders: res => res.setHeader('Cache-Control', 'no-cache') }));
@@ -58,13 +97,14 @@ function makePlayer(id, name, slot) {
     owned: { thompson: false, shotgun: false }, shots: Object.create(null), lastShotAt: -Infinity,
   };
 }
-function makeRoom(code, hostId) {
+function makeRoom(code, hostId, map) {
+  const cfg = MAPS[map];
   return {
-    code, hostId, players: Object.create(null),
+    code, hostId, map, players: Object.create(null),
     game: {
       started: false, round: 0, roundActive: false, toSpawn: 0, nextRoundIn: 0,
-      doors: [false, false, false, false, false],
-      windowBoards: WINDOWS.map(() => ({ boards: 4, pending: 0 })), zombies: [],
+      doors: cfg.doors.map(() => false),
+      windowBoards: cfg.windows.map(() => ({ boards: 4, pending: 0 })), zombies: [],
       revision: 0, boxBusyUntil: 0, drops: [], dropSeq: 0,
     },
   };
@@ -96,7 +136,7 @@ function gamePayload(room) {
 function sendGame(room) { io.to(room.code).emit('gameState', gamePayload(room)); }
 function sendLobby(room) {
   io.to(room.code).emit('lobby', {
-    code: room.code, hostId: room.hostId,
+    code: room.code, hostId: room.hostId, map: room.map,
     players: Object.values(room.players).map(({ id, name, color, slot }) => ({ id, name, color, slot })),
   });
 }
@@ -113,7 +153,7 @@ function addToRoom(socket, room, name) {
   roomOf[socket.id] = room.code;
   socket.join(room.code);
   socket.emit('joined', {
-    selfId: socket.id, code: room.code, slot,
+    selfId: socket.id, code: room.code, slot, map: room.map, hostId: room.hostId,
     players: Object.fromEntries(Object.entries(room.players).map(([id, p]) => [id, {
       id: p.id, name: p.name, color: p.color, slot: p.slot,
       x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch, active: p.active,
@@ -154,10 +194,10 @@ function near(player, x, z, radius, minY = -Infinity, maxY = Infinity) {
 function failPurchase(socket, message) { socket.emit('purchaseRejected', message); }
 
 io.on('connection', socket => {
-  socket.on('createRoom', ({ name } = {}) => {
+  socket.on('createRoom', ({ name, map } = {}) => {
     leaveRoom(socket);
     const code = makeCode();
-    const room = rooms[code] = makeRoom(code, socket.id);
+    const room = rooms[code] = makeRoom(code, socket.id, mapOf(map));
     addToRoom(socket, room, name);
   });
 
@@ -312,8 +352,8 @@ io.on('connection', socket => {
   socket.on('windowBoardAction', ({ action, index } = {}) => {
     const ctx = roomAndPlayer(socket);
     index = Number(index);
-    if (!ctx || !ctx.room.game.started || action !== 'repair' || !Number.isInteger(index) || !WINDOWS[index]) return;
-    const [x, z, y] = WINDOWS[index];
+    if (!ctx || !ctx.room.game.started || action !== 'repair' || !Number.isInteger(index) || !cfgOf(ctx.room).windows[index]) return;
+    const [x, z, y] = cfgOf(ctx.room).windows[index];
     if (!near(ctx.player, x, z, 2.7, y - 1.6, y + 1.6)) return;
     const now = Date.now();
     if (now - (ctx.player.lastBoardRepair || 0) < 550) return;
@@ -330,37 +370,41 @@ io.on('connection', socket => {
     const ctx = roomAndPlayer(socket);
     if (!ctx || !ctx.room.game.started) return;
     const { room, player } = ctx;
+    const cfg = cfgOf(room);
     let price = 0, weaponIndex = null, boxResult = null;
     const floor = player.y;
     if (kind === 'door') {
       doorIndex = Number(doorIndex);
-      const door = DOORS[doorIndex];
+      const door = cfg.doors[doorIndex];
       if (!door || room.game.doors[doorIndex]) return failPurchase(socket, 'Эта дверь уже открыта');
       if (!near(player, door.x, door.z, 3.2, -1, 3.2)) return failPurchase(socket, 'Подойдите ближе к двери');
       price = 1000;
     } else if (kind === 'cola') {
-      if (!near(player, -14.25, 7, 2.8, -1, 3.2)) return failPurchase(socket, 'Подойдите к автомату Speed Cola');
+      const pk = cfg.perks.cola;
+      if (!near(player, pk.x, pk.z, 2.8, pk.minY, pk.maxY)) return failPurchase(socket, 'Подойдите к автомату Speed Cola');
       if (player.perks.cola) return failPurchase(socket, 'Speed Cola уже куплено');
       price = 4000;
     } else if (kind === 'doubleTap') {
-      if (!near(player, -12, -14.25, 2.8, 3.2, 7.5)) return failPurchase(socket, 'Подойдите к автомату Double Tap');
+      const pk = cfg.perks.doubleTap;
+      if (!near(player, pk.x, pk.z, 2.8, pk.minY, pk.maxY)) return failPurchase(socket, 'Подойдите к автомату Double Tap');
       if (player.perks.doubleTap) return failPurchase(socket, 'Double Tap уже куплено');
       price = 2500;
     } else if (kind === 'juggernog') {
-      if (!near(player, -14.25, 2, 2.8, 3.2, 7.5)) return failPurchase(socket, 'Подойдите к автомату Джагер Фанта');
+      const pk = cfg.perks.juggernog;
+      if (!near(player, pk.x, pk.z, 2.8, pk.minY, pk.maxY)) return failPurchase(socket, 'Подойдите к автомату Джагер Фанта');
       if (player.perks.juggernog) return failPurchase(socket, 'Джагер Фанта уже куплено');
       price = 2000;
     } else if (kind === 'thompson' || kind === 'shotgun') {
       const shotgun = kind === 'shotgun';
       const owned = shotgun ? player.owned.shotgun : player.owned.thompson;
-      const pos = shotgun ? { x: -14.7, z: -11.5 } : { x: -14.7, z: 10 };
+      const pos = shotgun ? cfg.wall.shotgun : cfg.wall.thompson;
       if (!near(player, pos.x, pos.z, 3, -1, 3.2)) return failPurchase(socket, 'Подойдите к стене с оружием');
       price = shotgun ? (owned ? 600 : 1200) : (owned ? 500 : 1000);
       weaponIndex = shotgun ? 2 : 1;
     } else if (kind === 'box') {
       // в стартовой комнате ящика нет: он появляется в центральном зале после открытия двери (как на клиенте)
-      const dr = room.game.doors, boxPos = { x: 0.3, z: -13.25 };
-      if (!(dr[0] || dr[2] || dr[4])) return failPurchase(socket, 'Mystery Box пока недоступен');
+      const boxPos = cfg.box;
+      if (!boxPos.available(room.game.doors)) return failPurchase(socket, 'Mystery Box пока недоступен');
       if (!near(player, boxPos.x, boxPos.z, 3.5, -1, 3.2)) return failPurchase(socket, 'Подойдите к Mystery Box');
       if (room.game.boxBusyUntil > Date.now()) return failPurchase(socket, 'Mystery Box уже используется');
       price = 950;
