@@ -571,8 +571,9 @@ function vkWalls() {
       floors.push(c.userData.col);
     }
     // Ступени — сплошные блоки от земли (под лестницей не пролезть).
+    const stepA = new THREE.MeshStandardMaterial({ color: 0x3b3f42, roughness: 0.85 }), stepB = new THREE.MeshStandardMaterial({ color: 0x2c2f31, roughness: 0.85 });
     for (let k = 1; k <= sn; k++) {
-      const c = addBox(sx - hw, sx + hw, 0, k * rise, zs + (k - 1) * run, zs + k * run, mats.concrete);
+      const c = addBox(sx - hw, sx + hw, 0, k * rise, zs + (k - 1) * run, zs + k * run, k % 2 ? stepA : stepB);
       floors.push(c.userData.col);
     }
     // Перила по краям проёма на втором этаже (низ и бока; сверху — вход на лестницу).
