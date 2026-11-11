@@ -226,13 +226,13 @@ io.on('connection', socket => {
     shot.hits++;
     if (shot.weapon !== 2) shot.hitIds.add(zombieId);
     const weapon = shot.weapon === -1
-      ? { body: 100000, head: 100000 }
+      ? (room.game.round <= 3 ? { body: 100000, head: 100000 } : { body: Math.max(10, 150 * Math.pow(0.8, room.game.round - 3)), head: Math.max(10, 150 * Math.pow(0.8, room.game.round - 3)) })   // нож: до 3 раунда с 1 удара, дальше слабее
       : WEAPONS[shot.weapon];
     const damage = (head ? weapon.head : weapon.body) * (player.perks.doubleTap ? 2 : 1);
     zombie.hp = Math.max(0, zombie.hp - damage);
     const killed = zombie.hp <= 0;
     if (killed) zombie.state = 'dying';
-    const reward = killed ? (head ? 100 : 60) : 10;
+    const reward = killed ? (shot.weapon === -1 ? 120 : (head ? 100 : 60)) : 10;
     player.points += reward;
     let drop = null;
     if (killed) {
