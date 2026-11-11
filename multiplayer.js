@@ -35,19 +35,59 @@
 
   function startGame() {           // запускаем штатный старт игры (внутри пользовательского клика)
     bypass = true; bPlay.click(); bypass = false;
+    if (typeof reloadSounds === 'function') reloadSounds();   // у гостя тоже догружаем все звуки
   }
 
-  $('bSolo').onclick = () => { mode = 'solo'; startGame(); };
+  // ---- выбор карты: панель с карточками. Чтобы добавить карту — допиши запись в MAPS:
+  //      id, name, desc, img (картинка 16:9 в public/maps/), soon: true = «скоро»
+  const MAPS = [
+    { id: 'nacht', name: 'NACHT DER UNTOTEN', desc: 'Бункер · 2 этажа · Mystery Box · перки', img: 'maps/nacht.jpg' },
+    { id: 'verruckt', name: 'VERRUCKT', desc: 'Психбольница · круглая · 2 этажа · только соло (прототип)', img: 'maps/verruckt.jpg', soloOnly: true },
+    { id: 'soon', name: '???', desc: 'Новая карта в разработке', img: 'maps/soon.jpg', soon: true },
+  ];
+  // Карта, которая сейчас построена в игре (index.html читает ?map=). Другую карту выбрать = перезагрузить страницу с ?map=
+  const CUR_MAP = (typeof MAP_ID !== 'undefined' && MAP_ID) || 'nacht';
+  window.NB_MAP = CUR_MAP;         // выбранная карта (игровой код может читать window.NB_MAP)
+  const mapList = $('mapList'), bMapGo = $('bMapGo');
+  const mapCards = []; let pickedMap = MAPS[0];
+  const goMap = () => {
+    if (window.NB_MAP !== CUR_MAP) { location.href = location.pathname + '?map=' + window.NB_MAP + '&start=' + mode; return; }   // нужна другая карта — перезагрузка
+    if (mode === 'multi') { connect(); setView('mp'); } else startGame();
+  };
+  const pickMap = m => {
+    window.NB_MAP = m.id; pickedMap = m;
+    mapCards.forEach(c => c.el.classList.toggle('sel', c.m === m));
+    setMapGoLabel();
+  };
+  MAPS.forEach(m => {
+    const b = document.createElement('button');
+    b.className = 'mc' + (m.soon ? ' soon' : '');
+    b.innerHTML = `<div class="im"><img src="${m.img}" alt="" draggable="false"></div><span class="tag">${m.soon ? '🔒 СКОРО' : '✓ ВЫБРАНО'}</span><div class="tx"><b>${m.name}</b><small>${m.desc}</small></div>`;
+    const img = b.querySelector('img'); img.onerror = () => { img.style.display = 'none'; };
+    if (!m.soon) { b.onclick = () => pickMap(m); b.ondblclick = () => { pickMap(m); goMap(); }; }
+    mapList.appendChild(b); mapCards.push({ el: b, m });
+  });
+  $('mapCount').textContent = `ДОСТУПНО: ${MAPS.filter(m => !m.soon).length} / ${MAPS.length}`;
+  function setMapGoLabel() {
+    const noMulti = mode === 'multi' && pickedMap.soloOnly;   // карта без сервера: в мультиплеере недоступна
+    bMapGo.textContent = noMulti ? 'ЭТА КАРТА — ТОЛЬКО СОЛО' : mode === 'multi' ? '▶ ДАЛЕЕ · ЛОББИ' : (window.NB_MAP !== CUR_MAP ? '▶ ЗАГРУЗИТЬ КАРТУ' : '▶ НАЧАТЬ ИГРУ');
+    bMapGo.disabled = noMulti;
+  }
+  pickMap(MAPS.find(m => m.id === CUR_MAP) || MAPS[0]);
+  bMapGo.onclick = goMap;
+  $('bSolo').onclick = () => { mode = 'solo'; setMapGoLabel(); setView('maps'); };
   $('bModeBack').onclick = () => setView('main');
-  $('bMulti').onclick = () => { mode = 'multi'; connect(); setView('mp'); };
-  $('bMpBack').onclick = () => setView('mode');
+  $('bMulti').onclick = () => { mode = 'multi'; setMapGoLabel(); setView('maps'); };
+  $('bMapsBack').onclick = () => setView('mode');
+  { const st = new URLSearchParams(location.search).get('start'); if (st === 'solo' || st === 'multi') { mode = st; setMapGoLabel(); setView('maps'); } }
+  $('bMpBack').onclick = () => setView('maps');
 
   const nameInput = $('mpName');
   try { nameInput.value = localStorage.getItem('nb_name') || ''; } catch (e) {}
   const myName = () => { const n = nameInput.value.trim(); try { localStorage.setItem('nb_name', n); } catch (e) {} return n; };
   const showErr = t => { $('mpErr').textContent = t || ''; };
 
-  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName() }); };
+  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName(), map: window.NB_MAP }); };
   $('bJoin').onclick = () => { showErr(); socket.emit('joinRoom', { code: $('mpCode').value, name: myName() }); };
   $('bGo').onclick = () => startGame();
   $('bLeave').onclick = () => { socket.emit('leaveRoom'); clearRemote(); clearNetworkZombies(); roomCode = null; gameState = null; setView('mp'); };
@@ -67,6 +107,7 @@
     // Мы вошли в лобби.
     socket.on('joined', ({ selfId: id, code, slot, players }) => {
       selfId = id; roomCode = code; mySlot = slot; entered = false;
+      if (typeof resetIntro === 'function') resetIntro();   // новая катка — вступление сыграет снова
       gameState = null; worldRevision = 0;
       clearRemote(); clearNetworkZombies();
       Object.values(players).forEach(p => { if (p.id !== selfId) createAvatar(p); });
@@ -77,10 +118,21 @@
     socket.on('playerLeft', removeAvatar);
     socket.on('gameState', receiveGameState);
     socket.on('zombieHit', applyNetworkHit);
+    socket.on('dropPicked', d => { if (d && typeof removeDropById === 'function') { removeDropById(d.id); collectMaxAmmo(); } });
     socket.on('playerHurt', hit => {
       if (!hit || hit.playerId !== selfId || !Number.isFinite(hit.damage)) return;
       if (typeof hurtPlayer === 'function') hurtPlayer(hit.damage);
     });
+    const markDowned = (id, v) => {
+      const gp = gameState && gameState.players && gameState.players.find(p => p.id === id); if (gp) gp.downed = v;
+      if (remote[id]) remote[id].downed = v;
+    };
+    socket.on('playerDowned', d => { if (d && d.id !== selfId) markDowned(d.id, true); });
+    socket.on('playerRevived', d => {
+      if (!d) return;
+      if (d.id === selfId) reviveSelf(); else markDowned(d.id, false);
+    });
+    socket.on('teamWipe', () => { if (typeof finalDeath === 'function') finalDeath(); });
     socket.on('purchaseCommitted', applyNetworkPurchase);
     socket.on('windowBoardAction', action => {
       if (!action || action.actorId === selfId || action.action !== 'repair') return;
@@ -127,11 +179,12 @@
           if (p.perks) {
             if (p.perks.cola && !speedCola) { speedCola = true; perkMsg('cola'); }
             if (p.perks.doubleTap && !doubleTap) { doubleTap = true; perkMsg('dtap'); }
+            if (p.perks.juggernog && !juggernog) { applyJugg(); perkMsg('jugg'); }
           }
         } else {
           const r = remote[p.id];
           if (r && p.active) {
-            r.active = true;
+            r.active = true; r.downed = !!p.downed;
             r.target = { x: p.x, y: p.y, z: p.z, yaw: p.yaw };
           }
         }
@@ -144,24 +197,30 @@
     }
     if (state.started) {
       started = true;
-      const previousRound = round;
-      round = state.round || round;
-      roundActive = !!state.roundActive;
-      toSpawn = state.toSpawn || 0;
-      roundEl.textContent = round ? 'ROUND ' + round : '';
-      if (typeof state.nextRoundIn === 'number') nextRoundAt = gtime + state.nextRoundIn;
-      if (round > previousRound && entered && !menuOn) {
-        annEl.textContent = 'ROUND ' + round;
-        annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
-        sfx('round');
-      }
-      interEl.textContent = roundActive ? '' : `ROUND ${round + 1} IN ${Math.ceil(state.nextRoundIn || 0)}`;
-      if (!window.MP.isAuthority && entered && !menuOn) {
-        if (Array.isArray(state.zombies)) {
-          try { applyNetworkZombies(state.zombies); } catch (err) { console.warn('[MP] zombies', err); }
+      // Хост — источник правды по раундам. Эхо сервера всегда чуть устарело, и если
+      // применить его на хосте, оно откатывает round/toSpawn/таймер назад
+      // (таймер замедляется, «ROUND N» всплывает по несколько раз). Поэтому
+      // раунды, таймер и мир применяют только гости.
+      if (!window.MP.isAuthority) {
+        const previousRound = round;
+        round = state.round || round;
+        roundActive = !!state.roundActive;
+        toSpawn = state.toSpawn || 0;
+        roundEl.textContent = round ? String(round) : '';
+        if (typeof state.nextRoundIn === 'number') nextRoundAt = gtime + state.nextRoundIn;
+        if (round > previousRound && entered && !menuOn) {
+          annEl.textContent = 'ROUND ' + round;
+          annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
+          sfx('round');
         }
-        if (Array.isArray(state.windowBoards)) {
-          try { applyNetworkWindows(state.windowBoards); } catch (err) { console.warn('[MP] windows', err); }
+        interEl.textContent = roundActive ? '' : `ROUND ${round + 1} IN ${Math.ceil(state.nextRoundIn || 0)}`;
+        if (entered && !menuOn) {
+          if (Array.isArray(state.zombies)) {
+            try { applyNetworkZombies(state.zombies); } catch (err) { console.warn('[MP] zombies', err); }
+          }
+          if (Array.isArray(state.windowBoards)) {
+            try { applyNetworkWindows(state.windowBoards); } catch (err) { console.warn('[MP] windows', err); }
+          }
         }
       }
     }
@@ -180,6 +239,7 @@
       zombies.splice(i, 1);
     }
     menuOn = false;
+    if (typeof reloadSounds === 'function') reloadSounds();
     document.body.classList.remove('menu');
     document.body.classList.add('playing');
     setView('main');
@@ -273,6 +333,7 @@
         z.eyes.forEach(e => e.visible = false);
         startRagdoll(z, !!hit.head, 0);
         if (typeof kills === 'number') kills++;
+        if (hit.drop && typeof spawnDrop === 'function') spawnDrop(hit.drop);   // красный бонус MAX AMMO — решение принял сервер
       }
       const dir = new THREE.Vector3(0, 0, 1);
       bloodHit(new THREE.Vector3(z.g.position.x, z.g.position.y + 1.1, z.g.position.z), dir, !!hit.head, false);
@@ -287,9 +348,11 @@
     } else if (event.kind === 'box') {
       boxStart(event.boxResult, own);
     } else if (own && event.kind === 'cola') {
-      speedCola = true; perkMsg('cola');
+      speedCola = true; drinkPerk('cola');
     } else if (own && event.kind === 'doubleTap') {
-      doubleTap = true; perkMsg('dtap');
+      doubleTap = true; drinkPerk('dtap');
+    } else if (own && event.kind === 'juggernog') {
+      applyJugg(); drinkPerk('jugg');
     } else if (own && event.kind === 'thompson') {
       const w = WEAPONS[1];
       w.mag = w.magSize; w.reserve = w.maxReserve - w.magSize;
@@ -457,7 +520,7 @@
     return spr;
   }
   function createAvatar(p) {
-    const group = new THREE.Group();                  // начало координат = ступни
+    const group = new THREE.Group(); group.rotation.order = 'YXZ';   // начало координат = ступни; X — падение на пол
     const mat = new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.8 });
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.2, 12), mat); body.position.y = 0.8; group.add(body);
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), mat); head.position.y = 1.55; group.add(head);
@@ -485,7 +548,8 @@
       const r = remote[id], t = r.target, g = r.group;
       if (!r.active) continue;
       g.position.x += (t.x - g.position.x) * 0.25;
-      g.position.y += ((t.y - EYE_HEIGHT) - g.position.y) * 0.25;
+      g.position.y += ((t.y - EYE_HEIGHT + (r.downed ? 0.3 : 0)) - g.position.y) * 0.25;
+      g.rotation.x += ((r.downed ? -Math.PI / 2 : 0) - g.rotation.x) * 0.15;   // повалённый лежит на спине
       g.position.z += (t.z - g.position.z) * 0.25;
       let dy = t.yaw - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * 0.25;
       g.visible = !menuOn;
@@ -510,6 +574,10 @@
     requestPurchase,
     requestHit,
     requestPlayerHit,
+    reportDowned() { if (socket && socket.connected && roomCode) socket.emit('playerDowned'); },
+    reviveStart(targetId) { if (socket && socket.connected && roomCode) socket.emit('reviveStart', { targetId }); },
+    reviveDone(targetId) { if (socket && socket.connected && roomCode) socket.emit('reviveDone', { targetId }); },
+    requestDropPickup(id) { if (socket && socket.connected && roomCode) socket.emit('pickupDrop', { id }); },
     requestWindowRepair(index) {
       if (socket && socket.connected && roomCode) socket.emit('windowBoardAction', { action: 'repair', index });
     },
