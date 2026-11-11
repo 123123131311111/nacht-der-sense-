@@ -51,7 +51,7 @@ const MAPS = {
   verruckt: {
     doors: [],
     windows: [],
-    wall: { thompson: { x: 13.9, z: 0 }, shotgun: { x: 0, z: 13.9 } },
+    wall: { thompson: { x: 31.85, z: 0 }, shotgun: { x: 0, z: 31.85 } },
     box: { x: 0, z: -9.3, available: () => true },
     perks: {
       cola: { x: -7.2, z: 3.2, minY: -1, maxY: 3.2 },
@@ -270,7 +270,7 @@ io.on('connection', socket => {
       const now = Date.now();
       room.game.drops = room.game.drops.filter(d => now - d.at < DROP_LIFE_MS);
       if (Math.random() < DROP_CHANCE) {
-        drop = { id: `d${++room.game.dropSeq}`, x: clamp(finite(zombie.x), -13.6, 13.6), y: finite(zombie.y), z: clamp(finite(zombie.z), -13.6, 13.6) };
+        drop = { id: `d${++room.game.dropSeq}`, x: clamp(finite(zombie.x), -30, 30), y: finite(zombie.y), z: clamp(finite(zombie.z), -30, 30) };
         room.game.drops.push({ ...drop, at: now });
       }
     }
