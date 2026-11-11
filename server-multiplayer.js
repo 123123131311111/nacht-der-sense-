@@ -9,6 +9,7 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 4;
+const DROP_CHANCE = 0.08, DROP_LIFE_MS = 32000;   // красный бонус MAX AMMO: шанс при убийстве зомби
 const rooms = Object.create(null);
 const roomOf = Object.create(null);
 
@@ -61,7 +62,7 @@ function makeRoom(code, hostId) {
       started: false, round: 0, roundActive: false, toSpawn: 0, nextRoundIn: 0,
       doors: [false, false, false, false, false],
       windowBoards: WINDOWS.map(() => ({ boards: 4, pending: 0 })), zombies: [],
-      revision: 0, boxBusyUntil: 0,
+      revision: 0, boxBusyUntil: 0, drops: [], dropSeq: 0,
     },
   };
 }
@@ -229,12 +230,35 @@ io.on('connection', socket => {
     if (killed) zombie.state = 'dying';
     const reward = killed ? (head ? 100 : 60) : 10;
     player.points += reward;
+    let drop = null;
+    if (killed) {
+      const now = Date.now();
+      room.game.drops = room.game.drops.filter(d => now - d.at < DROP_LIFE_MS);
+      if (Math.random() < DROP_CHANCE) {
+        drop = { id: `d${++room.game.dropSeq}`, x: clamp(finite(zombie.x), -13.6, 13.6), y: finite(zombie.y), z: clamp(finite(zombie.z), -13.6, 13.6) };
+        room.game.drops.push({ ...drop, at: now });
+      }
+    }
     room.game.revision++;
     io.to(room.code).emit('zombieHit', {
       zombieId, head: !!head, hp: zombie.hp, state: zombie.state,
-      killed, shooterId: socket.id, points: player.points, reward, revision: room.game.revision,
+      killed, shooterId: socket.id, points: player.points, reward, drop, revision: room.game.revision,
     });
     sendGame(room);
+  });
+
+  // подбор MAX AMMO: сервер проверяет, что бонус ещё лежит и игрок рядом; патроны получают все игроки комнаты
+  socket.on('pickupDrop', ({ id } = {}) => {
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || typeof id !== 'string') return;
+    const { room, player } = ctx, now = Date.now();
+    room.game.drops = room.game.drops.filter(d => now - d.at < DROP_LIFE_MS);
+    const i = room.game.drops.findIndex(d => d.id === id);
+    if (i < 0) return;
+    const d = room.game.drops[i];
+    if (!near(player, d.x, d.z, 2.4, d.y - 0.6, d.y + 3.4)) return;
+    room.game.drops.splice(i, 1);
+    io.to(room.code).emit('dropPicked', { id, playerId: socket.id });
   });
 
   socket.on('zombieAttack', ({ playerId, zombieId } = {}) => {
@@ -298,8 +322,9 @@ io.on('connection', socket => {
       price = shotgun ? (owned ? 600 : 1200) : (owned ? 500 : 1000);
       weaponIndex = shotgun ? 2 : 1;
     } else if (kind === 'box') {
-      // ящик стоит в стартовой комнате, а после открытия любой двери в центральный зал переезжает туда (как на клиенте)
-      const dr = room.game.doors, boxPos = (dr[0] || dr[2] || dr[4]) ? { x: 3, z: -6.3 } : { x: -6, z: 5.7 };
+      // в стартовой комнате ящика нет: он появляется в центральном зале после открытия двери (как на клиенте)
+      const dr = room.game.doors, boxPos = { x: 0.3, z: -13.25 };
+      if (!(dr[0] || dr[2] || dr[4])) return failPurchase(socket, 'Mystery Box пока недоступен');
       if (!near(player, boxPos.x, boxPos.z, 3.5, -1, 3.2)) return failPurchase(socket, 'Подойдите к Mystery Box');
       if (room.game.boxBusyUntil > Date.now()) return failPurchase(socket, 'Mystery Box уже используется');
       price = 950;
