@@ -489,6 +489,9 @@ function vkBlood() {
     wallDecal(r * Math.cos(a), 1.0 + R() * 1.5, r * Math.sin(a), side * Math.cos(a), side * Math.sin(a));
   }
 }
+// Прямая лестница Verrückt: идёт вдоль +Z, 15 ступеней по 0.25 м + пол 2-го этажа (4.0) как последняя ступень.
+const VK_ST = { n: 15, rise: 0.25, run: 0.28, zs: -2.1, hw: 0.8 };
+VK_ST.ze = VK_ST.zs + VK_ST.n * VK_ST.run;   // конец проёма (= начало пола 2-го этажа)
 function vkWalls() {
   const iron = new THREE.MeshStandardMaterial({ color: 0x34383b, roughness: 0.65, metalness: 0.7 });
   const darkIron = new THREE.MeshStandardMaterial({ color: 0x171a1c, roughness: 0.8, metalness: 0.35 });
@@ -561,31 +564,31 @@ function vkWalls() {
         addBox(inwardX - 0.16, inwardX + 0.16, base + 2.95, base + 3.12, gc - gh - 0.2, gc + gh + 0.2, mats.concrete, false);
       }
     }
-    // Перекрытие второго этажа вокруг проёма лестницы.
-    const sx = cx, hole = 1.65;
-    for (const [za, zb] of [[z0, -hole], [hole, z1]]) {
-      const c = addBox(x0, x1, 3.7, 4, za, zb, mats.concrete);
+    // Перекрытие второго этажа с прямоугольным проёмом под лестницу.
+    const { n: sn, rise, run, zs, ze, hw } = VK_ST, sx = cx;
+    for (const [xa, xb, za, zb] of [[x0, x1, z0, zs], [x0, x1, ze, z1], [x0, sx - hw, zs, ze], [sx + hw, x1, zs, ze]]) {
+      const c = addBox(xa, xb, 3.7, 4, za, zb, mats.concrete);
       floors.push(c.userData.col);
     }
-    for (const [xa, xb] of [[x0, sx - hole], [sx + hole, x1]]) {
-      const c = addBox(xa, xb, 3.7, 4, -hole, hole, mats.concrete);
+    // Ступени — сплошные блоки от земли (под лестницей не пролезть).
+    for (let k = 1; k <= sn; k++) {
+      const c = addBox(sx - hw, sx + hw, 0, k * rise, zs + (k - 1) * run, zs + k * run, mats.concrete);
       floors.push(c.userData.col);
     }
+    // Перила по краям проёма на втором этаже (низ и бока; сверху — вход на лестницу).
+    const rail = (xa, xb, za, zb) => {
+      addBox(xa, xb, 4, 4.95, za, zb, invisible);            // коллизия
+      addBox(xa, xb, 4.9, 5.0, za, zb, iron, false);
+      addBox(xa, xb, 4.45, 4.53, za, zb, iron, false);
+    };
+    rail(sx - hw - 0.1, sx - hw, zs - 0.1, ze); rail(sx + hw, sx + hw + 0.1, zs - 0.1, ze);
+    rail(sx - hw - 0.1, sx + hw + 0.1, zs - 0.1, zs);
     // Невысокий парапет вместо крыши.
     addBox(x0 - 0.2, x0 + 0.12, 7.55, 7.9, z0 - 0.2, z1 + 0.2, mats.concrete);
     addBox(x1 - 0.12, x1 + 0.2, 7.55, 7.9, z0 - 0.2, z1 + 0.2, mats.concrete);
     for (const z of [z0 - 0.2, z1 + 0.2]) addBox(x0 - 0.2, x1 + 0.2, 7.55, 7.9, z - 0.12, z + 0.12, mats.concrete);
   };
   build(-9); build(9);
-  // Лестничные проёмы остаются над открытыми площадками — перила защищают край.
-  for (const cx of [-9, 9]) {
-    const rail = (x0, x1, z0, z1) => {
-      addBox(x0, x1, 4.05, 4.18, z0, z1, iron, false);
-      addBox(x0, x1, 4.9, 5.0, z0, z1, iron, false);
-    };
-    rail(cx - 1.65, cx + 1.65, -1.65, -1.5); rail(cx - 1.65, cx + 1.65, 1.5, 1.65);
-    rail(cx - 1.65, cx - 1.5, -1.5, 1.5); rail(cx + 1.5, cx + 1.65, -1.5, 1.5);
-  }
 }
 function vkNodes() {   // узлы навигации (связи считаются автоматически по прямой видимости)
   const n = {
@@ -600,14 +603,13 @@ function vkNodes() {   // узлы навигации (связи считают
     rightUpper: [7, -3.8, 4], rightUpper2: [7, 3.8, 4],
     leftUpperFar: [-12.5, -2.5, 4], leftUpperFar2: [-12.5, 7, 4], rightUpperFar: [12.5, -2.5, 4], rightUpperFar2: [12.5, 7, 4]
   };
-  const addStair = (pre, stair) => {
-    const point = deg => { const a = stair.a0 + deg * Math.PI / 180, x = stair.cx + stair.rw * Math.cos(a), z = stair.cz + stair.rw * Math.sin(a); return [x, z, spStepTopAt(x, z, stair)]; };
-    n[pre + '0'] = [stair.cx - 0.6, stair.cz + stair.ro + 1.4, 0];
-    n[pre + '1'] = point(12); n[pre + '2'] = point(125); n[pre + '3'] = point(205);
-    n[pre + '5'] = point(285); n[pre + '6'] = point(335);
-    n[pre + '4'] = [stair.cx + 0.7, stair.cz + stair.ro + 1, 4];
+  const addStair = (pre, cx) => {
+    const { rise, run, zs, ze } = VK_ST, on = k => [cx, zs + (k - 0.5) * run, k * rise];   // центр k-й ступени
+    n[pre + '0'] = [cx, zs - 1, 0];
+    n[pre + '1'] = on(2); n[pre + '2'] = on(5); n[pre + '3'] = on(8); n[pre + '5'] = on(11); n[pre + '6'] = on(14);
+    n[pre + '4'] = [cx, ze + 0.9, 4];
   };
-  addStair('s', SP); if (SP2) addStair('r', SP2);
+  addStair('s', -9); addStair('r', 9);
   return n;
 }
 
@@ -623,12 +625,11 @@ addBox(8, 14, 3.7, 4, -15, -14, mats.concrete);
 // Для Nacht остаётся прежняя лестница; у Verrückt по одной компактной винтовой лестнице в каждом корпусе.
 const SP = MAP_ID === 'nacht'
   ? { cx: 11, cz: -9, ro: 3.0, rh: 3.0, rc: 0.55, n: 16, rise: 0.25, a0: Math.PI / 2, colTop: 7.7, rw: 1.9 }
-  : { cx: -9, cz: 0, ro: 1.45, rh: 1.45, rc: 0.32, n: 18, rise: 4 / 18, a0: Math.PI / 2, colTop: 4, rw: 0.9 };
-const SP2 = MAP_ID === 'nacht' ? null : { cx: 9, cz: 0, ro: 1.45, rh: 1.45, rc: 0.32, n: 18, rise: 4 / 18, a0: Math.PI / 2, colTop: 4, rw: 0.9 };
-const STAIRS = SP2 ? [SP, SP2] : [SP];
-const SPB = MAP_ID === 'nacht' ? { x0: 8, x1: 14, z0: -14, z1: -4 } : { x0: -12, x1: -6, z0: -6, z1: 6 };
+  : null;   // у Verrückt лестницы прямые, см. VK_ST и vkWalls()
+const STAIRS = SP ? [SP] : [];
+const SPB = MAP_ID === 'nacht' ? { x0: 8, x1: 14, z0: -14, z1: -4 } : null;
 STAIRS.forEach(s => s.da = Math.PI * 2 / s.n);
-const STAIR = { yTop: SP.n * SP.rise };
+const STAIR = { yTop: SP ? SP.n * SP.rise : 4 };
 function buildSpiral(stair) {
   const matB = mats.concrete.clone(); matB.color.multiplyScalar(0.8);
   const scaleUV = g => { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3); };
@@ -2338,7 +2339,7 @@ function floorAt(x, z, feet) {
   let g = 0;
   for (const b of floors) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && b.y1 <= feet + 0.5 && b.y1 > g) g = b.y1;
   const sh = spStepTop(x, z); if (sh && sh <= feet + 0.5 && sh > g) g = sh;   // ступени винтовой лестницы
-  if (x > SPB.x0 && x < SPB.x1 && z > SPB.z0 && z < SPB.z1 && 4 <= feet + 0.5 && g < 4 && Math.hypot(x - SP.cx, z - SP.cz) >= SP.rh) g = 4;   // перекрытие вокруг проёма
+  if (SPB && x > SPB.x0 && x < SPB.x1 && z > SPB.z0 && z < SPB.z1 && 4 <= feet + 0.5 && g < 4 && Math.hypot(x - SP.cx, z - SP.cz) >= SP.rh) g = 4;   // перекрытие вокруг проёма
   return g;
 }
 function los(x0, z0, x1, z1, feet) {
