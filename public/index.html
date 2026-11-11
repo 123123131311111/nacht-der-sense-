@@ -456,7 +456,8 @@ function vkRing(r, step, size, skip, y0, y1, mat) {   // стена-кольцо
 function vkFloors() {
   const scaleUV = g => { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3); };
   const cyl = (y, mat) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 0.5, 48), mat); m.position.y = y; scene.add(m); worldMeshes.push(m); };
-  cyl(-0.25, mats.floor); cyl(7.95, mats.concrete);   // пол 1 этажа и потолок 2 этажа (только визуально: высота пола по умолчанию 0)
+  cyl(-0.25, mats.floor); cyl(7.95, mats.concrete);
+  colliders.push({ x0: -16, x1: 16, y0: -0.5, y1: 0, z0: -16, z1: 16 });   // сам пол 1 этажа (без него игрок проваливается)   // пол 1 этажа и потолок 2 этажа (только визуально: высота пола по умолчанию 0)
   // перекрытие 2 этажа: круг R15 с квадратным вырезом 8x8 в центре (внутри выреза — аналитическая плита с круглым проёмом, см. buildSpiral)
   const sh = new THREE.Shape(); sh.absarc(0, 0, 15, 0, Math.PI * 2, false);
   const h = new THREE.Path(); h.moveTo(-4, -4); h.lineTo(-4, 4); h.lineTo(4, 4); h.lineTo(4, -4); h.lineTo(-4, -4); sh.holes.push(h);
