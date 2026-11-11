@@ -433,17 +433,60 @@ const door = (s, e, lvl) => ({ s, e, b: lvl, t: lvl + 2.9 });
 //  VERRUCKT: открытый внутренний двор за оградой с двумя входами для зомби.
 //  По сторонам двора стоят два двухэтажных корпуса, в центре — фонтан и машина.
 // =====================================================================================
-const VK_START = 'YARD', VK_BOX_ZONE = 'YARD', VK_RC = 0, VK_K = 0;
-const VK_LAMPS = [[-8, 3.1, 0], [8, 3.1, 0], [-12.5, 3.1, -5.5], [12.5, 3.1, 5.5], [-12.5, 3.1, 5.5], [12.5, 3.1, -5.5], [-12.5, 7.1, 0], [12.5, 7.1, 0], [0, 3.1, -8], [0, 3.1, 8], [-9, 7.1, 0], [9, 7.1, 0], [0, 4.2, 0], [0, 3.1, -22], [0, 3.1, 22], [-22, 3.1, 0], [22, 3.1, 0], [-22, 3.1, -22], [22, 3.1, 22], [-22, 3.1, 22], [22, 3.1, -22]];
+const VK_START = 'YARD', VK_BOX_ZONE = 'HALL', VK_RC = 0, VK_K = 0;
+// [x, y света, z, опора]: 'p' — уличный фонарь на столбе от пола (двор и 2-й этаж, где потолка нет), 'c' — подвес к перекрытию 2-го этажа (1-й этаж корпусов).
+const VK_LAMPS = [
+  [-12, 3.1, -8, 'c'], [0, 3.1, -8, 'c'], [12, 3.1, -8, 'c'],
+  [-12, 3.1, 8, 'c'], [0, 3.1, 8, 'c'], [12, 3.1, 8, 'c'], [0, 3.1, 0, 'c'],
+  [-12, 7.1, -8, 'p', 4], [0, 7.1, -8, 'p', 4], [12, 7.1, -8, 'p', 4],
+  [-12, 7.1, 8, 'p', 4], [0, 7.1, 8, 'p', 4], [12, 7.1, 8, 'p', 4],
+  [0, 3.1, 22, 'p'], [0, 3.1, -22, 'p']
+];
 const VK_DOORS = [];
-function vkZone() { return 'YARD'; }
+function vkZone(x, z) { return Math.abs(x) > 20 || Math.abs(z) > 14 ? 'YARD' : 'HALL'; }
 function vkBlock(x, z, size, y0, y1, mat) { return addBox(x - size / 2, x + size / 2, y0, y1, z - size / 2, z + size / 2, mat); }
 function vkRing(r, step, size, skip, y0, y1, mat) {   // стена-кольцо из блоков
   const n = Math.round(2 * Math.PI * r / step);
   for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, x = r * Math.cos(a), z = r * Math.sin(a); if (!skip(x, z)) vkBlock(x, z, size, y0, y1, mat); }
 }
+// Трава двора: процедурная текстура (оттенки зелёного, пятна, стебельки, редкие цветки), тайлится по 4 м.
+let VK_GRASS_TEX = null;
+function vkGrassTex() {
+  if (VK_GRASS_TEX) return VK_GRASS_TEX;
+  const S = 512, mk = () => { const c = document.createElement('canvas'); c.width = c.height = S; return c; };
+  const c = mk(), g = c.getContext('2d'), hc = mk(), hg = hc.getContext('2d'), R = Math.random;
+  g.fillStyle = '#3f7d2a'; g.fillRect(0, 0, S, S); hg.fillStyle = '#808080'; hg.fillRect(0, 0, S, S);
+  const wrap = (x, y, r, fn) => { for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) { if (x + dx > -r && x + dx < S + r && y + dy > -r && y + dy < S + r) fn(x + dx, y + dy); } };
+  for (let i = 0; i < 90; i++) {   // крупные пятна — разные оттенки, чтобы газон не был однотонным
+    const x = R() * S, y = R() * S, r = 30 + R() * 70, l = 28 + R() * 20, h = 92 + R() * 22;
+    wrap(x, y, r, (X, Y) => { const gr = g.createRadialGradient(X, Y, 0, X, Y, r); gr.addColorStop(0, `hsla(${h},52%,${l}%,0.5)`); gr.addColorStop(1, `hsla(${h},52%,${l}%,0)`); g.fillStyle = gr; g.fillRect(X - r, Y - r, r * 2, r * 2); });
+  }
+  for (let i = 0; i < 9000; i++) {   // стебельки
+    const x = R() * S, y = R() * S, len = 4 + R() * 9, a = -Math.PI / 2 + (R() - 0.5) * 0.9, l = 22 + R() * 38, h = 85 + R() * 35;
+    const ex = Math.cos(a) * len, ey = Math.sin(a) * len;
+    wrap(x, y, 14, (X, Y) => { g.strokeStyle = `hsl(${h},58%,${l}%)`; g.lineWidth = 1 + R() * 1.1; g.beginPath(); g.moveTo(X, Y); g.lineTo(X + ex, Y + ey); g.stroke();
+      hg.strokeStyle = `rgba(${l > 40 ? 235 : 40},${l > 40 ? 235 : 40},${l > 40 ? 235 : 40},0.5)`; hg.lineWidth = 1.2; hg.beginPath(); hg.moveTo(X, Y); hg.lineTo(X + ex, Y + ey); hg.stroke(); });
+  }
+  for (let i = 0; i < 26; i++) {   // мелкие цветки: белые и жёлтые
+    const x = R() * S, y = R() * S, col = R() < 0.6 ? '#f4f1dc' : '#f0d24a';
+    wrap(x, y, 4, (X, Y) => { g.fillStyle = col; g.beginPath(); g.arc(X, Y, 1.6, 0, 6.3); g.fill(); });
+  }
+  const map = new THREE.CanvasTexture(c), bump = new THREE.CanvasTexture(hc);
+  for (const t of [map, bump]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; }
+  if ('colorSpace' in map && THREE.SRGBColorSpace) map.colorSpace = THREE.SRGBColorSpace;
+  return VK_GRASS_TEX = { map, bump };
+}
+function vkGrass(x0, x1, z0, z1) {   // кусок газона; addBox уже даёт UV 1 единица = 3 м, текстура растянута до тайла в 4 м
+  const t = vkGrassTex();
+  t.map.repeat.set(0.75, 0.75); t.bump.repeat.set(0.75, 0.75);
+  if (!VK_GRASS_TEX.mat) VK_GRASS_TEX.mat = new THREE.MeshStandardMaterial({ map: t.map, bumpMap: t.bump, bumpScale: 1.5, color: 0xffffff, roughness: 1, metalness: 0 });
+  return addBox(x0, x1, -0.5, 0, z0, z1, VK_GRASS_TEX.mat);
+}
 function vkFloors() {
-  addBox(-36, 36, -0.5, 0, -36, 36, mats.floor);
+  // Газон вокруг единого прямоугольного здания; бетонный пол — по всему первому этажу.
+  vkGrass(-36, 36, -36, -14); vkGrass(-36, 36, 14, 36);
+  vkGrass(-36, -20, -14, 14); vkGrass(20, 36, -14, 14);
+  addBox(-20, 20, -0.5, 0, -14, 14, mats.floor);
 }
 // ---- кровь: процедурные текстуры-декали ----
 function vkBloodTex(kind) {
@@ -489,13 +532,13 @@ function vkBlood() {
     wallDecal(r * Math.cos(a), 1.0 + R() * 1.5, r * Math.sin(a), side * Math.cos(a), side * Math.sin(a));
   }
 }
-// Прямая лестница Verrückt: идёт вдоль +Z, 15 ступеней по 0.25 м + пол 2-го этажа (4.0) как последняя ступень.
-const VK_ST = { n: 15, rise: 0.25, run: 0.28, zs: -2.1, hw: 0.8 };
+// Центральная прямая лестница Verrückt: идёт вдоль +Z, 15 ступеней по 0.25 м.
+const VK_ST = { n: 15, rise: 0.25, run: 0.28, zs: -2.35, hw: 1.0 };
 VK_ST.ze = VK_ST.zs + VK_ST.n * VK_ST.run;   // конец проёма (= начало пола 2-го этажа)
-// Вход на 2-й этаж каждого корпуса — платная дверь у подножия лестницы. Порядок (левый, правый) ДОЛЖЕН совпадать с MAPS.verruckt.doors в server-multiplayer.js.
+// Двери: главный вход и доступ к лестнице. Порядок совпадает с серверным MAPS.verruckt.doors.
 VK_DOORS.push(
-  { ax: 'x', fixed: VK_ST.zs - 0.25, s: -9 - VK_ST.hw, e: -9 + VK_ST.hw, a: 'YARD', b: 'UPPER_L', h: 3.7, label: 'открыть вход на 2 этаж', msg: 'ВХОД НА 2 ЭТАЖ ОТКРЫТ' },
-  { ax: 'x', fixed: VK_ST.zs - 0.25, s: 9 - VK_ST.hw, e: 9 + VK_ST.hw, a: 'YARD', b: 'UPPER_R', h: 3.7, label: 'открыть вход на 2 этаж', msg: 'ВХОД НА 2 ЭТАЖ ОТКРЫТ' }
+  { ax: 'x', fixed: 14, s: -1.8, e: 1.8, a: 'YARD', b: 'HALL', h: 2.9, label: 'открыть главный вход', msg: 'ГЛАВНЫЙ ВХОД ОТКРЫТ' },
+  { ax: 'x', fixed: VK_ST.zs, s: -1, e: 1, a: 'HALL', b: 'UPPER', h: 2.9, label: 'открыть лестницу', msg: 'ЛЕСТНИЦА ОТКРЫТА' }
 );
 function vkWalls() {
   const iron = new THREE.MeshStandardMaterial({ color: 0x34383b, roughness: 0.65, metalness: 0.7 });
@@ -636,6 +679,165 @@ function vkWalls() {
   };
   build(-9); build(9);
 }
+const VK_PLAN = {
+  rooms: [
+    { name: 'ХОЛЛ', floor: 0, x0: -7, x1: 7, z0: -3, z1: 14 },
+    { name: 'КУХНЯ', floor: 0, x0: -20, x1: -7, z0: -14, z1: -3 },
+    { name: 'ВАННАЯ', floor: 0, x0: -7, x1: 7, z0: -14, z1: -3 },
+    { name: 'КОМНАТА ОТДЫХА', floor: 0, x0: 7, x1: 20, z0: -14, z1: -3 },
+    { name: 'СТОЛОВАЯ', floor: 0, x0: -20, x1: -7, z0: 0, z1: 14 },
+    { name: 'ГОСТИНАЯ', floor: 0, x0: 7, x1: 20, z0: 0, z1: 14 },
+    { name: 'КОРИДОР', floor: 4, x0: -7, x1: 4.1, z0: -14, z1: 14 },
+    { name: 'КОМНАТА СНАЙПЕРА', floor: 4, x0: -20, x1: -7, z0: -14, z1: 0 },
+    { name: 'СПАЛЬНЯ', floor: 4, x0: 7, x1: 20, z0: -14, z1: 0 },
+    { name: 'БИБЛИОТЕКА', floor: 4, x0: -20, x1: -7, z0: 0, z1: 14 },
+    { name: 'КАБИНЕТ', floor: 4, x0: 7, x1: 20, z0: 0, z1: 14 },
+    { name: 'КЛАДОВАЯ', floor: 4, x0: 4.1, x1: 7, z0: -2.2, z1: 2.2 }
+  ],
+  partitions: [
+    { floor: 0, axis: 'x', fixed: 0, start: -20, end: -7 },
+    { floor: 0, axis: 'x', fixed: 0, start: 7, end: 20 },
+    { floor: 0, axis: 'x', fixed: -3, start: -7, end: 7, gaps: [[-1, 1]] },
+    { floor: 4, axis: 'x', fixed: 0, start: -20, end: -7 },
+    { floor: 4, axis: 'x', fixed: 0, start: 7, end: 20 },
+    { floor: 0, axis: 'z', fixed: -7, start: -14, end: 14, gaps: [[-8, -6], [6, 8]] },
+    { floor: 0, axis: 'z', fixed: 7, start: -14, end: 14, gaps: [[-8, -6], [6, 8]] },
+    { floor: 4, axis: 'z', fixed: -7, start: -14, end: 14, gaps: [[-8, -6], [6, 8]] },
+    { floor: 4, axis: 'z', fixed: 7, start: -14, end: 14, gaps: [[-8, -6], [6, 8]] },
+    { floor: 4, axis: 'z', fixed: 4.1, start: -2.2, end: 2.2, gaps: [[-0.5, 0.5]] },
+    { floor: 4, axis: 'x', fixed: -2.2, start: 4.1, end: 7 },
+    { floor: 4, axis: 'x', fixed: 2.2, start: 4.1, end: 7, gaps: [[5, 6.2]] }
+  ],
+  furniture: [
+    { kind: 'counter', x: -15.4, z: -12.2, w: 7.2, d: 0.9, floor: 0 },
+    { kind: 'counter', x: -19.0, z: -8.1, w: 0.9, d: 5.0, floor: 0 },
+    { kind: 'stove', x: -17.2, z: -9.1, floor: 0 },
+    { kind: 'roundTable', x: -13.0, z: -7.4, floor: 0 },
+    { kind: 'tub', x: -2.7, z: -9.8, floor: 0 },
+    { kind: 'sink', x: 3.7, z: -6.1, floor: 0 },
+    { kind: 'sofa', x: 12.5, z: -10.2, w: 3.6, floor: 0 },
+    { kind: 'armchair', x: 16.3, z: -6.7, floor: 0 },
+    { kind: 'roundTable', x: 12.8, z: -6.3, floor: 0 },
+    { kind: 'diningTable', x: -13.2, z: 8.2, floor: 0 },
+    { kind: 'sofa', x: 12.3, z: 10.4, w: 4, floor: 0 },
+    { kind: 'armchair', x: 17.2, z: 7.1, floor: 0 },
+    { kind: 'coffeeTable', x: 12.6, z: 7.8, floor: 0 },
+    { kind: 'rug', x: 13.0, z: 8.8, floor: 0 },
+    { kind: 'perkZone', x: 17.2, z: 11.1, floor: 0 },
+    { kind: 'crate', x: -4.0, z: 1.0, floor: 0 },
+    { kind: 'bed', x: -15.3, z: -10.0, floor: 4 },
+    { kind: 'desk', x: -10.4, z: -6.4, floor: 4 },
+    { kind: 'doubleBed', x: 12.8, z: -9.3, floor: 4 },
+    { kind: 'nightstand', x: 10.7, z: -9.3, floor: 4 },
+    { kind: 'nightstand', x: 14.9, z: -9.3, floor: 4 },
+    { kind: 'bookcase', x: -18.7, z: 3.0, floor: 4 },
+    { kind: 'bookcase', x: -8.3, z: 3.0, floor: 4 },
+    { kind: 'desk', x: -13.0, z: 8.2, floor: 4 },
+    { kind: 'bookcase', x: -18.7, z: 10.5, floor: 4 },
+    { kind: 'desk', x: 12.3, z: 8.0, floor: 4 },
+    { kind: 'cabinet', x: 17.0, z: 3.0, floor: 4, w: 2.0 },
+    { kind: 'perkZone', x: 17.1, z: 10.8, floor: 4 },
+    { kind: 'shelf', x: 6.2, z: -1.4, floor: 4 },
+    { kind: 'shelf', x: 6.2, z: 0.3, floor: 4 }
+  ]
+};
+// Новая схема VERRUCKT: один прямоугольный корпус с центральной лестницей.
+function vkWalls() {
+  const iron = new THREE.MeshStandardMaterial({ color: 0x353a3d, roughness: 0.55, metalness: 0.75 });
+  const darkIron = new THREE.MeshStandardMaterial({ color: 0x171a1c, roughness: 0.8, metalness: 0.35 });
+  const invisible = new THREE.MeshBasicMaterial({ visible: false });
+  const winOps = (base, centers) => centers.map(c => ({ s: c - 0.82, e: c + 0.82, b: base + 1.0, t: base + 2.55 }));
+  const innerWall = (ax, fixed, a0, a1, y0, y1, gaps = []) => {
+    const sorted = gaps.map(([s, e]) => [s, e]).sort((a, b) => a[0] - b[0]);
+    const seg = (s, e, ya, yb) => {
+      if (e <= s || yb <= ya) return;
+      if (ax === 'x') addBox(s, e, ya, yb, fixed - 0.16, fixed + 0.16, mats.concrete);
+      else addBox(fixed - 0.16, fixed + 0.16, ya, yb, s, e, mats.concrete);
+    };
+    let cur = a0;
+    for (const [s, e] of sorted) {
+      seg(cur, s, y0, y1);
+      seg(s, e, y0 + 2.65, y1);
+      cur = e;
+    }
+    seg(cur, a1, y0, y1);
+  };
+  const grill = (ax, fixed, s, e, base) => {
+    // Невидимая сплошная вставка сохраняет коллизию, а прутья дают видимую металлическую решётку.
+    if (ax === 'x') addBox(s, e, base + 1.0, base + 2.55, fixed - 0.12, fixed + 0.12, invisible);
+    else addBox(fixed - 0.12, fixed + 0.12, base + 1.0, base + 2.55, s, e, invisible);
+    const at = (u, v, w, h, d) => addBox(u - w / 2, u + w / 2, v, v + h, d - 0.025, d + 0.025, darkIron, false);
+    const across = (u, v, w, h, d) => addBox(d - 0.025, d + 0.025, v, v + h, u - w / 2, u + w / 2, darkIron, false);
+    const n = Math.max(3, Math.floor((e - s) / 0.22));
+    for (let i = 0; i <= n; i++) {
+      const p = s + (e - s) * i / n;
+      if (ax === 'x') at(p, base + 1.0, 0.045, 1.55, fixed);
+      else across(p, base + 1.0, 0.045, 1.55, fixed);
+    }
+    for (const y of [base + 1.08, base + 1.76, base + 2.47]) {
+      if (ax === 'x') addBox(s, e, y, y + 0.045, fixed - 0.035, fixed + 0.035, iron, false);
+      else addBox(fixed - 0.035, fixed + 0.035, y, y + 0.045, s, e, iron, false);
+    }
+  };
+
+  // Наружные стены, оконные проёмы и решётки на каждом этаже.
+  for (const base of [0, 4]) {
+    const top = base + 3.7;
+    wall('x', -14, -20, 20, 0.42, base, top, winOps(base, [-13, -7, 0, 7, 13]), mats.brick);
+    wall('x', 14, -20, 20, 0.42, base, top,
+      base === 0 ? [door(-1.8, 1.8, 0), ...winOps(base, [-13, -7, 7, 13])] : winOps(base, [-13, -7, 0, 7, 13]), mats.brick);
+    wall('z', -20, -14, 14, 0.42, base, top, winOps(base, [-9, 0, 9]), mats.brick);
+    wall('z', 20, -14, 14, 0.42, base, top, winOps(base, [-9, 0, 9]), mats.brick);
+    for (const c of [-13, -7, 0, 7, 13]) {
+      if (c === 0 && base === 0) continue;
+      grill('x', -14, c - 0.82, c + 0.82, base);
+      grill('x', 14, c - 0.82, c + 0.82, base);
+    }
+    for (const c of [-9, 0, 9]) {
+      grill('z', -20, c - 0.82, c + 0.82, base);
+      grill('z', 20, c - 0.82, c + 0.82, base);
+    }
+  }
+
+  // Межкомнатные перегородки, заданные в плане как координатные отрезки и дверные проёмы.
+  for (const p of VK_PLAN.partitions) {
+    const base = p.floor, top = base + 3.7;
+    innerWall(p.axis, p.fixed, p.start, p.end, base, top, p.gaps || []);
+  }
+
+  // Плита второго этажа с проёмом над лестницей.
+  const { hw, zs, ze, rise, run, n } = VK_ST;
+  const sx = 0;
+  for (const [xa, xb, za, zb] of [
+    [-20, 20, -14, zs], [-20, 20, ze, 14],
+    [-20, sx - hw - 0.16, zs, ze], [sx + hw + 0.16, 20, zs, ze]
+  ]) {
+    const slab = addBox(xa, xb, 3.7, 4, za, zb, mats.concrete);
+    floors.push(slab.userData.col);
+  }
+  const stepA = new THREE.MeshStandardMaterial({ color: 0x46494a, roughness: 0.9 });
+  const stepB = new THREE.MeshStandardMaterial({ color: 0x292c2e, roughness: 0.9 });
+  for (let k = 1; k <= n; k++) {
+    const step = addBox(sx - hw, sx + hw, 0, k * rise, zs + (k - 1) * run, zs + k * run, k % 2 ? stepA : stepB);
+    floors.push(step.userData.col);
+  }
+  addBox(sx - hw - 0.18, sx - hw, 0, 3.7, zs - 0.12, ze, mats.concrete);
+  addBox(sx + hw, sx + hw + 0.18, 0, 3.7, zs - 0.12, ze, mats.concrete);
+  // Низкие перила по краям проёма.
+  for (const x of [-1.17, 1.17]) {
+    addBox(x - 0.07, x + 0.07, 4, 4.9, zs, ze, invisible);
+    addBox(x - 0.07, x + 0.07, 4.82, 4.92, zs, ze, iron, false);
+    addBox(x - 0.07, x + 0.07, 4.42, 4.5, zs, ze, iron, false);
+  }
+  // Крыльцо и широкие ступени главного входа.
+  const porch = addBox(-2.7, 2.7, -0.04, 0.08, 13.7, 15.5, mats.concrete, false);
+  for (const [z0, z1, h] of [[15.5, 16.45, 0.18], [16.45, 17.4, 0.36], [17.4, 18.35, 0.54]]) {
+    const step = addBox(-2.7, 2.7, 0, h, z0, z1, mats.concrete);
+    floors.push(step.userData.col);
+  }
+  // Плоская крыша удерживает темноту внутри и завершает силуэт здания.
+  addBox(-20, 20, 7.7, 8.1, -14, 14, mats.concrete);
+}
 function vkNodes() {   // узлы навигации (связи считаются автоматически по прямой видимости)
   const n = {
     northGate: [0, -30, 0], northYard: [0, -27.8, 0], northMid: [0, -20, 0], northMid2: [0, -12, 0], southMid2: [0, 12, 0], southMid: [0, 20, 0], farWest: [-24, 0, 0], farEast: [24, 0, 0], nwCorner: [-22, -22, 0], neCorner: [22, -22, 0], swCorner: [-22, 22, 0], seCorner: [22, 22, 0], westMid: [-14, -10, 0], eastMid: [14, -10, 0], westMid2: [-14, 10, 0], eastMid2: [14, 10, 0], northWest: [-4.2, -4.3, 0], northEast: [4.2, -4.3, 0],
@@ -658,6 +860,26 @@ function vkNodes() {   // узлы навигации (связи считают
     n[pre + '4'] = [cx, ze + 0.9, 4];
   };
   addStair('s', -9); addStair('r', 9);
+  return n;
+}
+function vkNodes() {
+  const n = {
+    northGate: [0, -30, 0], northYard: [0, -23, 0], northApproach: [0, -17, 0],
+    southApproach: [0, 19, 0], southYard: [0, 24, 0], southGate: [0, 30, 0],
+    northWest: [-23, -17, 0], northEast: [23, -17, 0], southWest: [-23, 17, 0], southEast: [23, 17, 0],
+    westNorth: [-23, -8, 0], westSouth: [-23, 8, 0], eastNorth: [23, -8, 0], eastSouth: [23, 8, 0],
+    westYard: [-24, 0, 0], eastYard: [24, 0, 0],
+    entrance: [0, 11, 0], foyer: [0, 7, 0], hall: [0, 3, 0],
+    kitchen: [-13, -8, 0], bath: [0, -8, 0], lounge: [13, -8, 0],
+    dining: [-13, 8, 0], living: [13, 8, 0], boxHall: [0, 9, 0],
+    s0: [0, VK_ST.zs - 0.75, 0],
+    s1: [0, VK_ST.zs + 0.45, 0.5], s2: [0, -1.0, 1.25],
+    s3: [0, -0.2, 2.0], s5: [0, 0.65, 2.75], s6: [0, 1.45, 3.5],
+    s4: [0, 2.6, 4],
+    upperHall: [0, 4, 4], upperNorth: [0, -6, 4], upperSouth: [0, 8, 4],
+    sniper: [-13, -8, 4], bedroom: [13, -8, 4],
+    library: [-13, 8, 4], office: [13, 8, 4], pantry: [5.5, 0, 4]
+  };
   return n;
 }
 
@@ -762,7 +984,21 @@ function lamp(x, y, z, intensity = 1.3, real = true) {
   bulbs.push({ l, base: intensity, ph: Math.random() * 10, bad: Math.random() < 0.15 });
 }
 // 7 ламп: каждая освещает свой участок карты (небольшой радиус), между ними остаётся темнота
-(MAP_ID === 'nacht' ? [[-9.5, 3.3, 9.5], [7, 3.3, 9], [-9, 3.3, -8], [4, 3.3, -6], [-8, 7.3, 8], [9, 7.3, 10], [-6, 7.3, -9], [12.6, 6.9, -9]] : VK_LAMPS).forEach(p => lamp(p[0], p[1], p[2], 1.6));   // последняя — над круговой лестницей
+const lampIron = new THREE.MeshStandardMaterial({ color: 0x1d2022, roughness: 0.6, metalness: 0.7 });
+function lampSupport(x, y, z, kind, base = 0) {   // опора светильника, чтобы он не висел в воздухе
+  if (kind === 'p') {   // столб: основание, труба, оголовок под плафоном
+    const top = y + 0.5, h = top - base;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, h, 10), lampIron); pole.position.set(x, base + h / 2, z); scene.add(pole);
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.18, 12), lampIron); foot.position.set(x, base + 0.09, z); scene.add(foot);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.045, 0.1, 10), lampIron); cap.position.set(x, top, z); scene.add(cap);
+  } else {   // подвес: штанга от плафона до перекрытия (низ плиты 3.7)
+    const y0 = y + 0.5, h = 3.7 - y0; if (h <= 0) return;
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, h, 8), lampIron); rod.position.set(x, y0 + h / 2, z); scene.add(rod);
+    const rose = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.05, 12), lampIron); rose.position.set(x, 3.675, z); scene.add(rose);
+  }
+}
+if (MAP_ID === 'nacht') [[-9.5, 3.3, 9.5], [7, 3.3, 9], [-9, 3.3, -8], [4, 3.3, -6], [-8, 7.3, 8], [9, 7.3, 10], [-6, 7.3, -9], [12.6, 6.9, -9]].forEach(p => lamp(p[0], p[1], p[2], 1.6));
+else VK_LAMPS.forEach(p => { lamp(p[0], p[1], p[2], 1.6); lampSupport(p[0], p[1], p[2], p[3], p[4] || 0); });   // последняя — над круговой лестницей
 
 // ---------- интерьер: мебель, комнаты, мусор ----------
 const PM = (c, r = 0.85, m = 0.1) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
@@ -822,6 +1058,136 @@ function trash(x0, x1, z0, z1, y, n) {
   }
 }
 const pipe = (x0, x1, y, z, ax = 'x') => { const L = x1 - x0, m = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, L, 8), M2.steel); if (ax === 'x') { m.rotation.z = Math.PI / 2; m.position.set((x0 + x1) / 2, y, z); } else { m.rotation.x = Math.PI / 2; m.position.set(z, y, (x0 + x1) / 2); } scene.add(m); };
+
+function drawVkInterior() {
+  const black = PM(0x171819, 0.55, 0.35), steel = PM(0x555a5b, 0.4, 0.65);
+  const green = new THREE.MeshBasicMaterial({ color: 0x38ff59, transparent: true, opacity: 0.22, side: THREE.DoubleSide });
+  const greenGlow = new THREE.MeshBasicMaterial({ color: 0x4cff6a, transparent: true, opacity: 0.75 });
+  const propMask = new THREE.MeshBasicMaterial({ visible: false });
+  const box = (x, z, w, d, y, h, mat, collide = true) => PB(x - w / 2, x + w / 2, y, y + h, z - d / 2, z + d / 2, mat, collide);
+  const sofa = (x, z, w, y) => {
+    box(x, z, w, 0.95, y, 0.42, M2.cloth);
+    box(x, z - 0.37, w, 0.22, y + 0.4, 0.78, M2.blue);
+    box(x - w / 2 + 0.08, z, 0.22, 1.05, y, 0.72, M2.cloth);
+    box(x + w / 2 - 0.08, z, 0.22, 1.05, y, 0.72, M2.cloth);
+  };
+  const armchair = (x, z, y) => {
+    box(x, z, 0.95, 0.9, y, 0.38, M2.cloth);
+    box(x, z - 0.34, 0.95, 0.18, y + 0.35, 0.72, M2.blue);
+    box(x - 0.39, z, 0.18, 0.96, y, 0.62, M2.cloth);
+    box(x + 0.39, z, 0.18, 0.96, y, 0.62, M2.cloth);
+  };
+  const cabinetRun = (x, z, w, d, y) => {
+    box(x, z, w, d, y, 0.82, M2.olive);
+    box(x, z, w + 0.06, d + 0.08, y + 0.82, 0.08, M2.white);
+    for (let i = 1; i < Math.max(2, Math.floor(w / 0.75)); i++) {
+      const px = x - w / 2 + w * i / Math.floor(w / 0.75);
+      PB(px - 0.025, px + 0.025, y + 0.08, y + 0.72, z - d / 2 - 0.012, z + d / 2 + 0.012, mats.frame, false);
+      PB(px + 0.08, px + 0.13, y + 0.34, y + 0.39, z + d / 2 + 0.02, z + d / 2 + 0.05, M2.steel, false);
+    }
+  };
+  const stove = (x, z, y) => {
+    box(x, z, 1.25, 0.9, y, 0.83, M2.steel);
+    box(x, z, 1.3, 0.96, y + 0.83, 0.1, M2.white);
+    for (const dx of [-0.34, 0.34]) for (const dz of [-0.23, 0.23]) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 5, 12), black);
+      ring.rotation.x = -Math.PI / 2; ring.position.set(x + dx, y + 0.94, z + dz); scene.add(ring);
+    }
+    box(x, z + 0.47, 1.15, 0.08, y + 0.2, 0.22, black, false);
+  };
+  const tub = (x, z, y) => {
+    box(x, z, 2.3, 1.05, y, 0.62, M2.white);
+    box(x, z, 1.95, 0.76, y + 0.55, 0.08, M2.steel, false);
+    box(x, z, 1.75, 0.56, y + 0.57, 0.015, PM(0x344a4c, 0.2, 0.1), false);
+  };
+  const sink = (x, z, y) => {
+    cabinetRun(x, z, 1.25, 0.7, y);
+    box(x, z, 0.65, 0.42, y + 0.89, 0.1, M2.steel, false);
+    const tap = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 5, 12, Math.PI), steel);
+    tap.position.set(x, y + 1.08, z - 0.18); scene.add(tap);
+  };
+  const workDesk = (x, z, y) => {
+    table(x, z, 1.8, 0.9, y, 0.8, mats.wood2);
+    box(x, z - 0.18, 0.65, 0.12, y + 0.84, 0.38, black, false);
+    box(x, z - 0.105, 0.52, 0.012, y + 0.89, 0.25, PM(0x51706a, 0.25, 0.1), false);
+    chair(x, z + 0.78, 0, 1, y);
+    box(x, z + 0.78, 0.48, 0.48, y, 0.94, propMask);
+  };
+  const bookcase = (x, z, y, w = 1.35) => {
+    shelf(x - w / 2, z - 0.25, w, 0.5, y);
+  };
+  const bed = (x, z, y, isDouble = false) => {
+    const w = isDouble ? 2.5 : 2.0, d = isDouble ? 2.15 : 1.1;
+    box(x, z, w + 0.12, d + 0.12, y, 0.34, M2.steel);
+    box(x, z, w, d, y + 0.34, 0.22, M2.cloth, false);
+    box(x, z + d * 0.24, w - 0.12, d * 0.53, y + 0.56, 0.1, M2.blue, false);
+    if (isDouble) {
+      box(x - 0.58, z - d * 0.31, 0.75, 0.48, y + 0.57, 0.12, M2.white, false);
+      box(x + 0.58, z - d * 0.31, 0.75, 0.48, y + 0.57, 0.12, M2.white, false);
+    } else {
+      box(x, z - d * 0.31, 0.78, 0.42, y + 0.57, 0.12, M2.white, false);
+    }
+    box(x, z, w, d, y, 1.05, propMask);
+  };
+  const perkZone = (x, z, y) => {
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(1.65, 28), green);
+    disc.rotation.x = -Math.PI / 2; disc.position.set(x, y + 0.025, z); scene.add(disc);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.65, 0.045, 6, 28), greenGlow);
+    ring.rotation.x = Math.PI / 2; ring.position.set(x, y + 0.06, z); scene.add(ring);
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2, lamp = new THREE.PointLight(0x54ff62, 0.35, 3, 2);
+      lamp.position.set(x + Math.cos(a) * 1.35, y + 0.25, z + Math.sin(a) * 1.35); scene.add(lamp);
+    }
+  };
+
+  for (const item of VK_PLAN.furniture) {
+    const { kind, x, z, floor } = item, y = floor || 0;
+    if (kind === 'counter') cabinetRun(x, z, item.w, item.d, y);
+    else if (kind === 'stove') stove(x, z, y);
+    else if (kind === 'roundTable') {
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.12, 24), mats.wood2);
+      top.position.set(x, y + 0.78, z); scene.add(top);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.74, 10), mats.frame);
+      leg.position.set(x, y + 0.37, z); scene.add(leg);
+      const col = { x0: x - 0.87, x1: x + 0.87, y0: y, y1: y + 0.84, z0: z - 0.87, z1: z + 0.87, prop: true };
+      colliders.push(col);
+      for (const [dx, dz, bx, bz] of [[0, -1.35, 0, 1], [1.35, 0, -1, 0], [0, 1.35, 0, -1], [-1.35, 0, 1, 0]]) {
+        chair(x + dx, z + dz, bx, bz, y); box(x + dx, z + dz, 0.5, 0.5, y, 0.95, propMask);
+      }
+    } else if (kind === 'diningTable') {
+      table(x, z, 3.4, 1.35, y, 0.82);
+      for (const dx of [-1.15, 0, 1.15]) {
+        chair(x + dx, z - 1.0, 0, 1, y); box(x + dx, z - 1.0, 0.5, 0.5, y, 0.95, propMask);
+        chair(x + dx, z + 1.0, 0, -1, y); box(x + dx, z + 1.0, 0.5, 0.5, y, 0.95, propMask);
+      }
+    } else if (kind === 'tub') tub(x, z, y);
+    else if (kind === 'sink') sink(x, z, y);
+    else if (kind === 'sofa') sofa(x, z, item.w || 3.2, y);
+    else if (kind === 'armchair') armchair(x, z, y);
+    else if (kind === 'coffeeTable') { table(x, z, 1.35, 0.8, y, 0.48, mats.wood2); }
+    else if (kind === 'rug') {
+      const rug = flatPlane(4.5, 3.2, x, y + 0.018, z, 0, M2.rug);
+      rug.material = M2.rug;
+    } else if (kind === 'perkZone') perkZone(x, z, y);
+    else if (kind === 'crate') crate(x - 0.45, z - 0.45, 0.9, y, mats.crate);
+    else if (kind === 'bed') bed(x, z, y, false);
+    else if (kind === 'doubleBed') bed(x, z, y, true);
+    else if (kind === 'nightstand') { box(x, z, 0.65, 0.65, y, 0.68, mats.wood2); box(x, z, 0.72, 0.72, y + 0.68, 0.06, mats.frame, false); }
+    else if (kind === 'desk') workDesk(x, z, y);
+    else if (kind === 'bookcase') bookcase(x, z, y);
+    else if (kind === 'cabinet') locker(x - (item.w || 1.4) / 2, z - 0.45, item.w || 1.4, 0.9, y, 2.1);
+    else if (kind === 'shelf') shelf(x - 0.55, z - 0.3, 1.1, 0.6, y);
+  }
+  // Плакаты у входов в комнаты задают назначение помещений и помогают ориентироваться.
+  for (const r of VK_PLAN.rooms) {
+    if (r.name === 'ХОЛЛ' || r.name === 'КОРИДОР' || r.name === 'КЛАДОВАЯ') continue;
+    const [c, g] = cv(256, 64);
+    g.fillStyle = '#151617'; g.fillRect(0, 0, 256, 64); g.strokeStyle = '#71634d'; g.lineWidth = 4; g.strokeRect(2, 2, 252, 60);
+    g.fillStyle = '#d7d0be'; g.font = 'bold 22px "Courier New",monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(r.name, 128, 33);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) }));
+    m.position.set((r.x0 + r.x1) / 2, r.floor + 3.0, r.z1 - 0.28); m.rotation.y = Math.PI; scene.add(m);
+  }
+}
 
 if (MAP_ID === 'nacht') {
 // 1) ПРИХОЖАЯ (старт)
@@ -886,7 +1252,7 @@ shelf(13.5, 11.9, 1.2, 0.55); barrel(13.2, 14.2, 0, 0x2a2a3a); crate(0.2, 13.4, 
 crate(-14.6, -12.5, 1.0, 4, M2.olive); barrel(-3.3, -14.0, 4, 0x3a2a2a);
 table(-6, -8, 2.2, 1.0, 4); chair(-7.1, -8, -1, 0, 4); chair(-4.9, -8, 1, 0, 4);
 cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
-} else {   // Verruckt: фонтан, брошенная машина и обжитые корпуса
+} else { drawVkInterior(); if (false) {   // legacy courtyard furnishing, kept only as a reference
   const stone = PM(0x77766e, 0.9, 0.05), water = PM(0x31535a, 0.22, 0.28), brass = PM(0x75653e, 0.45, 0.65);
   // Низкие круглые борта фонтана собраны короткими секциями, чтобы их обходили и игрок, и зомби.
   const basin = new THREE.Mesh(new THREE.CylinderGeometry(2.35, 2.55, 0.62, 40, 1, true), stone);
@@ -954,6 +1320,7 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
   trash(-4.5, 4.5, -30, -27, 0, 10); trash(-4.5, 4.5, 27, 30, 0, 10); trash(-20, 20, -20, 20, 0, 14);
   barrel(-13.4, -11.5, 0, 0x37342d); barrel(13.3, 11.5, 0, 0x3a2920); barrel(-28, -20, 0, 0x37342d); barrel(28, 22, 0, 0x3a2920); barrel(-26, 25, 0, 0x3a2920); barrel(25, -26, 0, 0x37342d);
   crate(-24, 8, 1.0, 0, mats.crate); crate(24, -8, 1.0, 0, mats.crate); crate(-10, -24, 0.8, 0, mats.crate); crate(12, 24, 0.9, 0, mats.crate);
+  }
 }
 
 
@@ -1011,7 +1378,7 @@ const info = document.getElementById('info');
 controls.addEventListener('lock', () => info.style.display = 'none');
 controls.addEventListener('unlock', () => { if (!dead) info.style.display = 'flex'; });
 scene.add(controls.getObject());
-const SPAWN = MAP_ID === 'nacht' ? new THREE.Vector3(-9.5, 1.7, 9.5) : new THREE.Vector3(0, 1.7, 10), SPAWN_YAW = 0;
+const SPAWN = MAP_ID === 'nacht' ? new THREE.Vector3(-9.5, 1.7, 9.5) : new THREE.Vector3(0, 1.7, 18), SPAWN_YAW = 0;
 const pos = controls.getObject().position.copy(SPAWN);
 camera.rotation.y = SPAWN_YAW;
 const R = 0.35, H = 1.7, STEP = 0.45;
@@ -2659,10 +3026,10 @@ function makeChalkSG() {
 
 
 // ---------- MYSTERY BOX (950) ----------
-const BOX_PRICE = 950, BOX = MAP_ID === 'nacht' ? { x: -6, z: 5, w: 2.8, h: 1.5, d: 1.4 } : { x: 0, z: -10, w: 2.8, h: 1.5, d: 1.4 };
+const BOX_PRICE = 950, BOX = MAP_ID === 'nacht' ? { x: -6, z: 5, w: 2.8, h: 1.5, d: 1.4 } : { x: 0, z: 8.5, w: 2.8, h: 1.5, d: 1.4 };
 const BOX_COL = { 8: 0xffd24a, 1: 0xffb040, 2: 0xff4030, 3: 0x40c0ff, 4: 0xe8e060, 5: 0x40ff60, 6: 0xc0c0c0, 7: 0x9ac8ff };
 const _boxN0 = scene.children.length;   // всё, что добавлено в сцену ниже, до boxRoot — части ящика (чтобы переносить его целиком)
-const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = MAP_ID === 'nacht' ? { x: 0.3, z: -13.95 } : { x: 0, z: -10 };
+const BOX_START = { x: BOX.x, z: BOX.z }, BOX_HALL = MAP_ID === 'nacht' ? { x: 0.3, z: -13.95 } : { x: 0, z: 8.5 };
 let boxCol = null;
 const mChest = matFrom('chest', 0xffffff, 2, { side: THREE.DoubleSide });
 const mIron = new THREE.MeshStandardMaterial({ color: 0x35363a, roughness: 0.5, metalness: 0.5 });
@@ -2749,7 +3116,7 @@ function placeBox(toHall) {
 }
 function relocateBox(toHall) { if (toHall === boxHall) return; boxHall = toHall; boxMovePending = true; }   // сам перенос — в boxUpdate, когда ящик не крутится
 function boxUpdate(dt) {
-  if (boxMovePending && !boxS.on) { boxMovePending = false; placeBox(boxHall); rebuildNav(); if (boxHall) pop(MAP_ID === 'nacht' ? 'MYSTERY BOX — В ЦЕНТРАЛЬНОМ ЗАЛЕ' : 'MYSTERY BOX — В ЮЖНОЙ ПАЛАТЕ', 'head'); }
+  if (boxMovePending && !boxS.on) { boxMovePending = false; placeBox(boxHall); rebuildNav(); if (boxHall) pop(MAP_ID === 'nacht' ? 'MYSTERY BOX — В ЦЕНТРАЛЬНОМ ЗАЛЕ' : 'MYSTERY BOX — В ХОЛЛЕ', 'head'); }
   lid.rotation.x += ((boxS.on ? -1.1 : 0) - lid.rotation.x) * Math.min(1, dt * 7);
   boxGlow.visible = boxBeam.visible = lid.rotation.x < -0.2; boxLight.intensity += ((boxS.on ? 3.5 : 0) - boxLight.intensity) * Math.min(1, dt * 8);
   if (!boxS.on) { token.visible = false; return; }
@@ -2813,7 +3180,7 @@ function updateProjs(dt) {
 }
 
 // ---------- SPEED COLA ----------
-const COLA_PRICE = 4000, MACH = MAP_ID === 'nacht' ? { x: -14.25, z: 7, y: 0, f: 1 } : { x: -7.2, z: 3.2, y: 4, f: -1 };   // y — этаж; f — куда смотрит табличка по X (в Verrückt — в комнату, а не в стену)
+const COLA_PRICE = 4000, MACH = MAP_ID === 'nacht' ? { x: -14.25, z: 7, y: 0, f: 1 } : { x: 17.2, z: 11.1, y: 0, f: -1 };   // y — этаж; f — куда смотрит табличка по X (в Verrückt — в комнату, а не в стену)
 let speedCola = false, doubleTap = false, juggernog = false;
 const JUGG_PRICE = 2000, JUGG_HP = 175;   // 175 хп = 7 ударов зомби по 25 (обычно 4: +3 удара)
 function applyJugg() { juggernog = true; maxHp = JUGG_HP; hp = maxHp; }
@@ -2923,7 +3290,7 @@ function drinkPerk(k = 'cola') {   // покупка перка: проигра�
 
 
 // ---------- DOUBLE TAP (2 этаж, северо-запад) ----------
-const DTAP_PRICE = 2500, DTAP = MAP_ID === 'nacht' ? { x: -12, z: -14.25, y: 4 } : { x: 8.4, z: 3, y: 4 };
+const DTAP_PRICE = 2500, DTAP = MAP_ID === 'nacht' ? { x: -12, z: -14.25, y: 4 } : { x: 17.1, z: 10.8, y: 4 };
 function makeDtapTex() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 400; const g = c.getContext('2d');
   g.fillStyle = '#c23418'; g.fillRect(0, 0, 256, 400); g.fillStyle = '#4a0f08'; g.fillRect(10, 10, 236, 380);
@@ -2960,8 +3327,8 @@ function rebuildNav() {
     const A = NODES[i], B = NODES[j];
     if (Math.abs(A.y - B.y) < 0.6 && Math.hypot(A.x - B.x, A.z - B.z) < 18 && los(A.x, A.z, B.x, B.z, Math.min(A.y, B.y))) link(i, j);
   }
-  const chains = MAP_ID === 'nacht' ? ['s'] : ['s', 'r'];
-  for (const p of chains) if (MAP_ID === 'nacht' || DOORS[p === 's' ? 0 : 1].open) [['0', '1'], ['1', '2'], ['2', '3'], ['3', '5'], ['5', '6'], ['6', '4']].forEach(([a, b]) => link(NI[p + a], NI[p + b]));
+  const chains = ['s'];
+  for (const p of chains) if (MAP_ID === 'nacht' || DOORS[1].open) [['0', '1'], ['1', '2'], ['2', '3'], ['3', '5'], ['5', '6'], ['6', '4']].forEach(([a, b]) => link(NI[p + a], NI[p + b]));
 }
 
 // ---------- ДВЕРИ: покупка прохода; зомби спавнятся только в окнах открытых комнат ----------
