@@ -42,7 +42,7 @@
   //      id, name, desc, img (картинка 16:9 в public/maps/), soon: true = «скоро»
   const MAPS = [
     { id: 'nacht', name: 'NACHT DER UNTOTEN', desc: 'Бункер · 2 этажа · Mystery Box · перки', img: 'maps/nacht.jpg' },
-    { id: 'verruckt', name: 'VERRUCKT', desc: 'Психбольница · круглая · 2 этажа · только соло (прототип)', img: 'maps/verruckt.jpg', soloOnly: true },
+    { id: 'verruckt', name: 'VERRUCKT', desc: 'Психбольница · круглая · 2 этажа · Mystery Box · перки', img: 'maps/verruckt.jpg' },
     { id: 'soon', name: '???', desc: 'Новая карта в разработке', img: 'maps/soon.jpg', soon: true },
   ];
   // Карта, которая сейчас построена в игре (index.html читает ?map=). Другую карту выбрать = перезагрузить страницу с ?map=
@@ -69,9 +69,8 @@
   });
   $('mapCount').textContent = `ДОСТУПНО: ${MAPS.filter(m => !m.soon).length} / ${MAPS.length}`;
   function setMapGoLabel() {
-    const noMulti = mode === 'multi' && pickedMap.soloOnly;   // карта без сервера: в мультиплеере недоступна
-    bMapGo.textContent = noMulti ? 'ЭТА КАРТА — ТОЛЬКО СОЛО' : mode === 'multi' ? '▶ ДАЛЕЕ · ЛОББИ' : (window.NB_MAP !== CUR_MAP ? '▶ ЗАГРУЗИТЬ КАРТУ' : '▶ НАЧАТЬ ИГРУ');
-    bMapGo.disabled = noMulti;
+    bMapGo.textContent = mode === 'multi' ? '▶ ДАЛЕЕ · ЛОББИ' : (window.NB_MAP !== CUR_MAP ? '▶ ЗАГРУЗИТЬ КАРТУ' : '▶ НАЧАТЬ ИГРУ');
+    bMapGo.disabled = false;
   }
   pickMap(MAPS.find(m => m.id === CUR_MAP) || MAPS[0]);
   bMapGo.onclick = goMap;
@@ -87,7 +86,7 @@
   const myName = () => { const n = nameInput.value.trim(); try { localStorage.setItem('nb_name', n); } catch (e) {} return n; };
   const showErr = t => { $('mpErr').textContent = t || ''; };
 
-  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName(), map: window.NB_MAP }); };
+  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName(), map: CUR_MAP }); };
   $('bJoin').onclick = () => { showErr(); socket.emit('joinRoom', { code: $('mpCode').value, name: myName() }); };
   $('bGo').onclick = () => startGame();
   $('bLeave').onclick = () => { socket.emit('leaveRoom'); clearRemote(); clearNetworkZombies(); roomCode = null; gameState = null; setView('mp'); };
@@ -100,12 +99,21 @@
     socket = SERVER_URL ? io(SERVER_URL) : io();
 
     socket.on('connect_error', () => showErr('Нет связи с сервером (на бесплатном Render он может просыпаться ~1 мин)'));
-    socket.on('connect', () => { selfId = socket.id; showErr(); });
+    socket.on('connect', () => {
+      selfId = socket.id; showErr();
+      if (pendingRejoin) {   // страница была перезагружена ради другой карты — возвращаемся в то же лобби
+        const r = pendingRejoin; pendingRejoin = null;
+        if (r.host) socket.emit('createRoom', { name: r.name, map: CUR_MAP });   // у хоста комнаты уже нет (он был в ней один) — создаём заново на нужной карте
+        else socket.emit('joinRoom', { code: r.code, name: r.name });
+      }
+    });
     socket.on('disconnect', () => { clearRemote(); clearNetworkZombies(); roomCode = null; if (menuOn) { setView('mp'); showErr('Соединение потеряно'); } });
-    socket.on('joinError', showErr);
+    socket.on('joinError', t => { try { sessionStorage.removeItem(REJOIN_KEY); } catch (e) {} showErr(t); });
 
     // Мы вошли в лобби.
-    socket.on('joined', ({ selfId: id, code, slot, players }) => {
+    socket.on('joined', ({ selfId: id, code, slot, players, map, hostId: h }) => {
+      if (reloadForMap(map, code, h === id)) return;
+      try { sessionStorage.removeItem(REJOIN_KEY); } catch (e) {}   // вошли на нужной карте — перезагрузка завершена
       selfId = id; roomCode = code; mySlot = slot; entered = false;
       if (typeof resetIntro === 'function') resetIntro();   // новая катка — вступление сыграет снова
       gameState = null; worldRevision = 0;
@@ -113,7 +121,7 @@
       Object.values(players).forEach(p => { if (p.id !== selfId) createAvatar(p); });
       setView('lobby');
     });
-    socket.on('lobby', renderLobby);
+    socket.on('lobby', d => { if (d && reloadForMap(d.map, d.code, d.hostId === selfId)) return; renderLobby(d); });
     socket.on('playerJoined', p => { if (p.id !== selfId && !remote[p.id]) createAvatar(p); });
     socket.on('playerLeft', removeAvatar);
     socket.on('gameState', receiveGameState);
@@ -162,6 +170,20 @@
       if (!r.active) { r.active = true; r.group.position.set(d.x, d.y - EYE_HEIGHT, d.z); }   // первое появление — без «пролёта»
       r.target = { x: d.x, y: d.y, z: d.z, yaw: d.yaw };
     });
+  }
+
+  // Карта строится при загрузке страницы. Если карта комнаты другая — перезагружаем страницу с ?map=
+  // и после загрузки автоматически возвращаемся в то же лобби (код и имя — в sessionStorage).
+  let pendingRejoin = null;
+  const REJOIN_KEY = 'nb_rejoin';
+  function reloadForMap(map, code, isHost) {
+    if (typeof map !== 'string' || map === CUR_MAP || !MAPS.some(m => m.id === map && !m.soon)) return false;
+    let tries = 0;
+    try { const prev = JSON.parse(sessionStorage.getItem(REJOIN_KEY) || 'null'); if (prev && Date.now() - prev.at < 20000) tries = (prev.tries || 0) + 1; } catch (e) {}
+    if (tries >= 2) { showErr('Не удалось загрузить карту лобби'); return true; }   // защита от бесконечной перезагрузки
+    try { sessionStorage.setItem(REJOIN_KEY, JSON.stringify({ code, name: myName(), map, host: !!isHost, at: Date.now(), tries })); } catch (e) { showErr('Не удалось сохранить лобби для перезагрузки'); return true; }
+    location.href = location.pathname + '?map=' + map + '&start=multi';
+    return true;
   }
 
   function receiveGameState(state) {
@@ -428,8 +450,10 @@
   //  3) СПАВН: у каждого игрока своя точка рядом с SPAWN, без стен
   // ------------------------------------------------------------------
   // Свободна ли точка (x,z) — проверяем коллайдеры игры (радиус игрока 0.35).
-  function freeAt(x, z) {
-    const r = 0.35;
+  // Nacht: прежний запас 0.35. На Verruckt SPAWN стоит вплотную к двери ядра (запас ровно 0.35 — зависит от округления float),
+  // поэтому для самой точки берём запас больше; проверка прохода reachable() остаётся с 0.35, иначе она не стартует из SPAWN.
+  const SPAWN_R = CUR_MAP === 'nacht' ? 0.35 : 0.6;
+  function freeAt(x, z, r = 0.35) {
     for (const c of colliders) {
       if (c.y1 <= 0.3 || c.y0 >= EYE_HEIGHT - 0.1) continue;          // пол и потолок не мешают
       if (x > c.x0 - r && x < c.x1 + r && z > c.z0 - r && z < c.z1 + r) return false;
@@ -448,7 +472,7 @@
     const pts = [];
     for (let dx = -4.5; dx <= 4.5; dx += 1.5) for (let dz = -4.5; dz <= 4.5; dz += 1.5) {
       const x = SPAWN.x + dx, z = SPAWN.z + dz;
-      if (freeAt(x, z) && reachable(x, z)) pts.push({ x, z, d: Math.hypot(dx, dz) });
+      if (freeAt(x, z, SPAWN_R) && reachable(x, z)) pts.push({ x, z, d: Math.hypot(dx, dz) });
     }
     pts.sort((a, b) => a.d - b.d);
     return pts;
@@ -457,7 +481,7 @@
     const pts = spawnPoints();
     const p = pts[Math.min(mySlot, pts.length - 1)] || { x: SPAWN.x, z: SPAWN.z };
     pos.set(p.x, SPAWN.y, p.z);
-    camera.rotation.set(0, 0, 0);
+    camera.rotation.set(0, typeof SPAWN_YAW === 'number' ? SPAWN_YAW : 0, 0);   // Nacht: SPAWN_YAW = 0 (как раньше)
   }
 
   // Стартовая точка в мультиплеере: срабатывает после штатного обработчика 'lock' игры.
@@ -582,4 +606,13 @@
       if (socket && socket.connected && roomCode) socket.emit('windowBoardAction', { action: 'repair', index });
     },
   };
+
+  // Возврат в лобби после перезагрузки страницы ради другой карты.
+  try {
+    const raw = sessionStorage.getItem(REJOIN_KEY);
+    const r = raw && JSON.parse(raw);
+    if (r && r.map === CUR_MAP && Date.now() - r.at < 20000) {
+      pendingRejoin = r; mode = 'multi'; setView('mp'); connect();   // дальше join/create уйдёт из обработчика 'connect'
+    }
+  } catch (e) {}
 })();
