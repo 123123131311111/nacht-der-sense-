@@ -23,6 +23,8 @@ const WEAPONS = [
   { body: 110, head: 220, interval: 100, pellets: 1 },
   { body: 95, head: 190, interval: 90, pellets: 1 },   // M16A1 (только Mystery Box)
   { body: 55, head: 110, interval: 140, pellets: 2 },  // двойные пистолеты (только Mystery Box): 2 пули за выстрел
+  { body: 85, head: 170, interval: 100, pellets: 1 },  // MP40 (только Mystery Box)
+  { body: 105, head: 210, interval: 85, pellets: 1 },  // STG-44 (только Mystery Box)
 ];
 // Всё, что привязано к карте. Порядок дверей и окон ОБЯЗАН совпадать с клиентом (index.html).
 // windows: [x, z, y] — центр окна на стене и высота глаз игрока на этом этаже.
@@ -49,13 +51,13 @@ const MAPS = {
     },
   },
   verruckt: {
-    doors: [{ x: 0, z: 14 }, { x: 0, z: -2.35 }],   // главный вход и центральная лестница; порядок как в VK_DOORS на клиенте
+    doors: [{ x: -9, z: -2.35 }, { x: 9, z: -2.35 }],   // платный вход на 2 этаж: левый и правый корпус (порядок как в VK_DOORS на клиенте)
     windows: [],
-    wall: { thompson: { x: -19.8, z: 2.75 }, shotgun: { x: 19.8, z: -2.75 } },   // внутри корпусов: Thompson — левый, дробовик — правый
-    box: { x: 0, z: 8.5, available: () => true },
+    wall: { thompson: { x: 31.85, z: 0 }, shotgun: { x: 0, z: 31.85 } },
+    box: { x: 0, z: -9.3, available: () => true },
     perks: {
-      cola: { x: 17.2, z: 11.1, minY: -1, maxY: 3.2 },
-      doubleTap: { x: 17.1, z: 10.8, minY: 3.2, maxY: 7.5 },
+      cola: { x: -7.2, z: 3.2, minY: 3.2, maxY: 7.5 },
+      doubleTap: { x: 8.4, z: 3, minY: 3.2, maxY: 7.5 },
       juggernog: { x: 1000, z: 1000, minY: 3.2, maxY: 7.5 },
     },
   },
@@ -398,7 +400,7 @@ io.on('connection', socket => {
       if (!near(player, boxPos.x, boxPos.z, 3.5, -1, 3.2)) return failPurchase(socket, 'Подойдите к Mystery Box');
       if (room.game.boxBusyUntil > Date.now()) return failPurchase(socket, 'Mystery Box уже используется');
       price = 950;
-      boxResult = 1 + Math.floor(Math.random() * 8);
+      boxResult = 1 + Math.floor(Math.random() * 10);
     } else return failPurchase(socket, 'Неизвестная покупка');
     if (player.points < price) return failPurchase(socket, 'Не хватает очков');
     player.points -= price;
