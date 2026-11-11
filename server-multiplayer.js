@@ -33,7 +33,8 @@ const WINDOWS = [
   [-15, -5.5, 1.7], [-15, 7, 5.7], [15, -2, 1.7], [15, 4, 5.7],
 ];
 
-app.use(express.static(path.join(__dirname, 'public')));
+// no-cache: браузер каждый раз проверяет (ETag), поэтому новые звуки/скрипты сразу доходят до всех игроков
+app.use(express.static(path.join(__dirname, 'public'), { etag: true, lastModified: true, setHeaders: res => res.setHeader('Cache-Control', 'no-cache') }));
 app.get('/health', (req, res) => res.json({ ok: true, rooms: Object.keys(rooms).length }));
 
 const finite = (v, fallback = 0) => Number.isFinite(v) ? v : fallback;
@@ -51,8 +52,8 @@ function makeCode() {
 function makePlayer(id, name, slot) {
   return {
     id, name: cleanName(name, id), color: ['#e04040', '#3a8ee6', '#46c46a', '#e6c83a'][slot], slot,
-    x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0, active: false,
-    points: 500, hp: 100, perks: { cola: false, doubleTap: false },
+    x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0, active: false, downed: false, reviving: null,
+    points: 500, hp: 100, perks: { cola: false, doubleTap: false, juggernog: false },
     owned: { thompson: false, shotgun: false }, shots: Object.create(null), lastShotAt: -Infinity,
   };
 }
@@ -86,7 +87,7 @@ function gamePayload(room) {
     revision: game.revision,
     players: Object.values(room.players).map(p => ({
       id: p.id, name: p.name, x: p.x, y: p.y, z: p.z,
-      yaw: p.yaw, pitch: p.pitch, active: p.active, points: p.points, hp: p.hp,
+      yaw: p.yaw, pitch: p.pitch, active: p.active, points: p.points, hp: p.hp, downed: !!p.downed,
       perks: { ...p.perks },
     })),
   };
@@ -130,6 +131,7 @@ function leaveRoom(socket) {
   if (!room) return;
   delete room.players[socket.id];
   io.to(code).emit('playerLeft', socket.id);
+  { const act = Object.values(room.players).filter(p => p.active); if (room.game.started && act.length && act.every(p => p.downed)) io.to(code).emit('teamWipe'); }
   const ids = Object.keys(room.players);
   if (!ids.length) { delete rooms[code]; return; }
   if (room.hostId === socket.id) {
@@ -145,7 +147,7 @@ function roomAndPlayer(socket) {
   return room && room.players[socket.id] ? { room, player: room.players[socket.id] } : null;
 }
 function near(player, x, z, radius, minY = -Infinity, maxY = Infinity) {
-  return player.active && player.y >= minY && player.y <= maxY &&
+  return player.active && !player.downed && player.y >= minY && player.y <= maxY &&
     Math.hypot(player.x - x, player.z - z) <= radius;
 }
 function failPurchase(socket, message) { socket.emit('purchaseRejected', message); }
@@ -178,6 +180,7 @@ io.on('connection', socket => {
     player.z = clamp(finite(data.z, player.z), -100, 100);
     player.yaw = finite(data.yaw, player.yaw);
     player.pitch = finite(data.pitch, player.pitch);
+    if (!player.active) player.downed = false;
     player.active = true;
     socket.to(room.code).volatile.emit('playerMoved', {
       id: player.id, x: player.x, y: player.y, z: player.z, yaw: player.yaw, pitch: player.pitch,
@@ -193,7 +196,7 @@ io.on('connection', socket => {
 
   socket.on('shoot', ({ shotId, weapon, yaw, pitch } = {}) => {
     const ctx = roomAndPlayer(socket);
-    if (!ctx || !ctx.room.game.started || !ctx.player.active) return;
+    if (!ctx || !ctx.room.game.started || !ctx.player.active || ctx.player.downed) return;
     const { room, player } = ctx;
     if (typeof shotId !== 'string' || shotId.length > 80) return;
     weapon = Number(weapon);
@@ -269,13 +272,40 @@ io.on('connection', socket => {
     const room = ctx.room;
     const target = room.players[playerId];
     const zombie = room.game.zombies.find(z => z.id === zombieId);
-    if (!target || !target.active || !zombie || zombie.state === 'dying') return;
+    if (!target || !target.active || target.downed || !zombie || zombie.state === 'dying') return;
     const now = Date.now();
-    if (now - (zombie.lastAttackAt || 0) < 750 ||
-        Math.hypot(target.x - zombie.x, target.z - zombie.z) > 1.5 ||
+    if (now - (zombie.lastAttackAt || 0) < 450 ||
+        Math.hypot(target.x - zombie.x, target.z - zombie.z) > 1.8 ||
         Math.abs((target.y - 1.7) - zombie.y) > 1.8) return;
     zombie.lastAttackAt = now;
     io.to(playerId).emit('playerHurt', { playerId, zombieId, damage: 25 });
+  });
+
+  // ---- повален / поднятие союзником (3 с) ----
+  function checkWipe(room) {
+    const act = Object.values(room.players).filter(p => p.active);
+    if (room.game.started && act.length && act.every(p => p.downed)) io.to(room.code).emit('teamWipe');
+  }
+  socket.on('playerDowned', () => {
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || !ctx.room.game.started || !ctx.player.active || ctx.player.downed) return;
+    ctx.player.downed = true; ctx.player.reviving = null;
+    io.to(ctx.room.code).emit('playerDowned', { id: socket.id });
+    checkWipe(ctx.room);
+  });
+  socket.on('reviveStart', ({ targetId } = {}) => {
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || ctx.player.downed || typeof targetId !== 'string') return;
+    ctx.player.reviving = { targetId, at: Date.now() };
+  });
+  socket.on('reviveDone', ({ targetId } = {}) => {
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || ctx.player.downed || !ctx.player.active || typeof targetId !== 'string') return;
+    const { room, player } = ctx, target = room.players[targetId], rv = player.reviving;
+    if (!target || !target.downed || !rv || rv.targetId !== targetId || Date.now() - rv.at < 2700) return;
+    if (Math.hypot(player.x - target.x, player.z - target.z) > 2.8 || Math.abs(player.y - target.y) > 1.8) return;
+    player.reviving = null; target.downed = false;
+    io.to(room.code).emit('playerRevived', { id: targetId, by: socket.id });
   });
 
   socket.on('windowBoardAction', ({ action, index } = {}) => {
@@ -315,6 +345,10 @@ io.on('connection', socket => {
       if (!near(player, -12, -14.25, 2.8, 3.2, 7.5)) return failPurchase(socket, 'Подойдите к автомату Double Tap');
       if (player.perks.doubleTap) return failPurchase(socket, 'Double Tap уже куплено');
       price = 2500;
+    } else if (kind === 'juggernog') {
+      if (!near(player, -14.25, 2, 2.8, 3.2, 7.5)) return failPurchase(socket, 'Подойдите к автомату Джагер Фанта');
+      if (player.perks.juggernog) return failPurchase(socket, 'Джагер Фанта уже куплено');
+      price = 2000;
     } else if (kind === 'thompson' || kind === 'shotgun') {
       const shotgun = kind === 'shotgun';
       const owned = shotgun ? player.owned.shotgun : player.owned.thompson;
@@ -337,6 +371,7 @@ io.on('connection', socket => {
     if (kind === 'door') room.game.doors[doorIndex] = true;
     if (kind === 'cola') player.perks.cola = true;
     if (kind === 'doubleTap') player.perks.doubleTap = true;
+    if (kind === 'juggernog') player.perks.juggernog = true;
     if (kind === 'thompson') player.owned.thompson = true;
     if (kind === 'shotgun') player.owned.shotgun = true;
     if (kind === 'box') {
