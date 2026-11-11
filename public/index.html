@@ -695,6 +695,11 @@ function vkNodes() {   // узлы навигации (связи считают
     n[pre + '4'] = [cx, ze + 0.9, 4];
   };
   addStair('s', -9); addStair('r', 9);
+  for (const sg of [-1, 1]) {   // узлы навигации внутри комнат интерьера (имена не пересекаются со старыми)
+    const p = sg < 0 ? 'l' : 'r';
+    n[p + 'RestIn'] = [sg * 8.4, -6.9, 0]; n[p + 'LivingIn'] = [sg * 8.6, 7.0, 0];
+    n[p + 'UBed'] = [sg * 9, -7, 4]; n[p + 'USn'] = [sg * 16, -7, 4]; n[p + 'UStudy'] = [sg * 9, 7, 4];
+  }
   return n;
 }
 
@@ -977,26 +982,241 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
   const carCollider = addBox(-1.55, 1.55, 0, 1.95, 3.15, 7.35, new THREE.MeshBasicMaterial({ visible: false }));
   if (carCollider.userData.col) carCollider.userData.col.prop = true;
 
-  // Мебель в больших корпусах: у наружных стен, проходы к дверям, лестнице и перкам свободны.
-  for (const cx of [-9, 9]) {
-    const sg = cx < 0 ? -1 : 1, X = a => sg * a, cr = (a, z, sz, y, m) => crate(X(a) - sz / 2, z - sz / 2, sz, y, m);
-    // --- 1 этаж: мастерская/склад ---
-    table(X(12.4), -6.3, 2.4, 1.0, 0, 0.82, M2.steel); chair(X(12.4), -7.25, 0, -1, 0); chair(X(12.4), -5.35, 0, 1, 0);
-    cr(14.3, -8.2, 1.0, 0, mats.crate); cr(14.3, -7.0, 0.8, 0, M2.olive); cr(13.1, -8.3, 0.9, 0, mats.crate);
-    shelf(X(13.2) - 0.6, 8.2, 1.2, 0.55);
-    cr(14.3, 6.6, 1.0, 0, mats.crate); cr(14.3, 7.6, 0.8, 0, M2.olive);
-    cot(sg > 0 ? 12.8 : -14.8, 3.1, 'x', 0, M2.cloth); cot(sg > 0 ? 12.8 : -14.8, 4.3, 'x', 0, M2.blue);
-    for (let i = 0; i < 3; i++) locker(sg > 0 ? 14.2 : -14.85, -3.6 + i * 0.9, 0.65, 0.85, 0);
-    // --- 2 этаж: казарма ---
-    cot(sg > 0 ? 12.8 : -14.8, -7.7, 'x', 4, M2.cloth); cot(sg > 0 ? 12.8 : -14.8, -6.5, 'x', 4, M2.blue); cot(sg > 0 ? 12.8 : -14.8, -5.3, 'x', 4, M2.cloth);
-    table(X(12.3), 4.6, 2.0, 0.9, 4, 0.82, M2.steel); chair(X(12.3), 3.7, 0, -1, 4); chair(X(12.3), 5.5, 0, 1, 4);
-    for (let i = 0; i < 3; i++) locker(sg > 0 ? 14.2 : -14.85, -2.8 + i * 0.9, 0.65, 0.85, 4);
-    cr(14.3, 8.0, 1.0, 4, M2.olive); cr(14.3, 6.9, 0.8, 4, mats.crate); cr(8.0, -8.2, 0.9, 4, mats.crate);
-    for (const z of [-6, 6]) {
-      const panel = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), new THREE.MeshBasicMaterial({ color: 0x57472f }));
-      panel.position.set(X(15.19), 2.15, z); panel.rotation.y = cx < 0 ? Math.PI / 2 : -Math.PI / 2; scene.add(panel);
+  // ===== VERRÜCKT: детальный интерьер двух корпусов =====
+  // Данные планировки: a — расстояние от центра двора по X (|x|), поэтому один код зеркально строит оба корпуса. z — мировая координата.
+  // Перегородки — настоящие коллайдеры (зомби их обходят через проёмы), мебель — prop (игрок упирается, зомби проходят как раньше).
+  (function vkInterior() {
+    const T = 0.2, WH = 3.65, A0 = 6.17, A1 = 19.83, Z9 = 8.83;
+    const PW = mats.concrete.clone(); PW.color.setHex(0xb4aa98);
+    const INV = new THREE.MeshBasicMaterial({ visible: false });
+    const F = {
+      wood: PM(0x5a3d26, 0.8, 0), woodL: PM(0x8b6a44, 0.8, 0), white: PM(0xd8d6cc, 0.45, 0.1), steel: PM(0x8d949a, 0.4, 0.6),
+      dark: PM(0x1d1d20, 0.7, 0.2), cab: PM(0x6f7466, 0.7, 0.1), sofa: PM(0x6e2b2b, 1, 0), sofa2: PM(0x3f5a4c, 1, 0), olive: M2.olive,
+      bed: PM(0x3a3d44, 0.6, 0.4), sheet: PM(0xcfc8b8, 1, 0), blanket: PM(0x4b6a8a, 1, 0), water: PM(0x31535a, 0.2, 0.2),
+      mirror: PM(0x9db4bd, 0.1, 0.8), crate: mats.crate, pot: PM(0x6a3f2a, 0.9, 0), leaf: PM(0x2f5a2a, 1, 0), iron: PM(0x1d2022, 0.6, 0.7),
+      rug1: PM(0x5a1f1f, 1, 0), rug2: PM(0x2d3f5a, 1, 0), rug3: PM(0x4a4030, 1, 0)
+    };
+    const FL = { wood: PM(0x5a432d, 0.9, 0), wood2: PM(0x453526, 0.9, 0), carp: PM(0x3b3a36, 1, 0) };
+    const GLOW = new THREE.MeshBasicMaterial({ color: 0x2dff5a, transparent: true, opacity: 0.38, depthWrite: false });
+    const GLOWB = new THREE.MeshBasicMaterial({ color: 0x7dff8a });
+    const LAMPB = new THREE.MeshBasicMaterial({ color: 0xffe0a0 });
+    const tileCanvas = (() => { const [c, g] = cv(64, 64); g.fillStyle = '#9aa0a0'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#6e7474'; g.fillRect(0, 0, 32, 32); g.fillRect(32, 32, 32, 32); g.strokeStyle = 'rgba(0,0,0,.35)'; g.strokeRect(0, 0, 64, 64); return c; })();
+    const tileMat = (rx, rz) => { const t = mkT(tileCanvas); t.repeat.set(rx, rz); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.7 }); };
+    const bookCanvas = (() => {   // корешки книг на 4 полках (одна лёгкая текстура на все шкафы)
+      const [c, g] = cv(256, 128), cols = ['#7a2a22', '#2f4a6a', '#3f5a35', '#8a6a2a', '#5a3a62', '#a89a78', '#2a2a2e'];
+      g.fillStyle = '#2a1b10'; g.fillRect(0, 0, 256, 128);
+      for (let r = 0; r < 4; r++) {
+        let x = 3; const y = r * 32 + 4;
+        while (x < 250) { const w = 5 + (Math.random() * 8 | 0), h = 20 + (Math.random() * 8 | 0); g.fillStyle = cols[Math.random() * cols.length | 0]; g.fillRect(x, y + 28 - h, w, h); x += w + 1; }
+        g.fillStyle = '#4a3220'; g.fillRect(0, r * 32 + 30, 256, 3);
+      }
+      return c;
+    })();
+
+    for (const sg of [-1, 1]) {
+      // ---------- помощники (a — в «зеркальных» координатах корпуса) ----------
+      const fb = (a0, a1, z0, z1, y0, y1, m, col = true, prop = true) => {
+        const x0 = sg * a0, x1 = sg * a1, b = addBox(Math.min(x0, x1), Math.max(x0, x1), y0, y1, z0, z1, m, col);
+        if (col && prop) b.userData.col.prop = true;
+        return b;
+      };
+      const cyl = (a, z, r, y0, h, m, collide = true) => {
+        const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 16), m); o.position.set(sg * a, y0 + h / 2, z); scene.add(o); worldMeshes.push(o);
+        if (collide) { const c = { x0: sg * a - r, x1: sg * a + r, y0, y1: y0 + h, z0: z - r, z1: z + r, prop: true }; colliders.push(c); o.userData.col = c; }
+        return o;
+      };
+      const rf = (a0, a1, z0, z1, y, m) => flatPlane(a1 - a0, z1 - z0, sg * (a0 + a1) / 2, y + 0.01, (z0 + z1) / 2, 0, m);     // пол комнаты
+      const rug = (a0, a1, z0, z1, y, m) => flatPlane(a1 - a0, z1 - z0, sg * (a0 + a1) / 2, y + 0.022, (z0 + z1) / 2, 0, m);  // ковёр
+      // стена вдоль a на z / вдоль z на a; gaps — отсортированные проёмы [от, до] (над проёмом перемычка с 2.45 м)
+      const wallZ = (z, a0, a1, y0, gaps) => {
+        let c = a0;
+        for (const [s, e] of gaps) {
+          if (s > c) fb(c, s, z - T / 2, z + T / 2, y0, y0 + WH, PW, true, false);
+          fb(s, e, z - T / 2, z + T / 2, y0 + 2.45, y0 + WH, PW, true, false); c = e;
+        }
+        if (c < a1) fb(c, a1, z - T / 2, z + T / 2, y0, y0 + WH, PW, true, false);
+      };
+      const wallA = (a, z0, z1, y0, gaps) => {
+        let c = z0;
+        for (const [s, e] of gaps) {
+          if (s > c) fb(a - T / 2, a + T / 2, c, s, y0, y0 + WH, PW, true, false);
+          fb(a - T / 2, a + T / 2, s, e, y0 + 2.45, y0 + WH, PW, true, false); c = e;
+        }
+        if (c < z1) fb(a - T / 2, a + T / 2, c, z1, y0, y0 + WH, PW, true, false);
+      };
+      const chair = (a, z, ba, bz, y, m = F.wood) => {   // (ba | bz) — куда смотрит спинка
+        fb(a - 0.2, a + 0.2, z - 0.2, z + 0.2, y, y + 0.46, m);
+        if (ba) fb(a + ba * 0.18 - 0.03, a + ba * 0.18 + 0.03, z - 0.2, z + 0.2, y + 0.46, y + 0.95, m, false);
+        else fb(a - 0.2, a + 0.2, z + bz * 0.18 - 0.03, z + bz * 0.18 + 0.03, y + 0.46, y + 0.95, m, false);
+      };
+      const tbl = (a0, a1, z0, z1, y, m = F.wood) => {
+        fb(a0, a1, z0, z1, y + 0.72, y + 0.78, m);
+        for (const a of [a0 + 0.06, a1 - 0.06]) for (const z of [z0 + 0.06, z1 - 0.06]) fb(a - 0.04, a + 0.04, z - 0.04, z + 0.04, y, y + 0.72, m, false);
+      };
+      const sofa = (a0, a1, z0, z1, y, m, wall) => {   // wall: сторона спинки N/S (по z) или O (по a наружу)
+        fb(a0, a1, z0, z1, y, y + 0.45, m);
+        if (wall === 'N') fb(a0, a1, z0, z0 + 0.3, y + 0.45, y + 0.95, m);
+        else if (wall === 'S') fb(a0, a1, z1 - 0.3, z1, y + 0.45, y + 0.95, m);
+        else fb(a1 - 0.3, a1, z0, z1, y + 0.45, y + 0.95, m);
+        if (wall !== 'O') { fb(a0, a0 + 0.14, z0, z1, y + 0.45, y + 0.65, m, false); fb(a1 - 0.14, a1, z0, z1, y + 0.45, y + 0.65, m, false); }
+      };
+      const bookcase = (a0, a1, z0, z1, y, h, na, nz) => {   // (na | nz) — куда смотрит лицевая сторона
+        fb(a0, a1, z0, z1, y, y + h, F.wood);
+        const alongA = (a1 - a0) > (z1 - z0), len = alongA ? a1 - a0 : z1 - z0, t = mkT(bookCanvas), wx = sg * na;
+        t.repeat.set(Math.max(1, Math.round(len / 1.1)), 1);
+        const p = new THREE.Mesh(new THREE.PlaneGeometry(len - 0.1, h - 0.15), new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }));
+        p.position.set(sg * (a0 + a1) / 2 + (na ? wx * ((a1 - a0) / 2 + 0.012) : 0), y + h / 2, (z0 + z1) / 2 + (nz ? nz * ((z1 - z0) / 2 + 0.012) : 0));
+        p.rotation.y = Math.atan2(wx, nz); scene.add(p);
+      };
+      const rack = (a0, a1, z0, z1, y, h = 2.0) => {   // стеллаж с припасами: невидимый коллайдер + полки и ящики
+        fb(a0, a1, z0, z1, y, y + h, INV);
+        for (let i = 0; i < 4; i++) fb(a0, a1, z0, z1, y + 0.1 + i * 0.6, y + 0.14 + i * 0.6, F.iron, false);
+        for (const a of [a0, a1 - 0.05]) for (const z of [z0, z1 - 0.05]) fb(a, a + 0.05, z, z + 0.05, y, y + h, F.iron, false);
+        for (let i = 0; i < 3; i++) for (let k = 0; k < 2; k++) {
+          const w = (a1 - a0) * 0.4, aa = a0 + 0.1 + k * (a1 - a0) * 0.48, yy = y + 0.14 + i * 0.6;
+          fb(aa, aa + w, z0 + 0.05, z1 - 0.05, yy, yy + 0.25 + ((k + i) % 2) * 0.12, (i + k) % 2 ? F.crate : F.olive, false);
+        }
+      };
+      const plant = (a, z, y) => {
+        cyl(a, z, 0.22, y, 0.38, F.pot);
+        const s = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), F.leaf); s.position.set(sg * a, y + 0.75, z); s.scale.y = 1.2; scene.add(s);
+      };
+      const pad = (a0, a1, z0, z1, y) => {   // зелёная зона перков (светящаяся площадка)
+        flatPlane(a1 - a0, z1 - z0, sg * (a0 + a1) / 2, y + 0.03, (z0 + z1) / 2, 0, GLOW);
+        fb(a0, a1, z0, z0 + 0.05, y, y + 0.04, GLOWB, false); fb(a0, a1, z1 - 0.05, z1, y, y + 0.04, GLOWB, false);
+        fb(a0, a0 + 0.05, z0, z1, y, y + 0.04, GLOWB, false); fb(a1 - 0.05, a1, z0, z1, y, y + 0.04, GLOWB, false);
+      };
+      const bedSingle = (a0, a1, z0, z1, y, blanket) => {
+        fb(a0, a1, z0, z1, y, y + 0.4, F.bed); fb(a0 + 0.03, a1 - 0.03, z0 + 0.03, z1 - 0.03, y + 0.4, y + 0.52, F.sheet);
+        fb(a0 + 0.03, a1 - 0.03, (z0 + z1) / 2, z1 - 0.03, y + 0.52, y + 0.55, blanket, false);
+      };
+
+      // ================= ГЛАВНЫЙ ВХОД: крыльцо со ступеньками и перилами (сторона фонтана) =================
+      fb(3.9, 4.6, -1.8, 1.8, 0, 0.08, mats.concrete); fb(4.6, 5.2, -1.8, 1.8, 0, 0.16, mats.concrete); fb(5.2, 5.85, -1.8, 1.8, 0, 0.24, mats.concrete);
+      for (const z of [-1.8, 1.8]) {
+        fb(3.9, 5.85, z - 0.02, z + 0.02, 0.9, 0.95, F.iron, false);
+        for (const a of [3.95, 5.1, 5.8]) fb(a - 0.025, a + 0.025, z - 0.025, z + 0.025, 0, 0.95, F.iron, false);
+      }
+
+      // ================= ОКНА: металлические решётки (один InstancedMesh на корпус) =================
+      const bars = [], addBar = (x, y, z, sx, sy, sz) => bars.push([x, y, z, sx, sy, sz]);
+      for (const base of [0, 4]) {
+        const yc = base + 1.78;
+        for (const z of [-5.5, 0, 5.5]) {   // наружная стена
+          for (let k = -2; k <= 2; k++) addBar(sg * 19.72, yc, z + k * 0.32, 0.04, 1.4, 0.04);
+          addBar(sg * 19.72, base + 1.5, z, 0.04, 0.04, 1.7); addBar(sg * 19.72, base + 2.05, z, 0.04, 0.04, 1.7);
+        }
+        for (const zs of [-1, 1]) for (const a of [8.7, 13, 17.3]) {   // торцевые стены
+          for (let k = -2; k <= 2; k++) addBar(sg * (a + k * 0.32), yc, zs * 8.76, 0.04, 1.4, 0.04);
+          addBar(sg * a, base + 1.5, zs * 8.76, 1.7, 0.04, 0.04); addBar(sg * a, base + 2.05, zs * 8.76, 1.7, 0.04, 0.04);
+        }
+      }
+      { const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), F.iron, bars.length), mx = new THREE.Matrix4(), qI = new THREE.Quaternion();
+        bars.forEach((b, i) => { mx.compose(new THREE.Vector3(b[0], b[1], b[2]), qI, new THREE.Vector3(b[3], b[4], b[5])); im.setMatrixAt(i, mx); });
+        im.frustumCulled = false; scene.add(im); }
+
+      // ================= 1 ЭТАЖ =================
+      // север: кухня (внешняя) | ванная | комната отдыха (у фасада); юг: гостиная (у фасада) | столовая; посередине — холл с лестницей
+      wallZ(-4.8, A0, A1, 0, [[7.2, 9.6], [12.0, 14.0], [16.4, 18.6]]);
+      wallZ(4.8, A0, A1, 0, [[7.2, 9.6], [12.0, 14.0]]);
+      wallA(10.9, -Z9, -4.9, 0, [[-8.3, -6.1]]);
+      wallA(15.3, -Z9, -4.9, 0, [[-8.3, -6.1]]);
+      wallA(11.2, 4.9, Z9, 0, [[6.1, 8.3]]);
+      // полы
+      rf(15.3, A1, -Z9, -4.9, 0, tileMat(3, 3)); rf(10.9, 15.3, -Z9, -4.9, 0, tileMat(3, 3));
+      rf(A0, 10.9, -Z9, -4.9, 0, FL.wood); rf(A0, 11.2, 4.9, Z9, 0, FL.carp); rf(11.2, A1, 4.9, Z9, 0, FL.wood2);
+      rf(A0, A1, -4.7, 4.7, 0, tileMat(7, 5));
+
+      // --- Кухня ---
+      fb(15.4, 16.1, -8.8, -8.15, 0, 1.9, F.white);                                                                   // холодильник
+      fb(16.1, 19.6, -8.8, -8.2, 0, 0.9, F.cab); fb(16.1, 19.6, -8.8, -8.2, 0.9, 0.95, F.dark);                      // тумбы вдоль севера
+      fb(19.2, 19.8, -8.2, -5.0, 0, 0.9, F.cab); fb(19.2, 19.8, -8.2, -5.0, 0.9, 0.95, F.dark);                      // тумбы вдоль внешней стены
+      fb(16.5, 17.4, -8.8, -8.2, 0.95, 0.98, F.steel, false);                                                        // плита
+      for (const [a, z] of [[16.75, -8.55], [17.15, -8.55], [16.75, -8.35], [17.15, -8.35]]) fb(a - 0.09, a + 0.09, z - 0.09, z + 0.09, 0.98, 1.0, F.dark, false);
+      fb(18.5, 19.2, -8.65, -8.3, 0.95, 0.97, F.steel, false); fb(18.8, 18.9, -8.78, -8.7, 0.97, 1.15, F.steel, false);   // мойка и кран
+      fb(18.2, 19.6, -8.8, -8.45, 1.55, 2.35, F.wood, false); fb(19.4, 19.8, -8.2, -6.5, 1.55, 2.35, F.wood, false);   // навесные шкафчики
+      cyl(17.4, -6.6, 0.09, 0, 0.72, F.wood, false); cyl(17.4, -6.6, 0.62, 0.72, 0.06, F.woodL);                      // круглый обеденный стол
+      chair(18.35, -6.6, 1, 0, 0); chair(16.45, -6.6, -1, 0, 0); chair(17.4, -5.65, 0, 1, 0); chair(17.4, -7.55, 0, -1, 0);
+
+      // --- Ванная ---
+      fb(11.1, 13.3, -8.8, -8.05, 0, 0.55, F.white); fb(11.25, 13.15, -8.65, -8.2, 0.5, 0.56, F.water, false);       // ванна с водой
+      fb(13.1, 13.25, -8.58, -8.46, 0.55, 0.9, F.steel, false);                                                       // смеситель
+      fb(14.35, 14.65, -8.7, -8.4, 0, 0.7, F.white); fb(14.15, 14.85, -8.8, -8.25, 0.7, 0.88, F.white);              // раковина
+      fb(14.2, 14.8, -8.84, -8.8, 1.25, 2.0, F.mirror, false);                                                        // зеркало
+      fb(14.5, 15.2, -5.9, -5.3, 0, 0.42, F.white); fb(14.9, 15.2, -5.9, -5.3, 0.42, 0.85, F.white);                 // унитаз
+
+      // --- Комната отдыха ---
+      sofa(7.5, 9.5, -8.8, -7.95, 0, F.sofa, 'N');
+      sofa(6.4, 7.2, -8.8, -7.9, 0, F.sofa2, 'N'); sofa(9.8, 10.6, -8.8, -7.9, 0, F.sofa2, 'N');                       // два кресла
+      fb(8.1, 9.1, -7.0, -6.4, 0, 0.42, F.woodL); rug(7.2, 9.8, -7.6, -5.6, 0, F.rug1);                               // журнальный столик, ковёр
+
+      // --- Гостиная ---
+      sofa(7.6, 10.2, 8.0, 8.8, 0, F.sofa2, 'S'); sofa(9.9, 10.9, 4.9, 5.5, 0, F.sofa, 'N');                          // мягкие диваны
+      fb(8.3, 9.5, 6.4, 7.0, 0, 0.4, F.woodL); rug(7.0, 10.6, 5.8, 7.9, 0, F.rug2);                                   // журнальный столик, ковёр в центре
+      pad(6.35, 7.5, 7.5, 8.7, 0);                                                                                    // зелёная зона перков
+
+      // --- Столовая ---
+      tbl(13.3, 17.5, 6.4, 7.6, 0);
+      for (const a of [13.9, 15.4, 16.9]) { chair(a, 8.15, 0, 1, 0); chair(a, 5.85, 0, -1, 0); }
+      chair(12.6, 7.0, -1, 0, 0); chair(18.2, 7.0, 1, 0, 0);
+      fb(19.2, 19.8, 6.5, 8.3, 0, 0.9, F.wood); fb(18.3, 19.7, 8.3, 8.8, 0, 2.0, F.wood);                             // буфет и сервант
+      rug(13.0, 17.8, 5.9, 8.1, 0, F.rug3);
+
+      // --- Холл ---
+      rug(6.3, 8.0, -0.9, 0.9, 0, F.rug1); rug(10.0, 19.4, -0.9, 0.9, 0, F.rug1);
+      fb(10.1, 11.7, -4.65, -4.2, 0, 0.45, F.woodL); fb(14.3, 16.1, -4.65, -4.2, 0, 0.45, F.woodL);
+      fb(10.1, 11.7, 4.2, 4.65, 0, 0.45, F.woodL); fb(14.4, 16.4, 4.2, 4.65, 0, 0.45, F.woodL);
+      plant(6.6, -4.2, 0); plant(6.6, 4.2, 0); plant(19.3, -4.2, 0); plant(19.3, 4.2, 0);
+
+      // ================= 2 ЭТАЖ =================
+      // север: спальня (у фасада) | комната снайпера; юг: кабинет (у фасада) | библиотека; коридор с лестницей, кладовая — в торце коридора
+      const Y = 4;
+      wallZ(-4.8, A0, A1, Y, [[7.0, 9.8], [14.0, 17.0]]);
+      wallZ(4.8, A0, A1, Y, [[8.0, 10.4], [12.0, 14.8]]);
+      wallA(12.0, -Z9, -4.9, Y, [[-8.0, -5.6]]);
+      wallA(11.2, 4.9, Z9, Y, [[6.2, 8.4]]);
+      wallA(16.4, -4.7, 4.7, Y, [[-4.0, -1.0]]);
+      rf(A0, 12.0, -Z9, -4.9, Y, FL.carp); rf(12.0, A1, -Z9, -4.9, Y, FL.wood2); rf(A0, 16.4, -4.7, 4.7, Y, FL.wood);
+      rf(A0, 11.2, 4.9, Z9, Y, FL.carp); rf(11.2, A1, 4.9, Z9, Y, FL.wood2);
+
+      // --- Спальня ---
+      fb(8.2, 10.2, -8.8, -6.6, Y, Y + 0.4, F.bed); fb(8.25, 10.15, -8.75, -6.65, Y + 0.4, Y + 0.55, F.sheet);         // двуспальная кровать
+      fb(8.25, 10.15, -7.7, -6.65, Y + 0.55, Y + 0.58, F.blanket, false);
+      fb(8.4, 9.1, -8.7, -8.2, Y + 0.55, Y + 0.65, F.sheet, false); fb(9.3, 10.0, -8.7, -8.2, Y + 0.55, Y + 0.65, F.sheet, false);
+      fb(8.2, 10.2, -8.8, -8.68, Y + 0.4, Y + 1.0, F.wood);
+      fb(7.55, 8.1, -8.8, -8.3, Y, Y + 0.55, F.wood); fb(10.3, 10.85, -8.8, -8.3, Y, Y + 0.55, F.wood);               // прикроватные тумбочки
+      fb(7.7, 7.95, -8.65, -8.45, Y + 0.55, Y + 0.8, LAMPB, false); fb(10.45, 10.7, -8.65, -8.45, Y + 0.55, Y + 0.8, LAMPB, false);
+      fb(6.2, 6.9, -8.0, -6.4, Y, Y + 2.0, F.wood); rug(7.4, 10.8, -6.5, -5.2, Y, F.rug2);                            // шкаф и коврик
+
+      // --- Комната снайпера ---
+      bedSingle(18.9, 19.8, -8.8, -6.8, Y, F.olive);                                                                  // койка
+      tbl(16.4, 18.2, -8.8, -8.0, Y); chair(17.3, -7.4, 0, 1, Y);                                                     // рабочее место у окна
+      fb(16.6, 17.2, -8.7, -8.3, Y + 0.78, Y + 0.84, F.dark, false);                                                  // карта/ноутбук на столе
+      fb(19.1, 19.8, -6.4, -5.0, Y, Y + 0.3, F.olive); fb(19.2, 19.8, -6.3, -5.1, Y + 0.3, Y + 0.6, F.olive);        // мешки с песком у окна
+      fb(12.4, 13.1, -8.8, -8.1, Y, Y + 0.7, F.crate); fb(12.4, 13.1, -8.0, -7.4, Y, Y + 0.45, F.olive);              // ящики с патронами
+
+      // --- Коридор ---
+      rug(6.3, 8.0, -0.9, 0.9, Y, F.rug1); rug(10.0, 16.2, -0.9, 0.9, Y, F.rug1);
+      fb(10.2, 12.4, -4.65, -4.25, Y, Y + 0.8, F.wood); fb(10.5, 11.9, 4.25, 4.65, Y, Y + 0.8, F.wood);              // консоли у стен
+      if (sg < 0) pad(7.8, 9.4, 2.5, 4.4, Y); else pad(7.5, 9.4, 3.55, 4.65, Y);                                      // зелёная зона перков у автомата
+
+      // --- Библиотека ---
+      bookcase(13.9, 16.4, 8.25, 8.8, Y, 2.2, 0, -1); bookcase(18.2, 19.7, 8.25, 8.8, Y, 2.2, 0, -1); bookcase(11.5, 12.1, 8.25, 8.8, Y, 2.2, 0, -1);
+      bookcase(19.25, 19.8, 6.4, 8.2, Y, 2.2, -1, 0);
+      tbl(14.0, 16.4, 6.1, 7.1, Y); chair(15.2, 7.6, 0, 1, Y); rug(13.6, 16.8, 5.7, 7.9, Y, F.rug1);                  // рабочий стол в центре
+
+      // --- Кабинет ---
+      tbl(8.3, 10.5, 7.4, 8.3, Y); chair(9.4, 6.8, 0, -1, Y);                                                         // письменный стол
+      fb(6.2, 6.8, 5.4, 8.4, Y, Y + 1.9, F.wood);                                                                     // шкаф у стены
+      fb(10.2, 10.9, 8.1, 8.8, Y, Y + 1.3, F.steel); bookcase(6.4, 7.8, 8.25, 8.8, Y, 2.2, 0, -1);                    // картотека, книжный шкаф
+      rug(7.6, 10.6, 5.5, 7.1, Y, F.rug3);
+
+      // --- Кладовая ---
+      rack(17.0, 19.5, -4.65, -4.1, Y); rack(17.0, 19.5, 4.15, 4.7, Y);                                               // стеллажи с припасами
+      fb(18.9, 19.8, 1.2, 2.1, Y, Y + 0.9, F.crate); fb(18.9, 19.7, 2.2, 2.9, Y, Y + 0.7, F.olive);
+      cyl(18.6, 3.4, 0.3, Y, 0.9, PM(0x3a2920, 0.55, 0.5));
     }
-  }
+  })();
   // Разбитые плиты и дорожки ведут от обоих проходов к фонтану.
   flatPlane(2.8, 13.2, 0, 0.015, -8.2, 0, PM(0x42413d, 1, 0));
   flatPlane(2.8, 13.2, 0, 0.016, 8.2, 0, PM(0x42413d, 1, 0));
