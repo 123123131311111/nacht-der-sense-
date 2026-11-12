@@ -164,6 +164,7 @@
           if (p.perks) {
             if (p.perks.cola && !speedCola) { speedCola = true; perkMsg('cola'); }
             if (p.perks.doubleTap && !doubleTap) { doubleTap = true; perkMsg('dtap'); }
+            if (p.perks.builder && typeof gotBuilder === 'function') gotBuilder(false);   // «Строитель» (Verrückt)
           }
         } else {
           const r = remote[p.id];

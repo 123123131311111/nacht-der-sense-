@@ -12,6 +12,7 @@ const MAX_PLAYERS = 4;
 const BAR_MAX = 4000, BAR_BUILD = 1500, BAR_REPAIR = 2000, BAR_CD_MS = 30000;   // баррикады у главных дверей домов (Verrückt), как на клиенте
 // Окна корпусов Verrückt (1 этаж) с металлическими прутьями. Порядок и координаты как VK_WINS на клиенте.
 const VKW_HP = 500, VKW_PRICE = 250, VKW_CD_MS = 30000;
+const BUILDER_PRICE = 4000, BUILDER_DISC = 0.75, builderPrice = p => Math.max(1, Math.round(p * (1 - BUILDER_DISC)));   // перк «Строитель»: -75% на починку, как BLD_* на клиенте
 const VK_WINS = [];
 for (const sg of [-1, 1]) {
   for (const cz of [-4.2, 4.2]) VK_WINS.push({ x: sg * 6, z: cz });
@@ -79,6 +80,7 @@ const MAPS = {
     barricades: [{ x: -5.35, z: 0, door: 3 }, { x: 5.35, z: 0, door: 4 }],
     vwindows: VK_WINS,
     qr: { x: -5.35, z: -4.6, minY: -1, maxY: 3.2 },
+    builder: { x: 5.35, z: -4.6, minY: -1, maxY: 3.2 },   // перк «Строитель» (только Verrückt): напротив Быстрого возрождения, у фасада правого дома (как BLD на клиенте)
     levers: [{ x: -16.3, z: 2.4 }, { x: 16.3, z: 2.4 }],   // рубильники на 2 этаже корпусов (как LEVERS на клиенте)
     upgrader: { x: 30.9, z: -27.6 },   // Улучшайзер в северо-восточном углу двора (как UPG на клиенте)
     perks: {
@@ -111,7 +113,7 @@ function makePlayer(id, name, slot) {
   return {
     id, name: cleanName(name, id), color: ['#e04040', '#3a8ee6', '#46c46a', '#e6c83a'][slot], slot,
     x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0, active: false, downed: false, reviving: null,
-    points: 500, hp: 100, perks: { cola: false, doubleTap: false, juggernog: false },
+    points: 500, hp: 100, perks: { cola: false, doubleTap: false, juggernog: false, builder: false },
     owned: { thompson: false, shotgun: false }, upg: Object.create(null), shots: Object.create(null), lastShotAt: -Infinity,
   };
 }
@@ -397,7 +399,7 @@ io.on('connection', socket => {
     if (!ctx || !ctx.room.game.started) return;
     const { room, player } = ctx;
     const cfg = cfgOf(room);
-    let price = 0, weaponIndex = null, boxResult = null;
+    let price = 0, weaponIndex = null, boxResult = null, repairKind = false;
     const floor = player.y;
     if (kind === 'door') {
       doorIndex = Number(doorIndex);
@@ -430,6 +432,8 @@ io.on('connection', socket => {
       if (hp >= BAR_MAX) return failPurchase(socket, 'Баррикада цела');
       if (hp > 0 && room.game.barRepairAt[bi] > Date.now()) return failPurchase(socket, `Починка доступна через ${Math.ceil((room.game.barRepairAt[bi] - Date.now()) / 1000)} с`);
       price = hp <= 0 ? BAR_BUILD : BAR_REPAIR;
+      if (player.perks.builder) price = builderPrice(price);   // «Строитель»: -75%
+      repairKind = hp > 0;
       doorIndex = bi + 3;
     } else if (kind === 'vwindow') {
       const wi = Number(doorIndex), wc = cfg.vwindows && cfg.vwindows[wi];
@@ -437,13 +441,19 @@ io.on('connection', socket => {
       if (!near(player, wc.x, wc.z, 3.2, -1, 3.2)) return failPurchase(socket, 'Подойдите к окну');
       const hp = room.game.vwindows[wi];
       if (hp >= VKW_HP) return failPurchase(socket, 'Окно заварено');
-      if (hp > 0 && room.game.vwRepairAt[wi] > Date.now()) return failPurchase(socket, `Починка окна через ${Math.ceil((room.game.vwRepairAt[wi] - Date.now()) / 1000)} с`);   // целое окно — не чаще раза в 30 с; сломанное — сразу
-      price = VKW_PRICE;
+      if (hp > 0 && !player.perks.builder && room.game.vwRepairAt[wi] > Date.now()) return failPurchase(socket, `Починка окна через ${Math.ceil((room.game.vwRepairAt[wi] - Date.now()) / 1000)} с`);   // целое окно — не чаще раза в 30 с; сломанное — сразу
+      price = player.perks.builder ? builderPrice(VKW_PRICE) : VKW_PRICE;   // «Строитель»: -75%, чинит сразу и без ожидания
       doorIndex = wi;
     } else if (kind === 'quickRevive') {
       const pk = cfg.qr;
       if (!pk || !near(player, pk.x, pk.z, 2.8, pk.minY, pk.maxY)) return failPurchase(socket, 'Подойдите к автомату Быстрого возрождения');
       price = 1500;   // QR_PRICE_ONLINE на клиенте
+    } else if (kind === 'builder') {
+      const pk = cfg.builder;
+      if (!pk) return failPurchase(socket, 'На этой карте нет перка «Строитель»');
+      if (!near(player, pk.x, pk.z, 2.8, pk.minY, pk.maxY)) return failPurchase(socket, 'Подойдите к автомату «Строитель»');
+      if (player.perks.builder) return failPurchase(socket, '«Строитель» уже куплен');
+      price = BUILDER_PRICE;
     } else if (kind === 'thompson' || kind === 'shotgun') {
       const shotgun = kind === 'shotgun';
       const owned = shotgun ? player.owned.shotgun : player.owned.thompson;
@@ -464,11 +474,12 @@ io.on('connection', socket => {
     player.points -= price;
     if (kind === 'box') room.game.boxBusyUntil = Date.now() + 3800;
     if (kind === 'door') room.game.doors[doorIndex] = true;
-    if (kind === 'vwindow') { room.game.vwindows[doorIndex] = VKW_HP; room.game.vwRepairAt[doorIndex] = Date.now() + VKW_CD_MS; }
+    if (kind === 'vwindow') { room.game.vwindows[doorIndex] = VKW_HP; room.game.vwRepairAt[doorIndex] = player.perks.builder ? 0 : Date.now() + VKW_CD_MS; }
     if (kind === 'barricade') { if (room.game.barricades[doorIndex - 3] > 0) room.game.barRepairAt[doorIndex - 3] = Date.now() + BAR_CD_MS; room.game.barricades[doorIndex - 3] = BAR_MAX; }
     if (kind === 'cola') player.perks.cola = true;
     if (kind === 'doubleTap') player.perks.doubleTap = true;
     if (kind === 'juggernog') player.perks.juggernog = true;
+    if (kind === 'builder') player.perks.builder = true;
     if (kind === 'thompson') player.owned.thompson = true;
     if (kind === 'shotgun') player.owned.shotgun = true;
     if (kind === 'box') {
@@ -476,7 +487,7 @@ io.on('connection', socket => {
       if (boxResult === 2) player.owned.shotgun = true;
     }
     io.to(room.code).emit('purchaseCommitted', {
-      playerId: socket.id, kind, doorIndex, price, weaponIndex, boxResult,
+      playerId: socket.id, kind, doorIndex, price, weaponIndex, boxResult, repair: repairKind, noCd: kind === 'vwindow' && !!player.perks.builder,
     });
     sendGame(room);
   });

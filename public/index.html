@@ -196,6 +196,44 @@ body.touch #knife{bottom:32px}
 #lobList{margin:0 0 14px}.lp{display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:6px;font:700 16px "Courier New",monospace;color:#ddd;background:rgba(20,10,10,.72);border-left:4px solid #6a1414}
 .lp i{width:14px;height:14px;border-radius:50%}.lp small{color:#888;font-weight:400}.lc{font:13px "Courier New",monospace;color:#999;margin:8px 0}
 .hint{font:13px "Courier New",monospace;color:#9a948c;margin:0 0 14px}
+
+/* ===== улучшенное меню ===== */
+#menu{animation:menuIn .5s both}
+@keyframes menuIn{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+#menu .panel{animation:panIn .28s both}
+@keyframes panIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#menu .logo:after{content:"";display:block;width:90px;height:3px;margin-top:14px;background:linear-gradient(90deg,#c01616,transparent)}
+#mapBadge{display:inline-flex;align-items:center;gap:8px;margin:0 0 18px;padding:6px 12px;font:12px "Courier New",monospace;letter-spacing:.16em;color:#a8a29a;background:rgba(20,10,10,.6);border:1px solid #3a1a1a;border-left:3px solid #6a1414}
+#mapBadge b{color:#e8e0d4}
+#menu:not([data-view=main]) #mapBadge{display:none}
+#menuFoot{margin-top:22px;font:11px "Courier New",monospace;letter-spacing:.14em;color:#6e6860;line-height:1.7}
+#menu:not([data-view=main]) #menuFoot{display:none}
+body.touch #menuFoot{display:none}
+.mb{position:relative}.mb:active{transform:scale(.985)}
+.mb:before{content:"";position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(220,30,30,.18);transition:width .2s}
+.mb:hover:before{width:100%}
+#menu h2{padding-bottom:10px;border-bottom:1px solid #3a1a1a}
+#menu .sec{margin:18px 0 10px;font:700 11px "Courier New",monospace;letter-spacing:.3em;color:#7a746c}
+#menu .row input[type=range]{height:4px;cursor:pointer}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.tabs button{padding:9px 14px;font:700 13px "Courier New",monospace;letter-spacing:.14em;color:#a8a29a;background:rgba(20,10,10,.7);border:1px solid #3a1a1a;cursor:pointer;transition:.15s}
+.tabs button:hover{color:#fff;border-color:#8a2222}
+.tabs button.on{color:#fff;background:rgba(130,16,16,.85);border-color:#e33}
+.hbody{max-height:calc(100vh - 290px);min-height:170px;overflow-y:auto;padding-right:10px;scrollbar-width:thin;scrollbar-color:#6a1414 transparent}
+.hbody::-webkit-scrollbar{width:6px}.hbody::-webkit-scrollbar-thumb{background:#6a1414}
+.ht{display:none}.ht.on{display:block;animation:panIn .22s both}
+.ht p{margin:0 0 9px;padding-left:12px;border-left:2px solid #5a1616;font-size:14px;line-height:1.5;color:#c9c2b8}
+.ht p.lead{color:#e0d8cc;border-left-color:#c22}
+.ht h4{margin:16px 0 6px;font:700 12px "Courier New",monospace;letter-spacing:.24em;color:#c33;text-transform:uppercase}
+.ht b{color:#eee}
+.chip{display:inline-block;padding:1px 7px;font:700 12px "Courier New",monospace;color:#ffd24a;background:rgba(60,40,0,.6);border:1px solid #6a5010;border-radius:2px;white-space:nowrap}
+.mimg{position:relative;margin:0 0 12px;aspect-ratio:21/8;overflow:hidden;border:1px solid #3a1a1a}
+.mimg img{width:100%;height:100%;object-fit:cover;filter:brightness(.7)}
+.mimg b{position:absolute;left:14px;bottom:10px;font:700 20px Georgia,serif;letter-spacing:.16em;color:#fff;text-shadow:0 2px 8px #000}
+.pcard{margin:0 0 10px;padding:10px 14px;background:rgba(20,10,10,.65);border:1px solid #3a1a1a;border-left:4px solid var(--c)}
+.pcard>b{font:700 16px Georgia,serif;letter-spacing:.1em;color:var(--c);margin-right:10px}
+.pcard p{margin:6px 0 0;padding:0;border:0}
+@media (max-height:480px){.hbody{max-height:calc(100vh - 150px)}.mimg{display:none}#menuFoot{display:none}}
 </style>
 </head>
 <body class="menu">
@@ -207,11 +245,16 @@ body.touch #knife{bottom:32px}
 <div id="info"><div id="menu" data-view="main">
 <h1 class="logo"><small>ЗОМБИ · ВЫЖИВАНИЕ</small>NACHT<br>DER BUNKER</h1>
 <p id="infoMsg">Продержись как можно дольше</p>
+<div id="mapBadge">КАРТА: <b id="mapBadgeName"></b></div>
 <div id="mainBtns"><button class="mb big" id="bPlay">▶ ИГРАТЬ</button><button class="mb" id="bSet">⚙ НАСТРОЙКА</button><button class="mb" id="bHelp">? ПОМОЩЬ</button><button class="mb" id="bExit">✕ ВЫЙТИ В МЕНЮ</button></div>
+<div id="menuFoot">E — купить / открыть · V — нож · Esc — пауза<br>Слабый ПК? Уменьшите яркость и контраст в настройках.</div>
 <div class="panel" id="pSet"><h2>НАСТРОЙКА</h2>
-<div class="row"><span>Управление</span><div id="devs"><button id="devPc">🖥 ПК</button><button id="devTouch">📱 ТЕЛЕФОН</button></div></div>
+<div class="sec">УПРАВЛЕНИЕ</div>
+<div class="row"><span>Устройство</span><div id="devs"><button id="devPc">🖥 ПК</button><button id="devTouch">📱 ТЕЛЕФОН</button></div></div>
 <label class="row" id="sensBox"><span>Чувствительность</span><input type="range" id="sens" min="40" max="220" value="100"><b id="sensV"></b></label>
+<div class="sec">ЗВУК</div>
 <label class="row"><span>Громкость</span><input type="range" id="vol" min="0" max="100" value="100"><b id="volV"></b></label>
+<div class="sec">ИЗОБРАЖЕНИЕ</div>
 <label class="row"><span>Яркость</span><input type="range" id="bri" min="50" max="170" value="100"><b id="briV"></b></label>
 <label class="row"><span>Контраст</span><input type="range" id="con" min="50" max="150" value="100"><b id="conV"></b></label>
 <button class="mb" id="gfxReset">СБРОС ЯРКОСТИ / КОНТРАСТА</button>
@@ -235,7 +278,37 @@ body.touch #knife{bottom:32px}
 <p class="hint">Отправь код друзьям. До 4 игроков. Заходи, когда все собрались.</p>
 <button class="mb big" id="bGo">▶ В ИГРУ</button>
 <button class="mb back" id="bLeave">← ВЫЙТИ ИЗ ЛОББИ</button></div>
-<div class="panel" id="pHelp"><h2>ПОМОЩЬ</h2><div id="helpPc"><p>WASD — движение · Shift — бег · Space — прыжок · ЛКМ — стрельба · R — перезарядка · V — нож (перезарядка 2 с, убивает всех перед вами) · Esc — пауза</p><p>Инвентарь: 2 слота. 1 / 2 / колёсико мыши — смена оружия. Новое оружие при полном инвентаре заменяет то, что в руках.</p><p>Зелёный автомат Speed Cola: E — купить (4000) — перезарядка вдвое быстрее. Красный Double Tap: E — купить (2500) — двойной урон. Голубой автомат Быстрое возрождение: E — купить; в одиночной игре (500) один раз возрождает после смерти, онлайн (1500) — союзников поднимаете на 60% быстрее. Nacht — в столовой, Verrückt — у левого дома.</p><p>На Verrückt зомби входят через два прохода в ограде (игрок туда пройти не может); в корпуса можно подняться по лестнице. Thompson продаётся в левом корпусе, дробовик — в правом, на дальней стене. Mystery Box стоит в сарае к северу от правого корпуса — дверь сарая открывается за 1000 (удерживать E).</p><p>На Nacht зомби ломают доски на окнах и лезут внутрь. Цельтесь в голову!</p><p>На Nacht E (удерживать) у двери — открыть проход (1000); F / E у окна — чинить доски. На Verrückt все двери платные (удерживать E): главная дверь каждого дома — 1000, вход на 2 этаж — 2000, сарай с ящиком — 1000. Сначала откройте главную дверь, потом лестницу.</p><p>E (удерживать) у стены — купить Thompson (1000) · E у сундука — Mystery Box (950)</p></div><div id="helpTouch"><p>Левый палец — стик движения (выведите палец за круг — бег) · правый палец — поворот камеры</p><p>ОГОНЬ — стрельба (держите кнопку и ведите пальцем — камера поворачивается) · ПРЫЖОК · ПЕРЕЗАР. · СМЕНА — смена оружия · ⏸ — пауза · НОЖ — удар ножом (раз в 2 с, убивает всех перед вами)</p><p>КУПИТЬ (удерживать) у Mystery Box, стен с оружием и автоматов. На Nacht также можно открывать двери и чинить окна.</p><p>Цельтесь в голову; на Verrückt зомби входят через два прохода в ограде.</p></div><button class="mb back" data-back>← НАЗАД</button></div>
+<div class="panel" id="pHelp"><h2>ПОМОЩЬ</h2>
+<div class="tabs" id="helpTabs"><button class="on" data-t="ctl">УПРАВЛЕНИЕ</button><button data-t="nacht">NACHT</button><button data-t="vk">VERRÜCKT</button><button data-t="perk">ПЕРКИ</button></div>
+<div class="hbody">
+<div class="ht on" id="ht-ctl"><div id="helpPc"><p><b>WASD</b> — движение · <b>Shift</b> — бег · <b>Space</b> — прыжок · <b>ЛКМ</b> — стрельба · <b>R</b> — перезарядка · <b>V</b> — нож (перезарядка 2 с, убивает всех перед вами) · <b>Esc</b> — пауза</p><p>Инвентарь: 2 слота. 1 / 2 / колёсико мыши — смена оружия. Новое оружие при полном инвентаре заменяет то, что в руках.</p><p><b>E</b> (удерживать) — купить, открыть дверь, починить. <b>F</b> / <b>E</b> у окна на Nacht — чинить доски. Зажать <b>E</b> рядом с лежащим союзником на 3 секунды — поднять его.</p><p>Бонусы с зомби: красный <b>MAX AMMO</b> — полный боезапас, золотой <b>DOUBLE POINTS</b> — очки ×2 на 25 секунд. Цельтесь в голову!</p></div><div id="helpTouch"><p>Левый палец — стик движения (выведите палец за круг — бег) · правый палец — поворот камеры</p><p>ОГОНЬ — стрельба (держите кнопку и ведите пальцем — камера поворачивается) · ПРЫЖОК · ПЕРЕЗАР. · СМЕНА — смена оружия · ⏸ — пауза · НОЖ — удар ножом (раз в 2 с, убивает всех перед вами)</p><p>КУПИТЬ (удерживать) у Mystery Box, стен с оружием и автоматов. На Nacht также можно открывать двери и чинить окна.</p><p>Цельтесь в голову; на Verrückt зомби входят через два прохода в ограде.</p></div></div>
+<div class="ht" id="ht-nacht">
+<div class="mimg"><img src="maps/nacht.jpg" alt=""><b>NACHT DER UNTOTEN</b></div>
+<p class="lead">Бункер в два этажа с круговой лестницей в центре. Зомби лезут через окна — доски на них нужно чинить.</p>
+<h4>Двери</h4><p>Проходы между комнатами открываются за <span class="chip">1000</span> (удерживать E). Начинаете в стартовой комнате с <span class="chip">500</span> очков.</p>
+<h4>Окна и баррикады</h4><p>12 окон на двух этажах. Зомби срывают доски по одной; удерживайте F или E у окна, чтобы вернуть их на место.</p>
+<h4>Оружие</h4><p>Thompson — у западной стены, <span class="chip">1000</span> (повторно — патроны за 500). Дробовик — тоже у западной стены, <span class="chip">1200</span>. Mystery Box <span class="chip">950</span> появляется в центральном зале после открытия двери.</p>
+<h4>Лестница</h4><p>Круговая, в центре карты: подъём против часовой стрелки, вход и выход с севера. Наверху — Double Tap и Джагер Фанта.</p>
+<h4>Перки</h4><p>Speed Cola <span class="chip">4000</span> — столовая, 1 этаж · Быстрое возрождение <span class="chip">500 / 1500</span> — 1 этаж, восточная стена · Double Tap <span class="chip">2500</span> — 2 этаж, северо-запад · Джагер Фанта <span class="chip">2000</span> — 2 этаж, западная стена.</p>
+<h4>Совет</h4><p>Держите путь отхода к лестнице и не открывайте все двери сразу — чем меньше входов, тем проще удерживать оборону.</p></div>
+<div class="ht" id="ht-vk">
+<div class="mimg"><img src="maps/verruckt.jpg" alt=""><b>VERRÜCKT</b></div>
+<p class="lead">Открытый двор за оградой с фонтаном и брошенной машиной. Слева и справа — два двухэтажных корпуса. Зомби входят через два прохода в ограде (игрок туда пройти не может).</p>
+<h4>Двери (удерживать E)</h4><p>Главная дверь каждого дома — <span class="chip">1000</span>. Вход на 2 этаж — <span class="chip">2000</span> (сначала откройте главную дверь, потом лестницу). Сарай с Mystery Box — <span class="chip">1000</span>.</p>
+<h4>Окна и баррикады</h4><p>У каждого корпуса 8 окон на 1 этаже, заваренных прутьями (500 HP). Починка — <span class="chip">250</span>: целое окно можно укреплять раз в 30 с, сломанное — сразу. После 6 раунда у главных дверей можно построить баррикаду: постройка <span class="chip">1500</span>, починка <span class="chip">2000</span> (раз в 30 с), 4000 HP.</p>
+<h4>Оружие</h4><p>Thompson <span class="chip">1000</span> — в левом корпусе. Дробовик <span class="chip">1200</span> — в правом, на дальней стене. Mystery Box <span class="chip">950</span> стоит в сарае к северу от правого корпуса, а после покупки входа на 2 этаж появляется и там.</p>
+<h4>Рубильники и Улучшайзер</h4><p>На 2 этаже обоих корпусов — по рубильнику (удерживать E). Когда включены оба, в северо-восточном углу двора появляется Улучшайзер: <span class="chip">5500</span> — оружие в руках получает урон ×2 и увеличенные магазин и запас.</p>
+<h4>Перки</h4><p>Speed Cola <span class="chip">4000</span> — 2 этаж левого корпуса · Double Tap <span class="chip">2500</span> — 2 этаж правого · Быстрое возрождение <span class="chip">500 / 1500</span> — у фасада левого дома · <b>Строитель</b> <span class="chip">4000</span> — у фасада правого дома.</p>
+<h4>Совет</h4><p>Окна и баррикады — главная защита дома. Возьмите «Строителя», когда накопите очки: ремонт дешевеет на 75%, а красная обводка покажет, где зомби уже сломали защиту.</p></div>
+<div class="ht" id="ht-perk">
+<p class="lead">Перки покупаются у автоматов (удерживать E). Иконки купленных перков отображаются в углу экрана.</p>
+<div class="pcard" style="--c:#35c84a"><b>Speed Cola</b><span class="chip">4000</span><p>Перезарядка в два раза быстрее.</p></div>
+<div class="pcard" style="--c:#ff8a30"><b>Double Tap</b><span class="chip">2500</span><p>Двойной урон от оружия.</p></div>
+<div class="pcard" style="--c:#ff4a6a"><b>Джагер Фанта</b><span class="chip">2000</span><p>+3 удара запаса здоровья (Nacht).</p></div>
+<div class="pcard" style="--c:#4ab8ff"><b>Быстрое возрождение</b><span class="chip">500 / 1500</span><p>Одиночная игра: один раз возрождает после смерти. Онлайн: союзников поднимаете на 60% быстрее.</p></div>
+<div class="pcard" style="--c:#ffb62e"><b>Строитель</b><span class="chip">4000</span><p>Только Verrückt. Скидка 75% на починку окон и баррикад. Окно чинится целиком и сразу — без удержания и ожидания. Сломанные постройки подсвечиваются красной обводкой даже сквозь стены.</p></div></div>
+</div>
+<button class="mb back" data-back>← НАЗАД</button></div>
 </div></div>
 <div id="rotmsg">Поверните телефон горизонтально</div>
 <!-- Socket.io: сервер сам отдаёт этот файл по адресу /socket.io/socket.io.js -->
@@ -1682,6 +1755,18 @@ try { const sb = localStorage.getItem('nb-bri'), sc = localStorage.getItem('nb-c
 briEl.addEventListener('input', () => applyGfx(true)); conEl.addEventListener('input', () => applyGfx(true));
 document.getElementById('gfxReset').addEventListener('click', () => { briEl.value = 100; conEl.value = 100; applyGfx(true); });
 applyGfx(false);
+
+// --- меню: вкладки помощи и название выбранной карты ---
+(function () {
+  const tabs = document.querySelectorAll('#helpTabs button');
+  tabs.forEach(b => b.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.ht').forEach(x => x.classList.toggle('on', x.id === 'ht-' + b.dataset.t));
+    document.querySelector('.hbody').scrollTop = 0;
+  }));
+  document.getElementById('bHelp').addEventListener('click', () => document.querySelector('#helpTabs [data-t="ctl"]').click());   // помощь всегда открывается на «Управлении»
+  document.getElementById('mapBadgeName').textContent = MAP_ID === 'verruckt' ? 'VERRÜCKT' : 'NACHT DER UNTOTEN';
+})();
 const volEl = document.getElementById('vol'), volV = document.getElementById('volV'), sensV = document.getElementById('sensV');
 try { const vv = parseFloat(localStorage.getItem('nb-vol')); if (vv >= 0 && vv <= 1) window.NB_VOL = vv; } catch (err) {}
 volEl.value = Math.round((window.NB_VOL == null ? 1 : window.NB_VOL) * 100); volV.textContent = volEl.value + '%';
@@ -3721,6 +3806,31 @@ function makeQRTex() {
   qrFace.position.set(QR.x + 0.46 * QR.f, QR.y + 1.1, QR.z); qrFace.rotation.y = Math.PI / 2 * QR.f; scene.add(qrFace);
   const qrLight = new THREE.PointLight(0x4ab8ff, 0.9, 7, 2); qrLight.position.set(QR.x + 1.2 * QR.f, QR.y + 1.8, QR.z); scene.add(qrLight); }
 function applyQR() { if (quickRevive) return; quickRevive = true; drinkPerk('qr'); }
+
+// ---------- СТРОИТЕЛЬ (Builder) — только Verrückt ----------
+// 4000 очков. Скидка 75% на починку (окна и баррикады), окно чинится целиком и мгновенно (без удержания и ожидания 30 с),
+// а сломанные постройки подсвечиваются красной обводкой сквозь стены. ДОЛЖНО совпадать с BUILDER_* и MAPS.verruckt.builder на сервере.
+const BLD_PRICE = 4000, BLD_DISC = 0.75, BLD_ON = MAP_ID === 'verruckt';
+const BLD = { x: 5.35, z: -4.6, y: 0, f: -1 };   // напротив Быстрого возрождения, у фасада правого дома (сторона фонтана)
+let builder = false;
+const bldCost = p => builder ? Math.max(1, Math.round(p * (1 - BLD_DISC))) : p;
+function gotBuilder(anim) { if (builder) return; builder = true; if (anim) drinkPerk('builder'); else perkMsg('builder'); }
+PERK_ICONS.builder = '<span class="pk" data-k="builder" title="Строитель — починка со скидкой 75%, окна чинятся сразу, сломанные постройки видны сквозь стены" style="background:#4a3300;border-color:#ffb62e;color:#e8a017"><svg viewBox="0 0 46 46" width="38" height="38"><path d="M8 29a15 13 0 0 1 30 0z" fill="#ffd24a" stroke="#5a3a00" stroke-width="1.5" stroke-linejoin="round"/><rect x="5" y="29" width="36" height="5" rx="2" fill="#ffb62e" stroke="#5a3a00" stroke-width="1.5"/><rect x="20" y="13" width="6" height="16" fill="#ffe58a" stroke="#5a3a00" stroke-width="1"/><path d="M12 40l8-5M34 40l-8-5" stroke="#ffe8b0" stroke-width="3" stroke-linecap="round"/></svg></span>';
+PERK_BOTTLE_COL.builder = [0xf0b020, 0x4a3300, 0xffd24a];
+if (BLD_ON) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 400; const g = c.getContext('2d');
+  g.fillStyle = '#e0a21a'; g.fillRect(0, 0, 256, 400); g.fillStyle = '#2a1c00'; g.fillRect(10, 10, 236, 380);
+  g.fillStyle = '#ffd24a'; g.font = 'bold 36px Georgia'; g.textAlign = 'center'; g.fillText('СТРОИТЕЛЬ', 128, 64);
+  g.fillStyle = '#ffd24a'; g.beginPath(); g.moveTo(66, 200); g.arcTo(66, 120, 128, 120, 62); g.arcTo(190, 120, 190, 200, 62); g.lineTo(190, 200); g.closePath(); g.fill();
+  g.fillStyle = '#ffb62e'; g.fillRect(50, 200, 156, 22); g.fillStyle = '#ffe58a'; g.fillRect(118, 128, 20, 72);
+  g.strokeStyle = '#e8e0d0'; g.lineWidth = 12; g.lineCap = 'round'; g.beginPath(); g.moveTo(70, 270); g.lineTo(186, 250); g.moveTo(70, 250); g.lineTo(186, 270); g.stroke();
+  g.fillStyle = '#ffd24a'; g.font = 'bold 18px "Courier New"'; g.fillText('РЕМОНТ −75%', 128, 292);
+  g.fillStyle = '#000'; g.fillRect(70, 310, 116, 50); g.fillStyle = '#ffd24a'; g.font = 'bold 30px "Courier New"'; g.fillText(String(BLD_PRICE), 128, 346);
+  addBox(BLD.x - 0.45, BLD.x + 0.45, BLD.y, BLD.y + 2.2, BLD.z - 0.7, BLD.z + 0.7, new THREE.MeshStandardMaterial({ color: 0x7a5a10, roughness: 0.6, emissive: 0x2a1c00 }));
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: 0xdddddd }));
+  f.position.set(BLD.x + 0.46 * BLD.f, BLD.y + 1.1, BLD.z); f.rotation.y = Math.PI / 2 * BLD.f; scene.add(f);
+  const l = new THREE.PointLight(0xffb030, 0.9, 7, 2); l.position.set(BLD.x + 1.2 * BLD.f, BLD.y + 1.8, BLD.z); scene.add(l);
+}
 function useQuickRevive() {   // одиночная игра: смертельный удар -> возрождаемся на месте, перк расходуется
   quickRevive = false; qrGraceUntil = gtime + 3;
   const el = document.querySelector('#perks [data-k="qr"]'); if (el) el.remove();
@@ -3734,7 +3844,7 @@ function useQuickRevive() {   // одиночная игра: смертельн
     const sk = window.MP && MP.socket;
     if (!sk || sk === hooked || !sk.on) return;
     hooked = sk;
-    sk.on('purchaseCommitted', d => { if (d && d.kind === 'vwindow' && VK_WINS[d.doorIndex]) VK_WINS[d.doorIndex].repairAt = performance.now() + VKW_CD; if (d && d.kind === 'barricade' && BARS[d.doorIndex - 3] && d.price >= BAR_REPAIR) BARS[d.doorIndex - 3].repairAt = performance.now() + BAR_CD; if (d && d.kind === 'box' && BOX_SITES.length) moveBoxToSite(Number(d.doorIndex) || 0, true); if (d && d.kind === 'quickRevive' && d.playerId === MP.selfId) applyQR(); });
+    sk.on('purchaseCommitted', d => { if (d && d.kind === 'vwindow' && VK_WINS[d.doorIndex]) VK_WINS[d.doorIndex].repairAt = d.noCd ? 0 : performance.now() + VKW_CD; if (d && d.kind === 'barricade' && BARS[d.doorIndex - 3] && d.repair) BARS[d.doorIndex - 3].repairAt = performance.now() + BAR_CD; if (d && d.kind === 'builder' && d.playerId === MP.selfId) gotBuilder(true); if (d && d.kind === 'juggernog' && d.playerId === MP.selfId && !juggernog) { applyJugg(); drinkPerk('jugg'); } if (d && d.kind === 'box' && BOX_SITES.length) moveBoxToSite(Number(d.doorIndex) || 0, true); if (d && d.kind === 'quickRevive' && d.playerId === MP.selfId) applyQR(); });
     sk.on('doublePoints', d => { if (d && d.duration) collectDoublePoints(d.duration); });   // онлайн: бонус действует на всю комнату
     sk.on('leverToggled', d => { if (d) setLever(d.index, true, false); });   // Verrückt: рубильники
     sk.on('upgradeStarted', d => { if (d) upgBegin(d.weapon, d.playerId === MP.selfId); });   // Verrückt: Улучшайзер (анимацию видят все, оружие улучшается у владельца)
@@ -3896,7 +4006,7 @@ function vkSync(g) {   // онлайн: состояние рубильнико�
 const _hp = new THREE.Vector3(), _hq = new THREE.Quaternion();
 function vkUpdate(dt) {
   if (!VK_ON) return;
-  barUpdate(dt); winUpdate(dt);
+  barUpdate(dt); winUpdate(dt); bldFxUpdate(performance.now() / 1000);
   for (const L of LEVERS) { if (L.on && L.t < 1) L.t = Math.min(1, L.t + dt / 0.35); L.pivot.rotation.x = -0.9 + 1.8 * vkEase(L.t); }
   if (!UPG.shown) return;
   const r = UM.root;
@@ -4145,6 +4255,27 @@ function nearWin() {
   for (const w of VK_WINS) { const d = Math.hypot(pos.x - w.cx, pos.z - w.cz); if (d < bd) { bd = d; best = w; } }
   return best;
 }
+// Красная обводка сломанных построек сквозь стены (только с перком): окна с прутьями (HP < макс.) и баррикады у главных дверей
+const BLD_FX = [];
+(function () {
+  if (!BLD_ON) return;
+  const lineM = new THREE.LineBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 1, depthTest: false, depthWrite: false, fog: false });
+  const fillM = new THREE.MeshBasicMaterial({ color: 0xff1a10, transparent: true, opacity: 0.16, depthTest: false, depthWrite: false, fog: false, side: THREE.DoubleSide });
+  const mk = (w, h, d, x, y, z, test) => {
+    const geo = new THREE.BoxGeometry(w, h, d), grp = new THREE.Group();
+    for (const k of [1, 1.025, 1.05]) { const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo), lineM); e.scale.setScalar(k); e.renderOrder = 1000; grp.add(e); }   // три слегка разных контура — «толстая» линия
+    const m = new THREE.Mesh(geo, fillM); m.renderOrder = 999; grp.add(m);
+    grp.position.set(x, y, z); grp.visible = false; grp.frustumCulled = false; scene.add(grp);
+    BLD_FX.push({ grp, test });
+  };
+  for (const w of VK_WINS) { const X = w.ax === 'x', len = w.e - w.s + 0.25; mk(X ? len : 0.4, 1.8, X ? 0.4 : len, X ? w.cx : w.fixed, 1.78, X ? w.fixed : w.cz, () => w.hp < VKW_HP); }
+  for (const b of BARS) mk(0.9, 3.0, 3.6, b.x, 1.5, 0, () => b.hp < BAR_MAX && DOORS[b.door] && DOORS[b.door].open && barOpenRound());
+})();
+function bldFxUpdate(t) {
+  if (!BLD_FX.length) return;
+  const pulse = 0.6 + 0.4 * Math.sin(t * 5);
+  for (const f of BLD_FX) { const on = builder && f.test(); f.grp.visible = on; if (on) f.grp.children[0].material.opacity = pulse; }
+}
 // ---- распределение зомби по целям штурма: окна дома и баррикада (берётся цель с наименьшим числом штурмующих) ----
 function assaultFor(z, target) {
   const p = z.g.position;
@@ -4329,6 +4460,15 @@ function updateInteract(dt) {
     }
     repT = 0; buyT = 0; return;
   }
+  if (BLD_ON && Math.abs(PF - BLD.y) < 1.5 && Math.hypot(pos.x - BLD.x, pos.z - BLD.z) < 2.1) {
+    if (builder) promptEl.innerHTML = '<span class="ok">Строитель — куплено</span>';
+    else {
+      const can = points >= BLD_PRICE;
+      if (holdE && can && !buyLock) { if (!requestMPBuy('builder')) { buyLock = true; spend(BLD_PRICE); gotBuilder(true); } }
+      promptEl.innerHTML = `Нажмите ${KE()}: Купить Строитель [${BLD_PRICE} очков] — починка −75%, окна сразу, постройки видны сквозь стены` + (can ? '' : ' <span class="no">— не хватает очков</span>');
+    }
+    repT = 0; buyT = 0; return;
+  }
   if (!dead && vkInteract(holdE)) { repT = 0; buyT = 0; return; }
   if (PF > 3.5 && Math.hypot(pos.x - JUGG.x, pos.z - JUGG.z) < 2.1) {
     if (juggernog) promptEl.innerHTML = '<span class="ok">Джагер Фанта — куплено</span>';
@@ -4387,27 +4527,27 @@ function updateInteract(dt) {
   const nw = VK_WINS.length ? nearWin() : null;
   if (nw && !(BARS.length && nearBar())) {
     const broken = nw.hp <= 0, cd = !broken ? Math.ceil((nw.repairAt - performance.now()) / 1000) : 0;
-    if (cd > 0) { promptEl.innerHTML = `Окно (${Math.round(nw.hp / VKW_HP * 100)}%): починка через <span class="no">${cd} с</span>`; repT = 0; buyT = 0; return; }
+    if (cd > 0 && !builder) { promptEl.innerHTML = `Окно (${Math.round(nw.hp / VKW_HP * 100)}%): починка через <span class="no">${cd} с</span>`; repT = 0; buyT = 0; return; }
     if (nw.hp >= VKW_HP) { promptEl.innerHTML = '<span class="ok">Окно заварено</span>'; repT = 0; buyT = 0; return; }
-    const can = points >= VKW_PRICE;
+    const wp = bldCost(VKW_PRICE), can = points >= wp;   // «Строитель»: -75%, чинит сразу (без удержания) и без ожидания
     if (holdE && can && !buyLock) {
       buyT += dt;
-      if (buyT >= BUY_TIME) { buyT = 0; if (!requestMPBuy('vwindow', nw.idx)) { buyLock = true; spend(VKW_PRICE); nw.repairAt = performance.now() + VKW_CD; setWinHp(nw, VKW_HP); sfx('buy'); } }
+      if (buyT >= (builder ? 0 : BUY_TIME)) { buyT = 0; if (!requestMPBuy('vwindow', nw.idx)) { buyLock = true; spend(wp); nw.repairAt = builder ? 0 : performance.now() + VKW_CD; setWinHp(nw, VKW_HP); sfx('buy'); } }
     } else buyT = 0;
-    promptEl.innerHTML = `Зажмите ${KE()} — ${broken ? 'заварить окно' : 'укрепить окно (' + Math.round(nw.hp / VKW_HP * 100) + '%)'} за ${VKW_PRICE} очков` + (can ? '' : ' <span class="no">— не хватает очков</span>') + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
+    promptEl.innerHTML = `Зажмите ${KE()} — ${broken ? 'заварить окно' : 'укрепить окно (' + Math.round(nw.hp / VKW_HP * 100) + '%)'} за ${wp} очков${builder ? ' (−75%)' : ''}` + (can ? '' : ' <span class="no">— не хватает очков</span>') + (buyT > 0 && !builder ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
     repT = 0; return;
   }
   const nb = BARS.length ? nearBar() : null;
   if (nb) {
     if (nb.hp >= BAR_MAX) { promptEl.innerHTML = '<span class="ok">Баррикада цела</span>'; repT = 0; buyT = 0; return; }
-    const bp = nb.hp <= 0 ? BAR_BUILD : BAR_REPAIR, cd = nb.hp > 0 ? Math.ceil((nb.repairAt - performance.now()) / 1000) : 0;
+    const bp = bldCost(nb.hp <= 0 ? BAR_BUILD : BAR_REPAIR), cd = nb.hp > 0 ? Math.ceil((nb.repairAt - performance.now()) / 1000) : 0;
     if (cd > 0) { promptEl.innerHTML = `Баррикада: починка доступна через <span class="no">${cd} с</span>`; repT = 0; buyT = 0; return; }
     const can = points >= bp;
     if (holdE && can && !buyLock) {
       buyT += dt;
       if (buyT >= BUY_TIME) { buyT = 0; if (!requestMPBuy('barricade', nb.door)) { buyLock = true; spend(bp); if (nb.hp > 0) nb.repairAt = performance.now() + BAR_CD; setBarHp(nb, BAR_MAX); barBuiltLocal(nb); sfx('buy'); pop('БАРРИКАДА ПОСТРОЕНА', 'head'); } }
     } else buyT = 0;
-    promptEl.innerHTML = `Зажмите ${KE()} — ${nb.hp <= 0 ? 'построить баррикаду' : 'починить баррикаду (' + Math.round(nb.hp / BAR_MAX * 100) + '%)'} за ${bp} очков` + (can ? '' : ' <span class="no">— не хватает очков</span>') + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
+    promptEl.innerHTML = `Зажмите ${KE()} — ${nb.hp <= 0 ? 'построить баррикаду' : 'починить баррикаду (' + Math.round(nb.hp / BAR_MAX * 100) + '%)'} за ${bp} очков${builder ? ' (−75%)' : ''}` + (can ? '' : ' <span class="no">— не хватает очков</span>') + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
     repT = 0; return;
   }
   const dr = nearDoor();
