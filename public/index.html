@@ -143,8 +143,8 @@ body.menu #cross,body.menu #knife,body.menu #nade,body.menu #ammo,body.menu #rou
 .mb.big{font-size:26px;padding:19px 22px;background:rgba(120,12,12,.85);border-color:#a22;border-left-color:#f33;color:#fff;box-shadow:0 0 22px rgba(190,20,20,.35)}
 .mb.big:hover{background:rgba(170,18,18,.92)}
 .mb.back{margin-top:18px;font-size:16px;padding:12px 20px}
-#menu .panel,#menu[data-view=set] #mainBtns,#menu[data-view=help] #mainBtns,#menu:not([data-view=main]) #infoMsg{display:none}
-#menu[data-view=set] #pSet,#menu[data-view=help] #pHelp{display:block}
+#menu .panel,#menu[data-view=log] #mainBtns,#menu[data-view=set] #mainBtns,#menu[data-view=help] #mainBtns,#menu:not([data-view=main]) #infoMsg{display:none}
+#menu[data-view=set] #pSet,#menu[data-view=help] #pHelp,#menu[data-view=log] #pLog{display:block}
 #menu h2{margin:0 0 16px;font:700 18px "Courier New",monospace;letter-spacing:.3em;color:#c33}
 #menu .row{display:flex;align-items:center;gap:14px;margin:0 0 14px;font:14px "Courier New",monospace;letter-spacing:.06em;color:#bbb;flex-wrap:wrap}
 #menu .row>span{flex:0 0 150px}
@@ -243,6 +243,15 @@ body.touch #menuFoot{display:none}
 @media (max-height:480px){.hbody{max-height:calc(100vh - 150px)}.mimg{display:none}#menuFoot{display:none}}
 
 /* ===== меню v2: стеклянная панель, градиентный логотип, скошенные кнопки, угольки ===== */
+#logList{max-height:min(38vh,340px);overflow-y:auto;margin:0 0 14px;padding-right:8px;scrollbar-width:thin;scrollbar-color:#7a1414 transparent}
+#logList .lv{margin:0 0 18px;padding:0 0 14px 14px;border-left:2px solid #5c1414}
+#logList .lv:first-child{border-left-color:#d11c1c}
+#logList .lh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 8px;font:700 15px "Courier New",monospace;letter-spacing:.08em;color:#fff}
+#logList .lh i{font-style:normal;font-weight:400;font-size:12px;color:#8d867d}
+#logList .lh em{font-style:normal;font-size:11px;padding:2px 7px;background:#a01414;color:#fff;letter-spacing:.12em}
+#logList .lt{font:11px "Courier New",monospace;letter-spacing:.14em;color:#d96a4a;margin:10px 0 4px}
+#logList ul{margin:0;padding-left:18px;font:13px/1.5 "Courier New",monospace;color:#bdb6ad}
+#logList li{margin:0 0 3px}
 #embers{display:none;position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
 body.menu #embers{display:block}
 #menu{position:relative;z-index:1}
@@ -291,7 +300,7 @@ body.menu #embers{display:block}
 <h1 class="logo"><small>ЗОМБИ · ВЫЖИВАНИЕ</small>NACHT<br>DER SENSE</h1>
 <p id="infoMsg">Продержись как можно дольше</p>
 <div id="mapBadge">КАРТА: <b id="mapBadgeName"></b></div>
-<div id="mainBtns"><button class="mb big" id="bPlay">▶ ИГРАТЬ</button><button class="mb" id="bSet">⚙ НАСТРОЙКА</button><button class="mb" id="bHelp">? ПОМОЩЬ</button><button class="mb" id="bExit">✕ ВЫЙТИ В МЕНЮ</button></div>
+<div id="mainBtns"><button class="mb big" id="bPlay">▶ ИГРАТЬ</button><button class="mb" id="bSet">⚙ НАСТРОЙКА</button><button class="mb" id="bHelp">? ПОМОЩЬ</button><button class="mb" id="bLog">★ ЧТО НОВОГО</button><button class="mb" id="bExit">✕ ВЫЙТИ В МЕНЮ</button></div>
 <div id="menuFoot"><span><span class="kb">E</span>купить / открыть</span><span><span class="kb">R</span>перезарядка</span><span><span class="kb">V</span>нож</span><span><span class="kb">G</span>граната</span><span><span class="kb">Esc</span>пауза</span><span class="ft">Слабый ПК? Уменьшите яркость и контраст в настройках.</span></div>
 <div class="panel" id="pSet"><h2>НАСТРОЙКА</h2>
 <div class="sec">УПРАВЛЕНИЕ</div>
@@ -300,10 +309,14 @@ body.menu #embers{display:block}
 <div class="sec">ЗВУК</div>
 <label class="row"><span>Громкость</span><input type="range" id="vol" min="0" max="100" value="100"><b id="volV"></b></label>
 <div class="row"><span>Эмбиент карты</span><button id="ambBtn" type="button"></button></div>
+<label class="row"><span>Громкость эмбиента</span><input type="range" id="ambVol" min="0" max="100" value="25"><b id="ambVolV"></b></label>
 <div class="sec">ИЗОБРАЖЕНИЕ</div>
 <label class="row"><span>Яркость</span><input type="range" id="bri" min="50" max="170" value="100"><b id="briV"></b></label>
 <label class="row"><span>Контраст</span><input type="range" id="con" min="50" max="150" value="100"><b id="conV"></b></label>
 <button class="mb" id="gfxReset">СБРОС ЯРКОСТИ / КОНТРАСТА</button>
+<button class="mb back" data-back>← НАЗАД</button></div>
+<div class="panel" id="pLog"><h2>ЧТО НОВОГО<span id="logVer"></span></h2>
+<div id="logList"></div>
 <button class="mb back" data-back>← НАЗАД</button></div>
 <div class="panel" id="pMode"><h2>РЕЖИМ ИГРЫ</h2>
 <button class="mb big" id="bSolo">ОДИНОЧНАЯ ИГРА</button>
@@ -413,28 +426,61 @@ body.menu #embers{display:block}
 })();
 </script>
 <script>
-// ---------- угольки на фоне главного меню (рисуются только пока открыто меню) ----------
+// ---------- частицы на фоне главного меню: спрайты (готовятся один раз, рисуются drawImage) ----------
+// Палитра под кровавую луну: тёмно-багровые угли, янтарные искры, холодный пепел и редкие болотно-зелёные огоньки.
 (function () {
   const cv = document.getElementById('embers'); if (!cv) return;
-  const g = cv.getContext('2d'); let W = 0, H = 0, P = [];
+  const g = cv.getContext('2d'); let W = 0, H = 0;
   const rs = () => { W = cv.width = innerWidth; H = cv.height = innerHeight; };
   rs(); addEventListener('resize', rs);
-  const mkP = (init) => ({ x: Math.random() * W, y: init ? Math.random() * H : H + 10, r: 0.8 + Math.random() * 2.2, vy: 18 + Math.random() * 40, ph: Math.random() * 6.28, sw: 10 + Math.random() * 26, a: 0.35 + Math.random() * 0.6 });
-  for (let i = 0; i < 48; i++) P.push(mkP(true));
+  const SZ = 64, C = SZ / 2;
+  const sprite = (draw) => { const c = document.createElement('canvas'); c.width = c.height = SZ; draw(c.getContext('2d')); return c; };
+  const glow = (x, rgb, a0 = 1) => { const gr = x.createRadialGradient(C, C, 0, C, C, C); gr.addColorStop(0, `rgba(${rgb},${a0})`); gr.addColorStop(0.25, `rgba(${rgb},${a0 * 0.55})`); gr.addColorStop(1, `rgba(${rgb},0)`); x.fillStyle = gr; x.fillRect(0, 0, SZ, SZ); };
+  // уголёк: мягкое свечение + яркое ядро + четырёхлучевая искра
+  const mkEmber = (halo, core) => sprite(x => {
+    glow(x, halo, 0.9);
+    x.globalCompositeOperation = 'lighter';
+    for (const [w, h] of [[2.2, 30], [30, 2.2]]) { x.save(); x.translate(C, C); const L = Math.max(w, h) / 2, T = Math.min(w, h) / 2; const lg = x.createLinearGradient(-L, 0, L, 0); lg.addColorStop(0, `rgba(${core},0)`); lg.addColorStop(0.5, `rgba(${core},0.85)`); lg.addColorStop(1, `rgba(${core},0)`); x.fillStyle = lg; if (w > h) x.fillRect(-L, -T, L * 2, T * 2); else { x.rotate(Math.PI / 2); x.fillRect(-L, -T, L * 2, T * 2); } x.restore(); }
+    const cg = x.createRadialGradient(C, C, 0, C, C, 7); cg.addColorStop(0, `rgba(${core},1)`); cg.addColorStop(1, `rgba(${core},0)`); x.fillStyle = cg; x.beginPath(); x.arc(C, C, 7, 0, 6.283); x.fill();
+  });
+  // хлопья пепла: неровный многоугольник с мягкими краями
+  const mkAsh = (rgb) => sprite(x => {
+    x.translate(C, C); x.filter = 'blur(1.4px)';
+    x.beginPath(); const n = 7; for (let i = 0; i < n; i++) { const an = i / n * 6.283, r = 10 + ((i * 37) % 9); x[i ? 'lineTo' : 'moveTo'](Math.cos(an) * r * 1.25, Math.sin(an) * r * 0.7); } x.closePath();
+    const gr = x.createLinearGradient(-14, -8, 14, 8); gr.addColorStop(0, `rgba(${rgb},0.95)`); gr.addColorStop(1, `rgba(${rgb},0.35)`); x.fillStyle = gr; x.fill();
+  });
+  const mkDot = (rgb) => sprite(x => glow(x, rgb, 0.95));   // боке / болотный огонёк
+  const SP = {
+    emberHot: mkEmber('255,150,40', '255,235,190'), emberCool: mkEmber('190,25,25', '255,120,90'),
+    ashA: mkAsh('176,172,164'), ashB: mkAsh('120,112,108'), wisp: mkDot('150,240,120'), bokeh: mkDot('170,40,34'),
+  };
+  const mk = (init) => {
+    const r = Math.random(), z = Math.random();   // z — глубина: дальние мельче, медленнее и тусклее
+    const kind = r < 0.5 ? 'ember' : r < 0.84 ? 'ash' : r < 0.94 ? 'bokeh' : 'wisp';
+    return { kind, z, x: Math.random() * W, y: init ? Math.random() * H : H + 30, size: (kind === 'bokeh' ? 70 + Math.random() * 90 : kind === 'ash' ? 16 + Math.random() * 20 : kind === 'wisp' ? 22 + Math.random() * 18 : 24 + Math.random() * 40) * (0.6 + 0.7 * z),
+      vy: (kind === 'ash' ? 10 + Math.random() * 18 : kind === 'bokeh' ? 6 + Math.random() * 10 : 20 + Math.random() * 40) * (0.5 + 0.8 * z), ph: Math.random() * 6.283, sw: 8 + Math.random() * 28, rot: Math.random() * 6.283, vr: (Math.random() - 0.5) * 2.2, a: 0.4 + Math.random() * 0.6, fl: 3 + Math.random() * 6, ash: Math.random() < 0.5 ? 'ashA' : 'ashB' };
+  };
+  const P = []; for (let i = 0; i < 70; i++) P.push(mk(true)); P.sort((a, b) => a.z - b.z);
   let last = performance.now();
   (function loop(t) {
     requestAnimationFrame(loop);
     const dt = Math.min(0.05, (t - last) / 1000); last = t;
     if (!document.body.classList.contains('menu') || document.hidden) return;
-    g.clearRect(0, 0, W, H); g.globalCompositeOperation = 'lighter';
+    g.clearRect(0, 0, W, H);
     for (const p of P) {
-      p.y -= p.vy * dt; p.ph += dt * 1.4; p.x += Math.sin(p.ph) * p.sw * dt;
-      if (p.y < -10) Object.assign(p, mkP(false));
-      const k = Math.max(0, Math.min(1, p.y / H)), a = p.a * (0.25 + 0.75 * k);
-      const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 5);
-      gr.addColorStop(0, `rgba(255,${150 + (k * 90) | 0},60,${a})`); gr.addColorStop(1, 'rgba(255,60,10,0)');
-      g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, p.r * 5, 0, 6.283); g.fill();
+      p.y -= p.vy * dt; p.ph += dt * (p.kind === 'ash' ? 1.0 : 1.5); p.x += Math.sin(p.ph) * p.sw * dt; p.rot += p.vr * dt;
+      if (p.y < -p.size) Object.assign(p, mk(false), { z: p.z });
+      const k = Math.max(0, Math.min(1, p.y / H)), fade = 0.3 + 0.7 * k, depth = 0.5 + 0.5 * p.z;
+      const flick = 0.75 + 0.25 * Math.sin(t / 1000 * p.fl + p.ph);
+      g.save(); g.translate(p.x, p.y); g.rotate(p.kind === 'ash' ? p.rot : p.kind === 'ember' ? p.rot * 0.15 : 0);
+      const s2 = p.size, d = (im, al, comp) => { g.globalCompositeOperation = comp || 'lighter'; g.globalAlpha = Math.max(0, Math.min(1, al)); g.drawImage(im, -s2 / 2, -s2 / 2, s2, s2); };
+      if (p.kind === 'ember') { d(SP.emberCool, p.a * fade * depth * flick); d(SP.emberHot, p.a * Math.pow(k, 1.6) * depth * flick); }   // остывает по мере подъёма: янтарь → багровый
+      else if (p.kind === 'ash') d(SP[p.ash], p.a * 0.9 * fade * depth, 'source-over');
+      else if (p.kind === 'bokeh') d(SP.bokeh, p.a * 0.4 * fade * flick);
+      else d(SP.wisp, p.a * 0.95 * flick * (0.5 + 0.5 * k));
+      g.restore();
     }
+    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   })(performance.now());
 })();
 
@@ -1972,6 +2018,27 @@ document.getElementById('bExit').addEventListener('click', () => requestExit(exi
 document.getElementById('bSet').addEventListener('click', () => view('set'));
 document.getElementById('bHelp').addEventListener('click', () => { showHelp(selDev); view('help'); });
 menuEl.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => view('main')));
+// ---------- журнал изменений: новые записи добавляются В НАЧАЛО массива ----------
+const CHANGELOG = [
+  { v: '1.4', d: '12 ноября 2026', groups: [
+    ['Меню', ['Частицы на фоне меню теперь спрайты: угольки с лучами, хлопья пепла, боке и редкие болотные огоньки', 'Новая палитра под кровавую луну: янтарь остывает в багровый по мере подъёма, холодный пепел, глубина (дальние частицы мельче и тусклее)', 'Добавлен этот журнал изменений («Что нового»)']] ] },
+  { v: '1.3', d: '12 ноября 2026', groups: [
+    ['Звук', ['Эмбиент стал заметно тише по умолчанию (25 %)', 'В настройках появился ползунок «Громкость эмбиента» — меняется на лету и запоминается']] ] },
+  { v: '1.2', d: '12 ноября 2026', groups: [
+    ['Онлайн — исправления', ['Повалённый союзник теперь лежит на полу (красное мигающее кольцо), зомби его не трогают, его можно поднять, зажав E на 3 секунды', 'Если повалены все игроки — игра заканчивается', 'Граната: остальные игроки видят летящую гранату, слышат чеку и настоящий звук взрыва, видят огонь и дым в месте взрыва', 'Нож: у других игроков слышны взмах и попадание по зомби (раньше играл звук Ray Gun), на модели союзника виден взмах ножом', 'Выпадение и подбор бонусов Max Ammo / Double Points работают в онлайне'],
+      ], ['Геймплей', ['Нож бьёт лезвием: клинок повёрнут, и вперёд идёт режущая кромка, а не плоская сторона']] ] },
+  { v: '1.1', d: '12 ноября 2026', groups: [
+    ['Nacht der Untoten', ['Новый эмбиент карты: два наложенных слоя, заметно громче и насыщеннее', 'Полностью переделан задний фон: грозовая ночь, кровавая луна, плывущие тучи, разрушенный городок с церковью, колючая проволока по периметру, мёртвые деревья, холодный туман и пожары на крышах']] ] },
+];
+(function () {
+  const list = document.getElementById('logList'), ver = document.getElementById('logVer'); if (!list) return;
+  const esc = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  ver.textContent = 'v' + CHANGELOG[0].v;
+  list.innerHTML = CHANGELOG.map((e, i) => `<div class="lv"><div class="lh">ВЕРСИЯ ${e.v}<i>${e.d}</i>${i === 0 ? '<em>НОВОЕ</em>' : ''}</div>` +
+    e.groups.map(gr => `<div class="lt">${esc(gr[0]).toUpperCase()}</div><ul>${gr[1].map(x => `<li>${esc(x)}</li>`).join('')}</ul>`).join('') + '</div>').join('');
+  document.getElementById('bLog').addEventListener('click', () => { list.scrollTop = 0; view('log'); });
+})();
+
 const briEl = document.getElementById('bri'), conEl = document.getElementById('con'), briV = document.getElementById('briV'), conV = document.getElementById('conV');
 function applyGfx(save) {
   const b = briEl.value / 100, c = conEl.value / 100;
@@ -2005,6 +2072,16 @@ const ambBtn = document.getElementById('ambBtn');
 const renderAmb = () => { ambBtn.textContent = ambOn ? 'ВКЛ' : 'ВЫКЛ'; ambBtn.classList.toggle('on', ambOn); };
 ambBtn.addEventListener('click', () => { ambOn = !ambOn; try { localStorage.setItem('nb-amb', ambOn ? '1' : '0'); } catch (err) {} renderAmb(); });
 renderAmb();
+// громкость эмбиента (отдельно от общей): 0–100 %, по умолчанию 25 %, запоминается; меняется на лету, пока играет
+let ambVolPct = 25; try { const q = parseFloat(localStorage.getItem('nb-ambvol')); if (q >= 0 && q <= 100) ambVolPct = q; } catch (err) {}
+const ambVolEl = document.getElementById('ambVol'), ambVolV = document.getElementById('ambVolV');
+const ambMul = () => (ambVolPct / 100) * (MAP_ID === 'verruckt' ? 4 : 1);   // Verrückt: файл тише, поэтому шкала шире (25 % = прежний уровень)
+ambVolEl.value = ambVolPct; ambVolV.textContent = ambVolPct + '%';
+ambVolEl.addEventListener('input', () => {
+  ambVolPct = +ambVolEl.value; ambVolV.textContent = ambVolPct + '%';
+  try { localStorage.setItem('nb-ambvol', ambVolPct); } catch (err) {}
+  if (typeof AC !== 'undefined' && AC) for (const g of [ambGain, ambGain2]) if (g) { g.gain.cancelScheduledValues(AC.currentTime); g.gain.setTargetAtTime(AMB_VOL * ambMul(), AC.currentTime, 0.05); }
+});
 controls.pointerSpeed = TC.sens; sensV.textContent = sensEl.value + '%';
 sensEl.addEventListener('input', () => { controls.pointerSpeed = TC.sens; sensV.textContent = sensEl.value + '%'; });
 controls.addEventListener('lock', () => document.body.classList.add('playing'));
@@ -3150,8 +3227,9 @@ const knifeG = new THREE.Group(); knifeG.visible = false; knifeG.rotation.order 
 {
   const mBlade = new THREE.MeshStandardMaterial({ color: 0xc8ccd2, metalness: 0.9, roughness: 0.2 });
   const kb = (w, h, d, x, y, z, m, rx = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.rotation.x = rx; knifeG.add(o); return o; };
-  kb(0.01, 0.045, 0.22, 0, 0, -0.16, mBlade); kb(0.01, 0.032, 0.032, 0, 0, -0.285, mBlade, Math.PI / 4);
-  kb(0.02, 0.07, 0.012, 0, 0, -0.04, mDark); kb(0.024, 0.032, 0.11, 0, 0, 0.02, mGrip);
+  // лезвие: тонкое по Y, широкое по X → при горизонтальном взмахе вперёд идёт режущая кромка, а не плоская «щека»
+  kb(0.045, 0.01, 0.22, 0, 0, -0.16, mBlade); kb(0.032, 0.032, 0.032, 0, 0, -0.285, mBlade, Math.PI / 4);
+  kb(0.07, 0.02, 0.012, 0, 0, -0.04, mDark); kb(0.032, 0.024, 0.11, 0, 0, 0.02, mGrip);
   const pm = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), mSteel); pm.position.z = 0.08; knifeG.add(pm);
 }
 const knifeEl = document.getElementById('knife');
@@ -3181,7 +3259,7 @@ function updateKnife(dt) {
     const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2, sn_ = Math.sin(Math.PI * p);
     knifeG.visible = true; gun.visible = false;
     knifeG.position.set(0.34 - 0.62 * e, -0.26 + 0.08 * sn_, -0.42 - 0.12 * sn_);
-    knifeG.rotation.set(-0.3, 0.9 - 1.9 * e, -0.5 + 0.4 * e);
+    knifeG.rotation.set(-0.12, 0.9 - 1.9 * e, -0.12 + 0.12 * e);
     if (p >= 1) { knifeT = 0; knifeG.visible = false; gun.visible = true; }
   }
   const txt = knifeCd > 0 ? 'cd|' + knifeCd.toFixed(1) : 'ok';
@@ -3195,7 +3273,7 @@ function updateKnife(dt) {
 // ---------- ОСКОЛОЧНЫЕ ГРАНАТЫ: G, по 2 штуки выдаётся в начале каждого раунда ----------
 // Взрыв через 2,3 с, радиус 6,5 м, урон 800 в центре (спадает до 35% на краю), стены закрывают от осколков. В онлайне урон считает сервер (оружие -2).
 const NADE_PER_ROUND = 2, NADE_FUSE = 2.3, NADE_R = 6.5, NADE_DMG = 800, NADE_CD = 0.8;
-let nades = NADE_PER_ROUND, nadeCd = 0, nadeTxt = '';
+let nades = NADE_PER_ROUND, nadeCd = 0, nadeTxt = '', nadeSeq = 0;
 const nadeList = [], boomFx = [];
 const nadeEl = document.getElementById('nade');
 const nadeMatBody = new THREE.MeshStandardMaterial({ color: 0x3c4a28, roughness: 0.55, metalness: 0.35 }), nadeMatTop = new THREE.MeshStandardMaterial({ color: 0x8a8a84, roughness: 0.4, metalness: 0.8 });
@@ -3216,14 +3294,15 @@ function throwGrenade() {
   const p0 = pos.clone().addScaledVector(_d, 0.5); p0.y -= 0.12;
   if (nadeBlocked(p0.x, p0.y, p0.z)) p0.copy(pos);
   m.position.copy(p0); scene.add(m);
-  nadeList.push({ m, p: p0, v: new THREE.Vector3(_d.x * 14, _d.y * 14 + 2.8, _d.z * 14), t: 0, spin: new THREE.Vector3(RR(-9, 9), RR(-9, 9), RR(-9, 9)) });
+  const nv = new THREE.Vector3(_d.x * 14, _d.y * 14 + 2.8, _d.z * 14), nid = (window.MP && MP.active ? MP.selfId : 'sp') + ':n' + (++nadeSeq);
+  nadeList.push({ m, p: p0, v: nv, t: 0, nid, spin: new THREE.Vector3(RR(-9, 9), RR(-9, 9), RR(-9, 9)) });
+  if (window.MP && MP.active && MP.throwGrenade) MP.throwGrenade({ nid, x: p0.x, y: p0.y, z: p0.z, vx: nv.x, vy: nv.y, vz: nv.z });   // онлайн: остальные видят летящую гранату
   sfx('npin'); CF.kickV -= 0.7;   // выдёргиваем чеку
 }
 function explodeGrenade(n) {
   const c = n.p;
   scene.remove(n.m);
-  const shotId = window.MP && MP.active ? MP.registerShot(-2) : null;
-  let kills = 0;
+  const shotId = window.MP && MP.active ? MP.registerShot(-2, { x: c.x, y: c.y, z: c.z, nid: n.nid }) : null;
   for (const z of zombies) {
     if (z.state === 'dying' || z.menu) continue;
     const zp = z.g.position, dx = zp.x - c.x, dy = zp.y + 0.9 - c.y, dz = zp.z - c.z, d = Math.hypot(dx, dy, dz);
@@ -3235,15 +3314,34 @@ function explodeGrenade(n) {
     hitZombie(z, false, NADE_DMG * scale / (doubleTap ? 2 : 1), { stagger: 0.9, shotId, scale, grenade: true });
     bloodHit(new THREE.Vector3(zp.x, zp.y + 1.1, zp.z), new THREE.Vector3(dx, 0.3, dz).normalize(), false, false);
   }
-  // эффекты: вспышка, огненный шар, дым, искры
+  grenadeFx(c);
+}
+// вспышка, огненный шар, дым, искры, звук взрыва и тряска камеры — общие для своей и чужой гранаты (в онлайне видят и слышат все)
+function grenadeFx(c) {
   const mk = (map, add, sz, op, y = 0) => { const sp = spr2(map, add); sp.position.set(c.x, c.y + y, c.z); sp.scale.setScalar(sz); sp.material.opacity = op; scene.add(sp); return sp; };
   boomFx.push({ s: mk(GL, true, 2, 1, 0.4), t: 0, life: 0.5, s0: 2, s1: 11, o: 1, kind: 'fire' });
   boomFx.push({ s: mk(GL, true, 1, 1, 0.3), t: 0, life: 0.18, s0: 1, s1: 16, o: 1, kind: 'fire' });
   for (let i = 0; i < 5; i++) boomFx.push({ s: mk(SMK, false, 2, 0.7, RR(0.3, 1.2)), t: 0, life: RR(1.6, 2.6), s0: 2, s1: RR(7, 11), o: 0.7, kind: 'smoke', vx: RR(-1.2, 1.2), vy: RR(0.8, 2), vz: RR(-1.2, 1.2) });
   for (let i = 0; i < 14; i++) boomFx.push({ s: mk(GL, true, RR(0.25, 0.5), 1, 0.2), t: 0, life: RR(0.5, 0.9), s0: 0.4, s1: 0.1, o: 1, kind: 'spark', vx: RR(-9, 9), vy: RR(2, 9), vz: RR(-9, 9) });
-  if (!playSfxAt('nboom', c.x, c.z, 70, 1, 0, 1)) sfx('boom');   // записанный взрыв; пока не загрузился — прежний синтезированный
+  if (!playSfxAt('nboom', c.x, c.z, 70, 1, 0, 1)) { if (Math.hypot(PX - c.x, PZ - c.z) < 70) sfx('boom'); }   // записанный взрыв; пока не загрузился — прежний синтезированный
   const pd = Math.hypot(pos.x - c.x, pos.y - c.y, pos.z - c.z);
   CF.kickV -= Math.max(0, 4.5 - pd * 0.4); CF.hrV += (Math.random() - 0.5) * Math.max(0, 5 - pd * 0.5);
+}
+// чужая граната (онлайн): летит по той же физике, но урона не наносит — взрыв приходит событием сервера в точке настоящего взрыва
+function spawnRemoteGrenade(d) {
+  if (!d || ![d.x, d.y, d.z, d.vx, d.vy, d.vz].every(Number.isFinite)) return;
+  const m = new THREE.Group();
+  m.add(new THREE.Mesh(nadeGeoBody, nadeMatBody)); m.children[0].scale.y = 1.25;
+  const top = new THREE.Mesh(nadeGeoTop, nadeMatTop); top.position.y = 0.085; m.add(top);
+  const lv = new THREE.Mesh(nadeGeoLever, nadeMatTop); lv.position.set(0.025, 0.07, 0); m.add(lv);
+  const p0 = new THREE.Vector3(d.x, d.y, d.z); m.position.copy(p0); scene.add(m);
+  nadeList.push({ m, p: p0, v: new THREE.Vector3(d.vx, d.vy, d.vz), t: 0, nid: d.nid, remote: true, spin: new THREE.Vector3(RR(-9, 9), RR(-9, 9), RR(-9, 9)) });
+  playSfxAt('npin', d.x, d.z, 40, 0.9, 0, 1);   // чека чужой гранаты слышна рядом
+}
+function remoteGrenadeBoom(nid, x, y, z) {
+  const i = nid ? nadeList.findIndex(n => n.remote && n.nid === nid) : -1;
+  if (i >= 0) { scene.remove(nadeList[i].m); nadeList.splice(i, 1); }
+  grenadeFx({ x, y, z });
 }
 function updateGrenades(dt) {
   if (nadeCd > 0) nadeCd = Math.max(0, nadeCd - dt);
@@ -3264,6 +3362,10 @@ function updateGrenades(dt) {
     n.m.position.copy(n.p);
     const sp = Math.min(1, Math.hypot(n.v.x, n.v.z) / 4);
     n.m.rotation.x += n.spin.x * dt * sp; n.m.rotation.y += n.spin.y * dt * sp; n.m.rotation.z += n.spin.z * dt * sp;
+    if (n.remote) {   // чужая: ждём событие взрыва от сервера; если оно потерялось — взрываем сами с задержкой
+      if (n.t >= NADE_FUSE + 1.5 || n.p.y < -20) { nadeList.splice(i, 1); scene.remove(n.m); grenadeFx(n.p); }
+      continue;
+    }
     if (n.t >= NADE_FUSE || n.p.y < -20) { nadeList.splice(i, 1); explodeGrenade(n); }
   }
   for (let i = boomFx.length - 1; i >= 0; i--) {
@@ -3457,11 +3559,11 @@ function updateAmbient() {
     const buf = sfxBufs.amb; if (!buf) return;
     const t0 = AC.currentTime;
     ambSrc = AC.createBufferSource(); ambSrc.buffer = buf; ambSrc.loop = true;
-    ambGain = AC.createGain(); ambGain.gain.setValueAtTime(0.0001, t0); ambGain.gain.linearRampToValueAtTime(AMB_VOL, t0 + 3);
+    ambGain = AC.createGain(); ambGain.gain.setValueAtTime(0.0001, t0); ambGain.gain.linearRampToValueAtTime(Math.max(0.0001, AMB_VOL * ambMul()), t0 + 3);
     ambSrc.connect(ambGain); ambGain.connect(MASTER); ambSrc.start();
     if (MAP_ID === 'nacht') {   // дубль: тот же эмбиент, сдвинут на половину длины и чуть ниже по тону — слои не склеиваются в один
       ambSrc2 = AC.createBufferSource(); ambSrc2.buffer = buf; ambSrc2.loop = true; ambSrc2.playbackRate.value = 0.97;
-      ambGain2 = AC.createGain(); ambGain2.gain.setValueAtTime(0.0001, t0); ambGain2.gain.linearRampToValueAtTime(AMB_VOL, t0 + 3);
+      ambGain2 = AC.createGain(); ambGain2.gain.setValueAtTime(0.0001, t0); ambGain2.gain.linearRampToValueAtTime(Math.max(0.0001, AMB_VOL * ambMul()), t0 + 3);
       ambSrc2.connect(ambGain2); ambGain2.connect(MASTER); ambSrc2.start(0, buf.duration / 2);
     }
   } else if (!want && ambSrc) {

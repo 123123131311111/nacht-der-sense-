@@ -129,8 +129,20 @@
     });
     socket.on('playerShot', shot => {
       if (!shot || shot.id === selfId) return;
-      if (shot.weapon === -2) { if (typeof playSfxAt === 'function' && Number.isFinite(shot.x) && Number.isFinite(shot.z)) playSfxAt('nboom', shot.x, shot.z, 70, 1, 0, 1); }   // взрыв чужой гранаты
-      else if (typeof shotSnd === 'function') shotSnd(shot.weapon);
+      const hasPos = Number.isFinite(shot.x) && Number.isFinite(shot.z);
+      if (shot.weapon === -2) {   // взрыв чужой гранаты: огонь, дым и записанный взрыв в точке настоящего взрыва
+        if (hasPos && typeof remoteGrenadeBoom === 'function') remoteGrenadeBoom(shot.nid, shot.x, Number.isFinite(shot.y) ? shot.y : 0, shot.z);
+        return;
+      }
+      if (shot.weapon === -1) {   // нож: слышен взмах (позиционно) и на аватаре видна атака ножом
+        if (hasPos && typeof playSfxAt === 'function' && typeof sfxBufs !== 'undefined') {
+          const ok = []; for (let i = 1; i <= 5; i++) if (sfxBufs['ks' + i]) ok.push(i);
+          if (ok.length) playSfxAt('ks' + ok[Math.floor(Math.random() * ok.length)], shot.x, shot.z, 30, 0.9, 0, 0.96 + Math.random() * 0.08);
+        }
+        const r = remote[shot.id]; if (r) r.knifeT = 0.0001;
+        return;
+      }
+      if (typeof shotSnd === 'function') shotSnd(shot.weapon);
       const player = remote[shot.id];
       if (player && player.muzzleLight) {
         player.muzzleLight.color.setHex(shot.weapon === 5 ? 0x45ff64 : 0xffa030);
@@ -138,6 +150,20 @@
         setTimeout(() => { if (player.muzzleLight) player.muzzleLight.intensity = 0; }, 90);
       }
       showShotTrace(shot);
+    });
+    socket.on('grenadeThrown', d => { if (d && d.id !== selfId && typeof spawnRemoteGrenade === 'function') spawnRemoteGrenade(d); });
+    // повален / поднят / вся команда повалена
+    socket.on('playerDowned', ({ id } = {}) => setDowned(id, true));
+    socket.on('playerRevived', ({ id } = {}) => {
+      setDowned(id, false);
+      if (id === selfId && typeof reviveSelf === 'function') reviveSelf();
+    });
+    socket.on('teamWipe', () => { if (typeof finalDeath === 'function') finalDeath(); });
+    // бонусы (Max Ammo / Double Points): подбор приходит событием сервера
+    socket.on('dropPicked', d => {
+      if (!d || typeof removeDropById !== 'function') return;
+      removeDropById(d.id);
+      if (typeof collectMaxAmmo === 'function' && !dead) collectMaxAmmo();
     });
     socket.on('playerMoved', d => {
       if (gameState && gameState.players) {
@@ -148,6 +174,12 @@
       if (!r.active) { r.active = true; r.group.position.set(d.x, d.y - EYE_HEIGHT, d.z); }   // первое появление — без «пролёта»
       r.target = { x: d.x, y: d.y, z: d.z, yaw: d.yaw, pitch: Number.isFinite(d.pitch) ? d.pitch : 0 };
     });
+  }
+
+  function setDowned(id, val) {
+    if (typeof id !== 'string') return;
+    if (gameState && Array.isArray(gameState.players)) { const p = gameState.players.find(q => q.id === id); if (p) p.downed = !!val; }
+    const r = remote[id]; if (r) r.downed = !!val;
   }
 
   function receiveGameState(state) {
@@ -169,6 +201,7 @@
           }
         } else {
           const r = remote[p.id];
+          if (r) r.downed = !!p.downed;
           if (r && p.active) {
             r.active = true;
             r.target = { x: p.x, y: p.y, z: p.z, yaw: p.yaw };
@@ -304,6 +337,7 @@
 
   function applyNetworkHit(hit) {
     if (!hit || !Array.isArray(zombies)) return;
+    if (hit.drop && typeof spawnDrop === 'function') spawnDrop(hit.drop);   // убитый зомби уронил бонус
     worldRevision = Number.isFinite(hit.revision) ? hit.revision : worldRevision;
     const z = zombies.find(item => item.mpId === hit.zombieId);
     if (z) {
@@ -316,6 +350,10 @@
         z.eyes.forEach(e => e.visible = false);
         startRagdoll(z, !!hit.head, 0);
         if (typeof kills === 'number') kills++;
+      }
+      if (hit.weapon === -1 && hit.shooterId !== selfId && typeof playSfxAt === 'function' && typeof sfxBufs !== 'undefined') {   // нож: слышно попадание по зомби
+        const ok = []; for (let i = 1; i <= 5; i++) if (sfxBufs['kh' + i]) ok.push(i);
+        if (ok.length) playSfxAt('kh' + ok[Math.floor(Math.random() * ok.length)], z.g.position.x, z.g.position.z, 30, 1, 0, 0.96 + Math.random() * 0.08);
       }
       const dir = new THREE.Vector3(0, 0, 1);
       bloodHit(new THREE.Vector3(z.g.position.x, z.g.position.y + 1.1, z.g.position.z), dir, !!hit.head, false);
@@ -355,13 +393,20 @@
     socket.emit('worldSnapshot', { ...snapshot, revision: worldRevision });
   }
 
-  function registerShot(weapon) {
+  function registerShot(weapon, extra) {
     if (!socket || !socket.connected || !roomCode || !window.MP.active) return null;
     const shotId = `${selfId}:${++shotSeq}`;
     const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
-    socket.emit('shoot', { shotId, weapon, yaw: euler.y, pitch: euler.x });
+    const msg = { shotId, weapon, yaw: euler.y, pitch: euler.x };
+    if (extra) { msg.ex = extra.x; msg.ey = extra.y; msg.ez = extra.z; msg.nid = extra.nid; }   // граната: где и какая взорвалась
+    socket.emit('shoot', msg);
     return shotId;
   }
+  function throwGrenade(d) { if (socket && socket.connected && roomCode) socket.emit('grenadeThrow', d); }
+  function reportDowned() { if (socket && socket.connected && roomCode) socket.emit('playerDowned'); }
+  function reviveStart(targetId) { if (socket && socket.connected && roomCode) socket.emit('reviveStart', { targetId }); }
+  function reviveDone(targetId) { if (socket && socket.connected && roomCode) socket.emit('reviveDone', { targetId }); }
+  function requestDropPickup(id) { if (socket && socket.connected && roomCode) socket.emit('pickupDrop', { id }); }
 
   function requestPurchase(kind, doorIndex) {
     if (!socket || !socket.connected || !roomCode) return false;
@@ -501,7 +546,7 @@
   }
   // Солдат из простых форм: ботинки, штаны, жилет в цвете игрока, каска, лицо, руки с винтовкой. Начало координат — ступни, «вперёд» = -Z.
   function createAvatar(p) {
-    const group = new THREE.Group();
+    const group = new THREE.Group(); group.rotation.order = 'YXZ';   // сначала поворот по курсу, затем «ложимся» вокруг локальной X
     const team = new THREE.Color(p.color);
     const std = (c, r = 0.85, mt = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: mt });
     const mSkin = std(0xc8a07c, 0.75), mCloth = std(0x3d4030), mClothD = std(0x2c2e22), mVest = std(team.clone().multiplyScalar(0.62), 0.7),
@@ -550,17 +595,21 @@
     box(0.04, 0.09, 0.05, mWood, 0, -0.08, 0.1, gun);                // рукоять
     arm(1, new THREE.Vector3(0.1, -0.24, -0.2));                     // правая — на рукояти
     arm(-1, new THREE.Vector3(0.08, -0.2, -0.46));                   // левая — под цевьём
+    // нож в руке (показывается только на время удара): клинок плашмя, режущая кромка вперёд по ходу взмаха
+    const knife = new THREE.Group(); knife.visible = false; knife.rotation.order = 'YXZ'; aim.add(knife);
+    box(0.04, 0.01, 0.2, new THREE.MeshStandardMaterial({ color: 0xc8ccd2, roughness: 0.25, metalness: 0.9 }), 0, 0, -0.14, knife);
+    box(0.06, 0.018, 0.012, mGun, 0, 0, -0.03, knife); box(0.028, 0.022, 0.1, mWood, 0, 0, 0.03, knife);
     const muzzleLight = new THREE.PointLight(0xffa030, 0, 3);
     muzzleLight.position.set(0.1, -0.2, -0.95); aim.add(muzzleLight);
     const flash = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffc060, transparent: true, opacity: 0, depthWrite: false }));
     flash.position.set(0.1, -0.2, -0.95); aim.add(flash);
     // кольцо под ногами в цвете игрока — видно издалека
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.38, 0.46, 24), new THREE.MeshBasicMaterial({ color: team, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
-    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; group.add(ring);
-    group.add(makeLabel(p.name));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; ring.userData.team = team.getHex(); group.add(ring);
+    const label = makeLabel(p.name); group.add(label);
     group.visible = false;                            // покажем, когда игрок реально войдёт в игру
     scene.add(group);
-    remote[p.id] = { group, muzzleLight, flash, legs, torso, aim, gun, kick: 0, phase: 0, active: false, target: { x: 0, y: EYE_HEIGHT, z: 0, yaw: 0, pitch: 0 } };
+    remote[p.id] = { group, muzzleLight, flash, legs, torso, aim, gun, knife, ring, label, downed: false, lieK: 0, knifeT: 0, kick: 0, phase: 0, active: false, target: { x: 0, y: EYE_HEIGHT, z: 0, yaw: 0, pitch: 0 } };
   }
   function removeAvatar(id) {
     const r = remote[id]; if (!r) return;
@@ -578,10 +627,16 @@
       if (!r.active) continue;
       const px = g.position.x, pz = g.position.z;
       g.position.x += (t.x - g.position.x) * 0.25;
-      g.position.y += ((t.y - EYE_HEIGHT) - g.position.y) * 0.25;
+      r.lieK += ((r.downed ? 1 : 0) - r.lieK) * 0.12;   // плавно ложимся / встаём
+      g.position.y += ((t.y - EYE_HEIGHT + r.lieK * 0.24) - g.position.y) * 0.25;
       g.position.z += (t.z - g.position.z) * 0.25;
       let dy = t.yaw - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * 0.25;
       g.visible = !menuOn;
+      g.rotation.x = r.lieK * Math.PI / 2;                                   // повален: лежит на спине, головой назад
+      r.label.position.set(0, 1.95 - r.lieK * 1.05, -r.lieK * 1.0);          // подпись остаётся над телом
+      r.ring.material.color.setHex(r.downed ? 0xff2a2a : r.ring.userData.team);
+      r.ring.material.opacity = r.downed ? 0.45 + 0.35 * Math.abs(Math.sin(performance.now() / 280)) : 0.55;
+      if (r.downed) { r.knifeT = 0; r.knife.visible = false; r.gun.visible = true; for (const l of r.legs) l.rotation.x = 0; r.kick = 0; r.flash.material.opacity = 0; continue; }
       if (!r.legs) continue;
       const sp = Math.hypot(g.position.x - px, g.position.z - pz) * 60;          // м/с при ~60 кадрах/с
       const k = Math.min(1, sp / 4);
@@ -596,6 +651,13 @@
       if (r.kick > 0) r.kick = Math.max(0, r.kick - 0.12);
       r.gun.position.z = -0.28 + r.kick * 0.06; r.gun.rotation.x = r.kick * 0.1;
       r.flash.material.opacity = r.kick > 0.6 ? 0.9 : 0;
+      if (r.knifeT > 0) {   // удар ножом: винтовка прячется, клинок идёт справа налево кромкой вперёд
+        r.knifeT += 1 / 60; const kp = Math.min(1, r.knifeT / 0.38), ke = kp < 0.5 ? 2 * kp * kp : 1 - Math.pow(-2 * kp + 2, 2) / 2, ks = Math.sin(Math.PI * kp);
+        r.knife.visible = true; r.gun.visible = false;
+        r.knife.position.set(0.3 - 0.5 * ke, -0.22 + 0.05 * ks, -0.3 - 0.15 * ks);
+        r.knife.rotation.set(-0.12, 0.9 - 1.9 * ke, 0);
+        if (kp >= 1) { r.knifeT = 0; r.knife.visible = false; r.gun.visible = true; }
+      }
     }
   })();
 
@@ -614,6 +676,7 @@
     },
     publishWorld,
     registerShot,
+    throwGrenade, reportDowned, reviveStart, reviveDone, requestDropPickup,
     requestPurchase,
     requestHit,
     requestPlayerHit,
