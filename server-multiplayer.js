@@ -261,7 +261,7 @@ io.on('connection', socket => {
     sendGame(ctx.room);
   });
 
-  socket.on('shoot', ({ shotId, weapon, yaw, pitch } = {}) => {
+  socket.on('shoot', ({ shotId, weapon, yaw, pitch, ex, ey, ez, nid } = {}) => {
     const ctx = roomAndPlayer(socket);
     if (!ctx || !ctx.room.game.started || !ctx.player.active || ctx.player.downed) return;
     const { room, player } = ctx;
@@ -273,6 +273,11 @@ io.on('connection', socket => {
       if (player.nadesLeft <= 0 || now - (player.lastNadeAt || 0) < 300) return;
       player.nadesLeft--; player.lastNadeAt = now;
       player.shots[shotId] = { weapon, at: now, hits: 0, hitIds: new Set(), maxHits: 24 };
+      // взрыв видят и слышат все: позиция — где реально взорвалась граната (а не где стоит бросавший)
+      io.to(room.code).emit('playerShot', {
+        id: socket.id, weapon: -2, nid: typeof nid === 'string' ? nid.slice(0, 40) : null,
+        x: clamp(finite(ex, player.x), -120, 120), y: clamp(finite(ey, player.y), -20, 40), z: clamp(finite(ez, player.z), -120, 120),
+      });
       return;
     }
     const interval = weapon === -1 ? 500 : (WEAPONS[weapon] && WEAPONS[weapon].interval);
@@ -285,6 +290,20 @@ io.on('connection', socket => {
     io.to(room.code).emit('playerShot', {
       id: socket.id, weapon, x: player.x, y: player.y, z: player.z,
       yaw: finite(yaw, player.yaw), pitch: finite(pitch, player.pitch),
+    });
+  });
+
+  socket.on('grenadeThrow', ({ nid, x, y, z, vx, vy, vz } = {}) => {
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || !ctx.room.game.started || !ctx.player.active || ctx.player.downed || typeof nid !== 'string') return;
+    const now = Date.now();
+    if (now - (ctx.player.lastNadeThrowAt || 0) < 250) return;
+    ctx.player.lastNadeThrowAt = now;
+    if (![x, y, z, vx, vy, vz].every(Number.isFinite)) return;
+    socket.to(ctx.room.code).emit('grenadeThrown', {
+      id: socket.id, nid: nid.slice(0, 40),
+      x: clamp(x, -120, 120), y: clamp(y, -20, 40), z: clamp(z, -120, 120),
+      vx: clamp(vx, -40, 40), vy: clamp(vy, -40, 40), vz: clamp(vz, -40, 40),
     });
   });
 
@@ -322,7 +341,7 @@ io.on('connection', socket => {
     room.game.revision++;
     io.to(room.code).emit('zombieHit', {
       zombieId, head: !!head, hp: zombie.hp, state: zombie.state,
-      killed, shooterId: socket.id, points: player.points, reward, drop, revision: room.game.revision,
+      killed, shooterId: socket.id, weapon: shot.weapon, points: player.points, reward, drop, revision: room.game.revision,
     });
     sendGame(room);
   });
@@ -379,7 +398,7 @@ io.on('connection', socket => {
     const ctx = roomAndPlayer(socket);
     if (!ctx || ctx.player.downed || !ctx.player.active || typeof targetId !== 'string') return;
     const { room, player } = ctx, target = room.players[targetId], rv = player.reviving;
-    if (!target || !target.downed || !rv || rv.targetId !== targetId || Date.now() - rv.at < 2700) return;
+    if (!target || !target.downed || !rv || rv.targetId !== targetId || Date.now() - rv.at < 1500) return;   // клиент поднимает 3 с (с Quick Revive ≈1,9 с), поэтому порог мягче
     if (Math.hypot(player.x - target.x, player.z - target.z) > 2.8 || Math.abs(player.y - target.y) > 1.8) return;
     player.reviving = null; target.downed = false;
     io.to(room.code).emit('playerRevived', { id: targetId, by: socket.id });
