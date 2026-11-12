@@ -35,58 +35,19 @@
 
   function startGame() {           // запускаем штатный старт игры (внутри пользовательского клика)
     bypass = true; bPlay.click(); bypass = false;
-    if (typeof reloadSounds === 'function') reloadSounds();   // у гостя тоже догружаем все звуки
   }
 
-  // ---- выбор карты: панель с карточками. Чтобы добавить карту — допиши запись в MAPS:
-  //      id, name, desc, img (картинка 16:9 в public/maps/), soon: true = «скоро»
-  const MAPS = [
-    { id: 'nacht', name: 'NACHT DER UNTOTEN', desc: 'Бункер · 2 этажа · Mystery Box · перки', img: 'maps/nacht.jpg' },
-    { id: 'verruckt', name: 'VERRUCKT', desc: 'Двор за оградой · фонтан · 2 корпуса · 2 входа зомби', img: 'maps/verruckt.jpg' },
-    { id: 'soon', name: '???', desc: 'Новая карта в разработке', img: 'maps/soon.jpg', soon: true },
-  ];
-  // Карта, которая сейчас построена в игре (index.html читает ?map=). Другую карту выбрать = перезагрузить страницу с ?map=
-  const CUR_MAP = (typeof MAP_ID !== 'undefined' && MAP_ID) || 'nacht';
-  window.NB_MAP = CUR_MAP;         // выбранная карта (игровой код может читать window.NB_MAP)
-  const mapList = $('mapList'), bMapGo = $('bMapGo');
-  const mapCards = []; let pickedMap = MAPS[0];
-  const goMap = () => {
-    if (window.NB_MAP !== CUR_MAP) { location.href = location.pathname + '?map=' + window.NB_MAP + '&start=' + mode; return; }   // нужна другая карта — перезагрузка
-    if (mode === 'multi') { connect(); setView('mp'); } else startGame();
-  };
-  const pickMap = m => {
-    window.NB_MAP = m.id; pickedMap = m;
-    mapCards.forEach(c => c.el.classList.toggle('sel', c.m === m));
-    setMapGoLabel();
-  };
-  MAPS.forEach(m => {
-    const b = document.createElement('button');
-    b.className = 'mc' + (m.soon ? ' soon' : '');
-    b.innerHTML = `<div class="im"><img src="${m.img}" alt="" draggable="false"></div><span class="tag">${m.soon ? '🔒 СКОРО' : '✓ ВЫБРАНО'}</span><div class="tx"><b>${m.name}</b><small>${m.desc}</small></div>`;
-    const img = b.querySelector('img'); img.onerror = () => { img.style.display = 'none'; };
-    if (!m.soon) { b.onclick = () => pickMap(m); b.ondblclick = () => { pickMap(m); goMap(); }; }
-    mapList.appendChild(b); mapCards.push({ el: b, m });
-  });
-  $('mapCount').textContent = `ДОСТУПНО: ${MAPS.filter(m => !m.soon).length} / ${MAPS.length}`;
-  function setMapGoLabel() {
-    bMapGo.textContent = mode === 'multi' ? '▶ ДАЛЕЕ · ЛОББИ' : (window.NB_MAP !== CUR_MAP ? '▶ ЗАГРУЗИТЬ КАРТУ' : '▶ НАЧАТЬ ИГРУ');
-    bMapGo.disabled = false;
-  }
-  pickMap(MAPS.find(m => m.id === CUR_MAP) || MAPS[0]);
-  bMapGo.onclick = goMap;
-  $('bSolo').onclick = () => { mode = 'solo'; setMapGoLabel(); setView('maps'); };
+  $('bSolo').onclick = () => { mode = 'solo'; startGame(); };
   $('bModeBack').onclick = () => setView('main');
-  $('bMulti').onclick = () => { mode = 'multi'; setMapGoLabel(); setView('maps'); };
-  $('bMapsBack').onclick = () => setView('mode');
-  { const st = new URLSearchParams(location.search).get('start'); if (st === 'solo' || st === 'multi') { mode = st; setMapGoLabel(); setView('maps'); } }
-  $('bMpBack').onclick = () => setView('maps');
+  $('bMulti').onclick = () => { mode = 'multi'; connect(); setView('mp'); };
+  $('bMpBack').onclick = () => setView('mode');
 
   const nameInput = $('mpName');
   try { nameInput.value = localStorage.getItem('nb_name') || ''; } catch (e) {}
   const myName = () => { const n = nameInput.value.trim(); try { localStorage.setItem('nb_name', n); } catch (e) {} return n; };
   const showErr = t => { $('mpErr').textContent = t || ''; };
 
-  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName(), map: CUR_MAP }); };
+  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName() }); };
   $('bJoin').onclick = () => { showErr(); socket.emit('joinRoom', { code: $('mpCode').value, name: myName() }); };
   $('bGo').onclick = () => startGame();
   $('bLeave').onclick = () => { socket.emit('leaveRoom'); clearRemote(); clearNetworkZombies(); roomCode = null; gameState = null; setView('mp'); };
@@ -99,48 +60,27 @@
     socket = SERVER_URL ? io(SERVER_URL) : io();
 
     socket.on('connect_error', () => showErr('Нет связи с сервером (на бесплатном Render он может просыпаться ~1 мин)'));
-    socket.on('connect', () => {
-      selfId = socket.id; showErr();
-      if (pendingRejoin) {   // страница была перезагружена ради другой карты — возвращаемся в то же лобби
-        const r = pendingRejoin; pendingRejoin = null;
-        if (r.host) socket.emit('createRoom', { name: r.name, map: CUR_MAP });   // у хоста комнаты уже нет (он был в ней один) — создаём заново на нужной карте
-        else socket.emit('joinRoom', { code: r.code, name: r.name });
-      }
-    });
+    socket.on('connect', () => { selfId = socket.id; showErr(); });
     socket.on('disconnect', () => { clearRemote(); clearNetworkZombies(); roomCode = null; if (menuOn) { setView('mp'); showErr('Соединение потеряно'); } });
-    socket.on('joinError', t => { try { sessionStorage.removeItem(REJOIN_KEY); } catch (e) {} showErr(t); });
+    socket.on('joinError', showErr);
 
     // Мы вошли в лобби.
-    socket.on('joined', ({ selfId: id, code, slot, players, map, hostId: h }) => {
-      if (reloadForMap(map, code, h === id)) return;
-      try { sessionStorage.removeItem(REJOIN_KEY); } catch (e) {}   // вошли на нужной карте — перезагрузка завершена
+    socket.on('joined', ({ selfId: id, code, slot, players }) => {
       selfId = id; roomCode = code; mySlot = slot; entered = false;
-      if (typeof resetIntro === 'function') resetIntro();   // новая катка — вступление сыграет снова
       gameState = null; worldRevision = 0;
       clearRemote(); clearNetworkZombies();
       Object.values(players).forEach(p => { if (p.id !== selfId) createAvatar(p); });
       setView('lobby');
     });
-    socket.on('lobby', d => { if (d && reloadForMap(d.map, d.code, d.hostId === selfId)) return; renderLobby(d); });
+    socket.on('lobby', renderLobby);
     socket.on('playerJoined', p => { if (p.id !== selfId && !remote[p.id]) createAvatar(p); });
     socket.on('playerLeft', removeAvatar);
     socket.on('gameState', receiveGameState);
     socket.on('zombieHit', applyNetworkHit);
-    socket.on('dropPicked', d => { if (d && typeof removeDropById === 'function') { removeDropById(d.id); collectMaxAmmo(); } });
     socket.on('playerHurt', hit => {
       if (!hit || hit.playerId !== selfId || !Number.isFinite(hit.damage)) return;
       if (typeof hurtPlayer === 'function') hurtPlayer(hit.damage);
     });
-    const markDowned = (id, v) => {
-      const gp = gameState && gameState.players && gameState.players.find(p => p.id === id); if (gp) gp.downed = v;
-      if (remote[id]) remote[id].downed = v;
-    };
-    socket.on('playerDowned', d => { if (d && d.id !== selfId) markDowned(d.id, true); });
-    socket.on('playerRevived', d => {
-      if (!d) return;
-      if (d.id === selfId) reviveSelf(); else markDowned(d.id, false);
-    });
-    socket.on('teamWipe', () => { if (typeof finalDeath === 'function') finalDeath(); });
     socket.on('purchaseCommitted', applyNetworkPurchase);
     socket.on('windowBoardAction', action => {
       if (!action || action.actorId === selfId || action.action !== 'repair') return;
@@ -172,20 +112,6 @@
     });
   }
 
-  // Карта строится при загрузке страницы. Если карта комнаты другая — перезагружаем страницу с ?map=
-  // и после загрузки автоматически возвращаемся в то же лобби (код и имя — в sessionStorage).
-  let pendingRejoin = null;
-  const REJOIN_KEY = 'nb_rejoin';
-  function reloadForMap(map, code, isHost) {
-    if (typeof map !== 'string' || map === CUR_MAP || !MAPS.some(m => m.id === map && !m.soon)) return false;
-    let tries = 0;
-    try { const prev = JSON.parse(sessionStorage.getItem(REJOIN_KEY) || 'null'); if (prev && Date.now() - prev.at < 20000) tries = (prev.tries || 0) + 1; } catch (e) {}
-    if (tries >= 2) { showErr('Не удалось загрузить карту лобби'); return true; }   // защита от бесконечной перезагрузки
-    try { sessionStorage.setItem(REJOIN_KEY, JSON.stringify({ code, name: myName(), map, host: !!isHost, at: Date.now(), tries })); } catch (e) { showErr('Не удалось сохранить лобби для перезагрузки'); return true; }
-    location.href = location.pathname + '?map=' + map + '&start=multi';
-    return true;
-  }
-
   function receiveGameState(state) {
     if (!state) return;
     gameState = state;
@@ -201,12 +127,11 @@
           if (p.perks) {
             if (p.perks.cola && !speedCola) { speedCola = true; perkMsg('cola'); }
             if (p.perks.doubleTap && !doubleTap) { doubleTap = true; perkMsg('dtap'); }
-            if (p.perks.juggernog && !juggernog) { applyJugg(); perkMsg('jugg'); }
           }
         } else {
           const r = remote[p.id];
           if (r && p.active) {
-            r.active = true; r.downed = !!p.downed;
+            r.active = true;
             r.target = { x: p.x, y: p.y, z: p.z, yaw: p.yaw };
           }
         }
@@ -219,30 +144,24 @@
     }
     if (state.started) {
       started = true;
-      // Хост — источник правды по раундам. Эхо сервера всегда чуть устарело, и если
-      // применить его на хосте, оно откатывает round/toSpawn/таймер назад
-      // (таймер замедляется, «ROUND N» всплывает по несколько раз). Поэтому
-      // раунды, таймер и мир применяют только гости.
-      if (!window.MP.isAuthority) {
-        const previousRound = round;
-        round = state.round || round;
-        roundActive = !!state.roundActive;
-        toSpawn = state.toSpawn || 0;
-        roundEl.textContent = round ? String(round) : '';
-        if (typeof state.nextRoundIn === 'number') nextRoundAt = gtime + state.nextRoundIn;
-        if (round > previousRound && entered && !menuOn) {
-          annEl.textContent = 'ROUND ' + round;
-          annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
-          sfx('round');
+      const previousRound = round;
+      round = state.round || round;
+      roundActive = !!state.roundActive;
+      toSpawn = state.toSpawn || 0;
+      roundEl.textContent = round ? 'ROUND ' + round : '';
+      if (typeof state.nextRoundIn === 'number') nextRoundAt = gtime + state.nextRoundIn;
+      if (round > previousRound && entered && !menuOn) {
+        annEl.textContent = 'ROUND ' + round;
+        annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
+        sfx('round');
+      }
+      interEl.textContent = roundActive ? '' : `ROUND ${round + 1} IN ${Math.ceil(state.nextRoundIn || 0)}`;
+      if (!window.MP.isAuthority && entered && !menuOn) {
+        if (Array.isArray(state.zombies)) {
+          try { applyNetworkZombies(state.zombies); } catch (err) { console.warn('[MP] zombies', err); }
         }
-        interEl.textContent = roundActive ? '' : `ROUND ${round + 1} IN ${Math.ceil(state.nextRoundIn || 0)}`;
-        if (entered && !menuOn) {
-          if (Array.isArray(state.zombies)) {
-            try { applyNetworkZombies(state.zombies); } catch (err) { console.warn('[MP] zombies', err); }
-          }
-          if (Array.isArray(state.windowBoards)) {
-            try { applyNetworkWindows(state.windowBoards); } catch (err) { console.warn('[MP] windows', err); }
-          }
+        if (Array.isArray(state.windowBoards)) {
+          try { applyNetworkWindows(state.windowBoards); } catch (err) { console.warn('[MP] windows', err); }
         }
       }
     }
@@ -261,7 +180,6 @@
       zombies.splice(i, 1);
     }
     menuOn = false;
-    if (typeof reloadSounds === 'function') reloadSounds();
     document.body.classList.remove('menu');
     document.body.classList.add('playing');
     setView('main');
@@ -355,7 +273,6 @@
         z.eyes.forEach(e => e.visible = false);
         startRagdoll(z, !!hit.head, 0);
         if (typeof kills === 'number') kills++;
-        if (hit.drop && typeof spawnDrop === 'function') spawnDrop(hit.drop);   // красный бонус MAX AMMO — решение принял сервер
       }
       const dir = new THREE.Vector3(0, 0, 1);
       bloodHit(new THREE.Vector3(z.g.position.x, z.g.position.y + 1.1, z.g.position.z), dir, !!hit.head, false);
@@ -370,11 +287,9 @@
     } else if (event.kind === 'box') {
       boxStart(event.boxResult, own);
     } else if (own && event.kind === 'cola') {
-      speedCola = true; drinkPerk('cola');
+      speedCola = true; perkMsg('cola');
     } else if (own && event.kind === 'doubleTap') {
-      doubleTap = true; drinkPerk('dtap');
-    } else if (own && event.kind === 'juggernog') {
-      applyJugg(); drinkPerk('jugg');
+      doubleTap = true; perkMsg('dtap');
     } else if (own && event.kind === 'thompson') {
       const w = WEAPONS[1];
       w.mag = w.magSize; w.reserve = w.maxReserve - w.magSize;
@@ -450,10 +365,8 @@
   //  3) СПАВН: у каждого игрока своя точка рядом с SPAWN, без стен
   // ------------------------------------------------------------------
   // Свободна ли точка (x,z) — проверяем коллайдеры игры (радиус игрока 0.35).
-  // Nacht: прежний запас 0.35. На Verruckt SPAWN стоит вплотную к двери ядра (запас ровно 0.35 — зависит от округления float),
-  // поэтому для самой точки берём запас больше; проверка прохода reachable() остаётся с 0.35, иначе она не стартует из SPAWN.
-  const SPAWN_R = CUR_MAP === 'nacht' ? 0.35 : 0.6;
-  function freeAt(x, z, r = 0.35) {
+  function freeAt(x, z) {
+    const r = 0.35;
     for (const c of colliders) {
       if (c.y1 <= 0.3 || c.y0 >= EYE_HEIGHT - 0.1) continue;          // пол и потолок не мешают
       if (x > c.x0 - r && x < c.x1 + r && z > c.z0 - r && z < c.z1 + r) return false;
@@ -472,7 +385,7 @@
     const pts = [];
     for (let dx = -4.5; dx <= 4.5; dx += 1.5) for (let dz = -4.5; dz <= 4.5; dz += 1.5) {
       const x = SPAWN.x + dx, z = SPAWN.z + dz;
-      if (freeAt(x, z, SPAWN_R) && reachable(x, z)) pts.push({ x, z, d: Math.hypot(dx, dz) });
+      if (freeAt(x, z) && reachable(x, z)) pts.push({ x, z, d: Math.hypot(dx, dz) });
     }
     pts.sort((a, b) => a.d - b.d);
     return pts;
@@ -481,7 +394,7 @@
     const pts = spawnPoints();
     const p = pts[Math.min(mySlot, pts.length - 1)] || { x: SPAWN.x, z: SPAWN.z };
     pos.set(p.x, SPAWN.y, p.z);
-    camera.rotation.set(0, typeof SPAWN_YAW === 'number' ? SPAWN_YAW : 0, 0);   // Nacht: SPAWN_YAW = 0 (как раньше)
+    camera.rotation.set(0, 0, 0);
   }
 
   // Стартовая точка в мультиплеере: срабатывает после штатного обработчика 'lock' игры.
@@ -544,7 +457,7 @@
     return spr;
   }
   function createAvatar(p) {
-    const group = new THREE.Group(); group.rotation.order = 'YXZ';   // начало координат = ступни; X — падение на пол
+    const group = new THREE.Group();                  // начало координат = ступни
     const mat = new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.8 });
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.2, 12), mat); body.position.y = 0.8; group.add(body);
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), mat); head.position.y = 1.55; group.add(head);
@@ -572,8 +485,7 @@
       const r = remote[id], t = r.target, g = r.group;
       if (!r.active) continue;
       g.position.x += (t.x - g.position.x) * 0.25;
-      g.position.y += ((t.y - EYE_HEIGHT + (r.downed ? 0.3 : 0)) - g.position.y) * 0.25;
-      g.rotation.x += ((r.downed ? -Math.PI / 2 : 0) - g.rotation.x) * 0.15;   // повалённый лежит на спине
+      g.position.y += ((t.y - EYE_HEIGHT) - g.position.y) * 0.25;
       g.position.z += (t.z - g.position.z) * 0.25;
       let dy = t.yaw - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * 0.25;
       g.visible = !menuOn;
@@ -598,21 +510,8 @@
     requestPurchase,
     requestHit,
     requestPlayerHit,
-    reportDowned() { if (socket && socket.connected && roomCode) socket.emit('playerDowned'); },
-    reviveStart(targetId) { if (socket && socket.connected && roomCode) socket.emit('reviveStart', { targetId }); },
-    reviveDone(targetId) { if (socket && socket.connected && roomCode) socket.emit('reviveDone', { targetId }); },
-    requestDropPickup(id) { if (socket && socket.connected && roomCode) socket.emit('pickupDrop', { id }); },
     requestWindowRepair(index) {
       if (socket && socket.connected && roomCode) socket.emit('windowBoardAction', { action: 'repair', index });
     },
   };
-
-  // Возврат в лобби после перезагрузки страницы ради другой карты.
-  try {
-    const raw = sessionStorage.getItem(REJOIN_KEY);
-    const r = raw && JSON.parse(raw);
-    if (r && r.map === CUR_MAP && Date.now() - r.at < 20000) {
-      pendingRejoin = r; mode = 'multi'; setView('mp'); connect();   // дальше join/create уйдёт из обработчика 'connect'
-    }
-  } catch (e) {}
 })();
