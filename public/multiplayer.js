@@ -151,6 +151,11 @@
       }
       showShotTrace(shot);
     });
+    socket.on('bossSpit', d => {   // плевок босса: каждый клиент сам считает попадание по своему игроку
+      if (!d || window.MP.isAuthority || typeof spawnSpit !== 'function' || ![d.x, d.y, d.z, d.vx, d.vy, d.vz].every(Number.isFinite)) return;
+      spawnSpit(d);
+      const z = zombies.find(item => item.mpId === d.zid); if (z && z.boss) z.spitT = 0.3;
+    });
     socket.on('grenadeThrown', d => { if (d && d.id !== selfId && typeof spawnRemoteGrenade === 'function') spawnRemoteGrenade(d); });
     // повален / поднят / вся команда повалена
     socket.on('playerDowned', ({ id } = {}) => setDowned(id, true));
@@ -294,7 +299,7 @@
       received.add(data.id);
       let z = zombies.find(item => item.mpId === data.id);
       if (!z) {
-        z = spawnZombie({ x: data.x, y: data.y, z: data.z, yaw: data.yaw }, true);
+        z = spawnZombie({ x: data.x, y: data.y, z: data.z, yaw: data.yaw }, true, data.boss === true);
         if (!z) continue;
         z.mpId = data.id;
         z.g.position.set(data.x, data.y, data.z);
@@ -419,6 +424,10 @@
     socket.emit('zombieHit', { zombieId: zombie.mpId, head: !!head, shotId, scale: Number.isFinite(scale) ? scale : undefined });
   }
 
+  function sendSpit(d) {
+    if (!socket || !socket.connected || !roomCode || !window.MP.isAuthority) return;
+    socket.emit('bossSpit', d);
+  }
   function requestPlayerHit(playerId, zombieId) {
     if (!socket || !socket.connected || !roomCode || !window.MP.isAuthority ||
         typeof playerId !== 'string' || typeof zombieId !== 'string') return;
@@ -526,7 +535,7 @@
         moving: z.moved > 0.0005 || z.state === 'vault',
         attacking: z.atkT > 0,
         attackKind: z.atkKind,
-        hp: z.hp, state: z.state, speed: z.speed,
+        hp: z.hp, state: z.state, speed: z.speed, boss: !!z.boss,
       })),
     });
   }, 1000 / SEND_RATE);
@@ -680,6 +689,7 @@
     requestPurchase,
     requestHit,
     requestPlayerHit,
+    sendSpit,
     requestWindowRepair(index) {
       if (socket && socket.connected && roomCode) socket.emit('windowBoardAction', { action: 'repair', index });
     },
