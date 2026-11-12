@@ -1573,9 +1573,12 @@ if (MAP_ID === 'nacht') {
 // внешние стены (оба этажа), окна заколочены; все проёмы шире 2.5 (проходы чистые, без ящиков и колонн)
 wall('x', -15, -15, 15, 0.6, 0, 3.85, [win(-9.5, -6.5, 0), win(3.5, 6.5, 0)], mats.brick);
 wall('x', -15, -15, 15, 0.6, 3.85, 7.7, [win(-9.5, -6.5, 4), win(3.5, 6.5, 4)], mats.brick);
-wall('x', 15, -15, 15, 0.6, 0, 7.7, [win(-13.5, -10.5, 0), win(-8.5, -5.5, 0), win(-7.5, -4.5, 4), win(4.5, 7.5, 4)], mats.brick);   // окно казармы сдвинуто: раньше в его середину упиралась перегородка
-wall('z', -15, -15, 15, 0.6, 0, 7.7, [win(-7, -4, 0), win(5.5, 8.5, 4)], mats.brick);
-wall('z', 15, -15, 15, 0.6, 0, 7.7, [win(-3.5, -0.5, 0), win(2.5, 5.5, 4)], mats.brick);
+wall('x', 15, -15, 15, 0.6, 0, 3.85, [win(-13.5, -10.5, 0), win(-8.5, -5.5, 0)], mats.brick);   // 1 и 2 этаж — отдельными кусками: окна этажей сдвинуты и иначе перекрывали друг друга (полстены в проёме)
+wall('x', 15, -15, 15, 0.6, 3.85, 7.7, [win(-7.5, -4.5, 4), win(4.5, 7.5, 4)], mats.brick);
+wall('z', -15, -15, 15, 0.6, 0, 3.85, [win(-7, -4, 0)], mats.brick);
+wall('z', -15, -15, 15, 0.6, 3.85, 7.7, [win(5.5, 8.5, 4)], mats.brick);
+wall('z', 15, -15, 15, 0.6, 0, 3.85, [win(-3.5, -0.5, 0)], mats.brick);
+wall('z', 15, -15, 15, 0.6, 3.85, 7.7, [win(2.5, 5.5, 4)], mats.brick);
 // стартовая комната (x -15..-4, z 4..15): стены повёрнуты правильно (раньше оси были перепутаны)
 wall('x', 4, -15, -4, 0.4, 0, 3.7, [door(-11, -8, 0)], mats.concrete);
 wall('z', -4, 4, 15, 0.4, 0, 3.7, [door(8.5, 11.5, 0)], mats.concrete);
@@ -1816,7 +1819,7 @@ barrel(-10.8, -1.4);
 sign('СКЛАД', 1, 3.0, -14.68, 0);
 shelf(-1.8, -14.6, 1.2, 0.55);   // два стеллажа убраны: там теперь стоит Mystery Box
 for (let i = 0; i < 3; i++) shelf(9.5 + i * 1.3, 0.18, 1.2, 0.55);
-crate(13.3, -0.3, 1.0); crate(13.4, -0.2, 0.7, 0.8); crate(12.2, -0.1, 0.8, 0, M2.olive); barrel(7.5, 0.4, 0, 0x4a2a1a);
+crate(13.3, -1.45, 1.0); crate(13.4, -1.35, 0.7, 0.8); crate(12.2, -1.25, 0.8, 0, M2.olive);   // ящики больше не стоят в стеллаже barrel(7.5, 0.4, 0, 0x4a2a1a);
 // 4) КОРИДОР
 sign('КОРИДОР', -3, 3.0, 14.68, Math.PI, 1.2);
 barrel(-3.5, 14.2, 0, 0x2a2a3a);
@@ -1848,7 +1851,7 @@ chair(11.5, 13.3, 0, 1, 4); barrel(5.8, 14.2, 4, 0x3a2a2a); stool(13.4, 12.6, 4)
 // САНУЗЛЫ (1 и 2 этаж, северо-запад): ванна, унитаз, раковина с зеркалом, плитка на полу
 function bathFixtures(y, tub, wc, sink) {   // tub: [x0,x1,z0,z1]; wc: [x, z, dir] dir — куда «спиной» (±z); sink: [x, z, nx] nx — от стены по x
   const [a0, a1, b0, b1] = tub, w = 0.07;
-  PB(a0, a1, y, y + 0.14, b0, b1, SAN_M); PB(a0, a1, y + 0.14, y + 0.56, b0, b0 + w, SAN_M); PB(a0, a1, y + 0.14, y + 0.56, b1 - w, b1, SAN_M);
+  PB(a0, a1, y, y + 0.14, b0, b1, SAN_M); PB(a0 + w, a1 - w, y + 0.14, y + 0.56, b0, b0 + w, SAN_M); PB(a0 + w, a1 - w, y + 0.14, y + 0.56, b1 - w, b1, SAN_M);   // торцы между бортами — углы больше не мерцают
   PB(a0, a0 + w, y + 0.14, y + 0.56, b0, b1, SAN_M); PB(a1 - w, a1, y + 0.14, y + 0.56, b0, b1, SAN_M);
   PB(a0 + w, a1 - w, y + 0.14, y + 0.4, b0 + w, b1 - w, F_WATER, false);   // вода в ванне
   const [cx, cz, d] = wc, zr = (p, q) => [Math.min(cz + d * p, cz + d * q), Math.max(cz + d * p, cz + d * q)];   // d — от стены в комнату (±z)
@@ -1874,7 +1877,7 @@ const sandbags = (x, z, len, ax) => { const X_ = ax === 'x'; for (let r = 0; r <
 barrel(-14.2, 5.5, 0, 0x4a2a1a);
 for (let k = 0; k < 3; k++) locker(-7.4 + k * 0.9, 3.1, 0.8, 0.7);
 table(-8, -7, 2.2, 1.0); chair(-9.5, -7, -1, 0); chair(-6.5, -7, 1, 0); stool(-8, -5.9);
-barrel(-3.2, -14.1); barrel(-2.55, -14.1, 0, 0x2a3a2a);
+barrel(-2.8, -14.1); barrel(-2.8, -13.45, 0, 0x2a3a2a);   // между ящиком и стеной, не в них
 crate(-1.7, -3.4, 1.0); crate(-0.55, -3.3, 0.8, 0, M2.olive); barrel(-1.2, -4.4, 0, 0x4a2a1a);   // ящики убраны из проёма между оружейной и складом
 sandbags(-7.5, -1.5, 2.6, 'x'); sandbags(0.5, -9.5, 2.4, 'z');
 table(12.2, 9.6, 2.2, 1.0); chair(11.7, 8.5, 0, -1); chair(12.7, 8.5, 0, -1); chair(11.7, 10.7, 0, 1); chair(12.7, 10.7, 0, 1);
@@ -2099,7 +2102,6 @@ cot(-14.6, -6.6, 'x', 4, M2.blue); cot(-14.6, -5.3, 'x', 4);
       rug(6.3, 8.0, -0.9, 0.9, 0, F.rug1); rug(10.0, 19.4, -0.9, 0.9, 0, F.rug1);
       fb(10.1, 11.7, -4.65, -4.2, 0, 0.45, F.woodL); fb(14.3, 16.1, -4.65, -4.2, 0, 0.45, F.woodL);
       fb(10.1, 11.7, 4.2, 4.65, 0, 0.45, F.woodL); fb(14.4, 16.4, 4.2, 4.65, 0, 0.45, F.woodL);
-      plant(6.6, -4.2, 0); plant(6.6, 4.2, 0); plant(19.3, -4.2, 0); plant(19.3, 4.2, 0);
 
       // ================= 2 ЭТАЖ =================
       // север: спальня (у фасада) | комната снайпера; юг: кабинет (у фасада) | библиотека; коридор с лестницей, кладовая — в торце коридора
@@ -2140,8 +2142,8 @@ cot(-14.6, -6.6, 'x', 4, M2.blue); cot(-14.6, -5.3, 'x', 4);
       tbl(14.0, 16.4, 6.1, 7.1, Y); chair(15.2, 7.6, 0, 1, Y); rug(13.6, 16.8, 5.7, 7.9, Y, F.rug1);                  // рабочий стол в центре
 
       // --- Кабинет ---
-      tbl(8.3, 10.5, 7.4, 8.3, Y); chair(9.4, 6.8, 0, -1, Y);                                                         // письменный стол
-      fb(6.2, 6.8, 5.4, 8.4, Y, Y + 1.9, F.wood);                                                                     // шкаф у стены
+      tbl(7.9, 10.0, 7.4, 8.3, Y); chair(8.95, 6.8, 0, -1, Y);   // стол отодвинут от картотеки                                                         // письменный стол
+      fb(6.2, 6.8, 5.4, 8.15, Y, Y + 1.9, F.wood);                                                                     // шкаф у стены
       fb(10.2, 10.9, 8.1, 8.8, Y, Y + 1.3, F.steel); bookcase(6.4, 7.8, 8.25, 8.8, Y, 2.2, 0, -1);                    // картотека, книжный шкаф
       rug(7.6, 10.6, 5.5, 7.1, Y, F.rug3);
 
@@ -2236,27 +2238,58 @@ cot(-14.6, -6.6, 'x', 4, M2.blue); cot(-14.6, -5.3, 'x', 4);
     // ---------- лес: высокие живые ели (ствол + 5 ярусов хвои), InstancedMesh; дальние тонут в сизой дымке ----------
     const treeList = [];
     const plant = (x, z, s = 1, solid = false, tall = 1) => treeList.push({ x, z, s, ry: SR() * 6.28, solid, tall });
-    function buildTrees() {
+    function buildTrees() {   // три вида: рваная тёмная ель, полумёртвая ель с голыми сучьями, сухое корявое дерево
       const n = treeList.length; if (!n) return;
-      const TIERS = 5;
-      const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.14, 0.34, 1, 7).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x050302 }), n);
-      const fol = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 9).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x04100c }), n * TIERS);
-      const C = new THREE.Color(), FOG = new THREE.Color(0x6e5c4a), GREENS = [0x0e2a20, 0x123226, 0x0b2219, 0x17382b, 0x10281f];
-      treeList.forEach((t, i) => {
-        const H = (20 + SR() * 12) * t.s * t.tall;   // высота 20…32 м (× масштаб), дальние кольца ещё выше
-        const dist = Math.hypot(t.x, t.z), fogK = Math.min(0.62, Math.max(0, (dist - 44) / 38));   // чем дальше — тем светлее (воздушная дымка)
-        const lean = (SR() - 0.5) * 0.05, q = new THREE.Quaternion().setFromEuler(EU.set(lean, t.ry, lean));
-        MX.compose(V3.set(t.x, 0, t.z), q, SC.set(t.s, H * 0.62, t.s)); trunk.setMatrixAt(i, MX);
-        trunk.setColorAt(i, C.setHex([0x1a120c, 0x211810, 0x15100b][i % 3]).lerp(FOG, fogK * 0.6));
-        const base = GREENS[(SR() * GREENS.length) | 0], R0 = (2.5 + SR() * 1.1) * t.s * (0.8 + 0.2 * t.tall);
-        for (let k = 0; k < TIERS; k++) {   // ярусы хвои: снизу широкие, к макушке сужаются и перекрываются
-          const f = k / TIERS, y0 = H * (0.2 + 0.64 * f), h = H * 0.3 * (1 - f * 0.45), r = R0 * (1 - f * 0.82);
-          MX.compose(V3.set(t.x, y0, t.z), q, SC.set(r, h, r)); fol.setMatrixAt(i * TIERS + k, MX);
-          fol.setColorAt(i * TIERS + k, C.setHex(base).multiplyScalar(0.85 + 0.3 * f).lerp(FOG, fogK));
-        }
-        if (t.solid) { const c = addBox(t.x - 0.4 * t.s, t.x + 0.4 * t.s, 0, 3.6, t.z - 0.4 * t.s, t.z + 0.4 * t.s, INVM); if (c.userData.col) c.userData.col.prop = true; }   // ствол держит игрока и пули
+      // --- геометрии (высота 1, радиус ~1; дальше масштабируются на экземпляр) ---
+      let gs = 7331; const GR = () => (gs = (gs * 16807) % 2147483647) / 2147483647;
+      const jag = (r, h, y, seg, droop) => {   // ярус хвои: конус с рваным краем — длинные свисающие «лапы» и провалы
+        const g = new THREE.ConeGeometry(r, h, seg, 2, true).translate(0, y + h / 2, 0), p = g.attributes.position;
+        const ks = [], ds = []; for (let j = 0; j < seg * 2; j++) { ks.push(0.55 + GR() * 0.8); ds.push(GR()); }   // по одному значению на луч — без щелей на шве
+        for (let i = 0; i < p.count; i++) { const py = p.getY(i); if (py < y + h * 0.55) { const ring = py < y + h * 0.25 ? 0 : seg, j = Math.round((Math.atan2(p.getZ(i), p.getX(i)) + Math.PI) / (2 * Math.PI) * seg) % seg, k = ks[ring + j] * (ring ? 0.85 : 1);
+          p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); p.setY(i, py - ds[ring + j] * droop * h * (ring ? 0.5 : 1)); } }
+        g.computeVertexNormals(); return g;
+      };
+      const branch = (y, len, ang, up, r0) => { const g = new THREE.CylinderGeometry(r0 * 0.25, r0, len, 4).translate(0, len / 2, 0); g.rotateZ(-Math.PI / 2 + up); g.rotateY(ang); g.translate(0, y, 0); return g; };
+      const trunkG = (bend) => { const g = new THREE.CylinderGeometry(0.012, 0.045, 1, 7, 6).translate(0, 0.5, 0), p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) { const y = p.getY(i); p.setX(i, p.getX(i) + Math.sin(y * 5 + bend) * 0.03 * y); p.setZ(i, p.getZ(i) + Math.cos(y * 4 + bend) * 0.02 * y); } g.computeVertexNormals(); return g; };
+      const V = [];
+      { // 0: ель — 8 рваных ярусов, сужение к острой макушке
+        const fol = []; for (let k = 0; k < 8; k++) { const f = k / 8; fol.push(jag(0.95 * (1 - f * 0.85), 0.28 * (1 - f * 0.4), 0.18 + 0.76 * f, 9 + (k % 2) * 2, 0.35)); }
+        V.push({ trunk: trunkG(1), fol: mergeGeos(fol) });
+      }
+      { // 1: полумёртвая — редкие обвислые ярусы с одной стороны, торчащие голые сучья
+        const fol = [], tr = [trunkG(2.5)];
+        for (let k = 0; k < 5; k++) { const f = k / 5, g = jag(0.7 * (1 - f * 0.7), 0.2, 0.3 + 0.62 * f, 7, 0.55); g.translate((GR() - 0.5) * 0.15, 0, (GR() - 0.5) * 0.15); fol.push(g); }
+        for (let k = 0; k < 9; k++) tr.push(branch(0.25 + GR() * 0.65, 0.25 + GR() * 0.35, GR() * 6.28, -0.2 + GR() * 0.5, 0.012));
+        V.push({ trunk: mergeGeos(tr), fol: mergeGeos(fol) });
+      }
+      { // 2: сухое дерево — корявый ствол и ветви-«пальцы», без хвои
+        const tr = [trunkG(4)];
+        for (let k = 0; k < 14; k++) { const y = 0.35 + GR() * 0.6, L = 0.18 + GR() * 0.4, a = GR() * 6.28, up = 0.3 + GR() * 0.7; tr.push(branch(y, L, a, up, 0.016));
+          const ex = Math.cos(a) * Math.cos(up) * L, ez = -Math.sin(a) * Math.cos(up) * L, ey = y + Math.sin(up) * L;   // отросток на конце ветки
+          const g = branch(0, L * 0.5, a + (GR() - 0.5) * 1.6, up + 0.4, 0.008); g.translate(ex, ey, ez); tr.push(g); }
+        V.push({ trunk: mergeGeos(tr), fol: null });
+      }
+      const pickV = t => { const r = SR(); return t.solid ? (r < 0.6 ? 0 : r < 0.9 ? 1 : 2) : (r < 0.58 ? 0 : r < 0.82 ? 1 : 2); };
+      const groups = V.map(() => []); treeList.forEach(t => groups[pickV(t)].push(t));
+      const C = new THREE.Color(), FOG = new THREE.Color(0x4a3e32), GREENS = [0x07170f, 0x0a1d14, 0x061310, 0x0d2218, 0x0b1a13, 0x131f12];
+      const barkM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true }), needleM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true, side: THREE.DoubleSide });
+      V.forEach((v, vi) => {
+        const L = groups[vi]; if (!L.length) return;
+        const trunk = new THREE.InstancedMesh(v.trunk, barkM, L.length), fol = v.fol ? new THREE.InstancedMesh(v.fol, needleM, L.length) : null;
+        L.forEach((t, i) => {
+          const H = (vi === 2 ? 14 + SR() * 10 : 20 + SR() * 12) * t.s * t.tall;
+          const dist = Math.hypot(t.x, t.z), fogK = Math.min(0.5, Math.max(0, (dist - 44) / 45));
+          const lean = (SR() - 0.5) * (vi === 2 ? 0.16 : 0.06), q = new THREE.Quaternion().setFromEuler(EU.set(lean, t.ry, (SR() - 0.5) * 0.06));
+          const R0 = (vi === 2 ? 6 : 3.4 + SR() * 1.4) * t.s * (0.8 + 0.2 * t.tall);
+          MX.compose(V3.set(t.x, 0, t.z), q, SC.set(vi === 2 ? R0 : R0 * 1.2, H, vi === 2 ? R0 : R0 * 1.2)); trunk.setMatrixAt(i, MX);
+          trunk.setColorAt(i, C.setHex([0x150f0b, 0x1b130d, 0x100c09, 0x221a14][(SR() * 4) | 0]).lerp(FOG, fogK * 0.5));
+          if (fol) { MX.compose(V3.set(t.x, 0, t.z), q, SC.set(R0, H, R0)); fol.setMatrixAt(i, MX);
+            fol.setColorAt(i, C.setHex(GREENS[(SR() * GREENS.length) | 0]).multiplyScalar(vi === 1 ? 0.75 : 0.9 + SR() * 0.25).lerp(FOG, fogK)); }
+          if (t.solid) { const c = addBox(t.x - 0.4 * t.s, t.x + 0.4 * t.s, 0, 3.6, t.z - 0.4 * t.s, t.z + 0.4 * t.s, INVM); if (c.userData.col) c.userData.col.prop = true; }   // ствол держит игрока и пули
+        });
+        for (const m of [trunk, fol]) if (m) { m.frustumCulled = false; scene.add(m); }
       });
-      trunk.frustumCulled = false; fol.frustumCulled = false; scene.add(trunk); scene.add(fol);
     }
     // во дворе (стволы — коллизия): углы и края, вдали от проходов зомби (|x| < 4 у ворот) и от парковок
     [[-28.5, -6.5, 1.1], [-28.5, 6.5, 1.0], [28.5, -6.5, 1.0], [28.5, 6.5, 1.1],
@@ -2330,7 +2363,7 @@ cot(-14.6, -6.6, 'x', 4, M2.blue); cot(-14.6, -5.3, 'x', 4);
   if (MAP_ID === 'nacht') {
     inside = (x, y, z) => Math.abs(x) < 14.7 && Math.abs(z) < 14.7 && y > 0.02 && y < 7.7;
     room = (x, y, z) => {
-      const fy = y < 3.85 ? 0 : 4, low = y - fy < LOW;
+      const fy = y < 3.85 ? 0 : 4, low = y - fy < LOW && hasFloor(x, z, fy);
       if (y > 3.7 && y < 4) return null;                                                             // торец перекрытия
       const bath = fy === 0 ? (x < -11.55 && z > -0.5 && z < 3.8) : (x < -11.55 && z > -3.8 && z < -0.4);
       return low ? (bath ? ST.bathLow : ST.low) : ST.up;
@@ -2339,14 +2372,16 @@ cot(-14.6, -6.6, 'x', 4, M2.blue); cot(-14.6, -5.3, 'x', 4);
   } else {
     inside = (x, y, z) => { const a = Math.abs(x); return a > 6.17 && a < 19.83 && Math.abs(z) < 8.83 && y > 0.02 && y < 7.65; };
     room = (x, y, z) => {
-      const a = Math.abs(x), fy = y < 3.85 ? 0 : 4, low = y - fy < LOW;
+      const a = Math.abs(x), fy = y < 3.85 ? 0 : 4, low = y - fy < LOW && hasFloor(x, z, fy);
       if (y > 3.7 && y < 4) return null;
       const bath = fy === 0 && z < -4.8 && a > 10.9 && a < 15.3;
       return low ? (bath ? ST.bathLow : ST.low) : ST.up;
     };
     cutX = []; for (const a of [10.9, 11.2, 12, 15.3, 16.4]) cutX.push(a, -a); cutZ = [-4.8, 4.8];
   }
-  const cutY = [LOW, 4 + LOW];
+  const cutY = [LOW, 3.7, 4, 4 + LOW];   // режем и по перекрытию: иначе кусок стены над окном 1 этажа (2.8…5.25 м) красился как нижняя панель 2 этажа
+  // нижняя панель только там, где под гранью есть пол этого этажа (в двусветных залах и над лестницами — бетон/штукатурка)
+  const hasFloor = (x, z, fy) => fy === 0 || floors.some(f => f.y1 > fy - 0.15 && f.y1 < fy + 0.35 && f.y1 - f.y0 < 0.8 && x > f.x0 - 0.45 && x < f.x1 + 0.45 && z > f.z0 - 0.45 && z < f.z1 + 0.45);
   const FN = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
   const faceMat = (b, f, orig) => {   // материал грани f куска b
     const n = FN[f], c = [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2];
@@ -2766,7 +2801,7 @@ if (MAP_ID === 'verruckt') {
 }
 function animFog(t) {
   if (vkSky) vkSky.position.copy(camera.position);   // купол неба всегда вокруг камеры
-  if (vkClouds) { vkClouds.position.copy(camera.position); vkClouds.rotation.y = t * 0.004; }
+  if (vkClouds) vkClouds.position.copy(camera.position);
   for (const m of mistSprites) {
     const u = m.userData; m.position.x += u.vx * 0.016; m.position.z += u.vz * 0.016;
     if (m.position.x > 36) m.position.x = -36; else if (m.position.x < -36) m.position.x = 36;
@@ -2853,6 +2888,18 @@ document.getElementById('bHelp').addEventListener('click', () => { showHelp(selD
 menuEl.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => view('main')));
 // ---------- журнал изменений: новые записи добавляются В НАЧАЛО массива ----------
 const CHANGELOG = [
+  { v: '1.12', d: '12 ноября 2026', groups: [
+    ['Verrückt', ['Убраны горшки с растениями из холлов корпусов', 'Убраны ящики Mystery Box со 2 этажей корпусов (стояли в проходе) — ящик теперь только в сарае', 'Новые деревья: рваные тёмные ели со свисающими лапами, полумёртвые ели с голыми сучьями и сухие корявые деревья; цвета темнее и разные']],
+    ['Небо', ['Прожекторы ПВО медленно шарят по тучам', 'В небе рвутся зенитные снаряды: вспышка, клуб дыма и далёкий хлопок', 'Падает пепел и летят искры от пожаров', 'Во время молний тучи вспыхивают изнутри', 'Тучи медленно плывут']],
+  ] },
+  { v: '1.11', d: '12 ноября 2026', groups: [
+    ['Босс «Плевака»', ['Плюётся вдвое чаще (раз в 1,5–2,6 с вместо 3–5,5 с) и с меньшего расстояния, замах быстрее', 'Исправлено исчезновение: пока он плевался, игра считала его застрявшим и через 10 с переносила к окну']],
+    ['Зомби', ['Больше не проваливаются с винтовой лестницы и с краёв площадок — шаг за край отменяется', 'На винтовой лестнице добавлены точки пути: зомби идут по ступеням, а не срезают винт', 'Застрявший зомби переносится на ближайшую точку своего этажа, а не к окну через всю карту; удары и стояние вплотную к игроку застреванием больше не считаются']],
+    ['Туман', ['Низкие клубы тумана медленно плывут над полом в комнатах и во дворе', 'У ламп туман подсвечен тёплым светом и гаснет вместе со светом', 'Клубы тают, когда подходишь вплотную, и не режутся стенами', 'Общая дымка медленно густеет и редеет; на Verrückt она плотнее']],
+  ] },
+  { v: '1.10', d: '12 ноября 2026', groups: [
+    ['Исправления', ['Nacht: окна 1 и 2 этажа на наружных стенах больше не перекрывают друг друга — в раме 2 этажа больше нет «полстены», окно 1 этажа тоже снова целое', 'Nacht: дверь между коридором и залом по ширине коридора — полотно и рама больше не уходят в стены', 'Над окнами 1 этажа больше нет зелёной полосы: нижняя панель красится только у пола своего этажа', 'Ящики больше не стоят внутри стеллажа, бочки — внутри ящика и стены', 'Ванны: торцы не пересекаются с бортами, углы не мерцают', 'Verrückt: письменный стол не въезжает в картотеку, шкаф — в книжный шкаф', 'Граффити не так светятся в темноте']],
+  ] },
   { v: '1.9', d: '12 ноября 2026', groups: [
     ['Стиль карт', ['Nacht der Untoten: все стены — голый бетон бункера с крашеной серо-зелёной панелью внизу, вместо разных обоев и кирпича', 'Verrückt: единый стиль лечебницы — старая штукатурка сверху и зелёный кафель снизу во всех комнатах', 'В санузлах внизу белый кафель']],
     ['Граффити', ['На стенах надписи баллончиком и кровью («SIE KOMMEN», «HILFE», «KEIN AUSWEG», «LAUF!» и другие), стрелки, черепа, счёт дней и кровавые отпечатки ладоней — с подтёками краски']],
@@ -4807,7 +4854,7 @@ const ND = MAP_ID !== 'nacht' ? vkNodes() : {
   c0: [1, 12.5, 0], c1: [1, 4.5, 0], c2: [6, 5, 0], c3: [6, 12, 0], c4: [12, 6, 0], c5: [13, 13, 0], c6: [8, 8.5, 0],
   n0: [7, -1, 0], n1: [-3, -1, 0], n2: [-9.5, 2.5, 0], n3: [-12, -3, 0], n4: [-12, -12, 0], n5: [-5, -12, 0], n6: [-4, -4, 0],
   n7: [3, -3, 0], n8: [3, -12, 0], n9: [6, -8, 0],
-  s0: [10.4, -4.6, 0], s1: spPt(12), s2: spPt(125), s3: spPt(205), s5: spPt(285), s6: spPt(335), s4: [11.7, -5, 4],   // s1…s6 — по винту (r = 1.9 м), s4 — площадка наверху
+  s0: [10.4, -4.6, 0], s1: spPt(12), s7: spPt(68), s2: spPt(125), s8: spPt(165), s3: spPt(205), s9: spPt(245), s5: spPt(285), s6: spPt(335), s4: [11.7, -5, 4],   // промежуточные s7…s9: хорды не срезают винт   // s1…s6 — по винту (r = 1.9 м), s4 — площадка наверху
   u1: [5, -12, 4], u2: [-3, -12, 4], u3: [-10, -12, 4], u4: [-10, -5, 4], u5: [-3, -6, 4], u6: [3, -1, 4], u7: [-10, 1, 4],
   u8: [-4, 2, 4], u9: [5, 2, 4], u10: [12, -1, 4], u11: [-2, 6, 4], u12: [-8, 6, 4], u13: [-8, 12, 4], u14: [10, 6, 4],
   u15: [10, 12, 4], u16: [2, 9, 4],
@@ -5173,9 +5220,7 @@ function placeBox(toHall) {
 // ---- Verrückt: Mystery Box ещё и на 2 этажах корпусов. Сайт 0 — сарай, 1 — левый корпус (2 эт.), 2 — правый. ДОЛЖНО совпадать с MAPS.verruckt.boxes на сервере. ----
 // Один «живой» ящик (с анимацией) переезжает туда, где его купили; на остальных открытых местах стоят неподвижные копии.
 const BOX_SITES = MAP_ID === 'verruckt' ? [
-  { x: VK_SHED.cx, z: VK_SHED.boxZ, y: 0, door: -1 },
-  { x: -13, z: -6.5, y: 4, door: 0 },
-  { x: 13, z: -6.5, y: 4, door: 1 },
+  { x: VK_SHED.cx, z: VK_SHED.boxZ, y: 0, door: -1 },   // ящики на 2 этажах корпусов убраны (стояли в проходе) — только сарай
 ] : [];
 let boxSite = 0, boxSiteSig = '';
 const boxClones = BOX_SITES.map((st, i) => {
@@ -5720,7 +5765,7 @@ function rebuildNav() {
     if (Math.abs(A.y - B.y) < 0.6 && Math.hypot(A.x - B.x, A.z - B.z) < 18 && los(A.x, A.z, B.x, B.z, Math.min(A.y, B.y))) link(i, j);
   }
   const chains = MAP_ID === 'nacht' ? ['s'] : ['s', 'r'];
-  for (const p of chains) if (MAP_ID === 'nacht' || DOORS[p === 's' ? 0 : 1].open) [['0', '1'], ['1', '2'], ['2', '3'], ['3', '5'], ['5', '6'], ['6', '4']].forEach(([a, b]) => link(NI[p + a], NI[p + b]));
+  for (const p of chains) if (MAP_ID === 'nacht' || DOORS[p === 's' ? 0 : 1].open) (p === 's' && MAP_ID === 'nacht' ? [['0', '1'], ['1', '7'], ['7', '2'], ['2', '8'], ['8', '3'], ['3', '9'], ['9', '5'], ['5', '6'], ['6', '4']] : [['0', '1'], ['1', '2'], ['2', '3'], ['3', '5'], ['5', '6'], ['6', '4']]).forEach(([a, b]) => link(NI[p + a], NI[p + b]));
 }
 
 // ---------- ДВЕРИ: покупка прохода; зомби спавнятся только в окнах открытых комнат ----------
@@ -5728,7 +5773,7 @@ const DOOR_PRICE = 1000;
 const DOORS = MAP_ID !== 'nacht' ? VK_DOORS : [ // a/b — комнаты по обе стороны; h — высота полотна
   { ax: 'x', fixed: 4, s: -11, e: -8, a: 'START', b: 'HALL' },
   { ax: 'z', fixed: -4, s: 8.5, e: 11.5, a: 'START', b: 'CORR' },
-  { ax: 'x', fixed: 4, s: -4, e: -2, a: 'CORR', b: 'HALL', h: 3.7 },
+  { ax: 'x', fixed: 4, s: -3.8, e: -2.2, a: 'CORR', b: 'HALL', h: 3.7 },   // по ширине коридора (раньше края полотна и рамы уходили в стены)
   { ax: 'z', fixed: -2, s: 8.5, e: 11.5, a: 'CORR', b: 'EAST' }
 ];
 const opening = [];
@@ -5883,7 +5928,7 @@ try {
     x.shadowColor = col; x.shadowBlur = blur; x.fillStyle = col; x.fillText(txt, 0, 0); x.shadowBlur = 0; x.fillText(txt, 0, 0);
     x.setTransform(1, 0, 0, 1, 0, 0); const m = x.measureText(txt).width; drips(x, col, w / 2 - m / 2, w / 2 + m / 2, h / 2 + 22, 7, 40);
   });
-  const RED = 'rgba(170,20,15,0.92)', BLOOD = 'rgba(105,8,6,0.9)', BLK = 'rgba(15,15,15,0.9)', WHT = 'rgba(225,220,205,0.85)', YEL = 'rgba(205,170,40,0.85)';
+  const RED = 'rgba(170,20,15,0.9)', BLOOD = 'rgba(105,8,6,0.9)', BLK = 'rgba(15,15,15,0.88)', WHT = 'rgba(200,195,180,0.78)', YEL = 'rgba(190,155,35,0.8)';
   const GR = [
     { t: word('SIE KOMMEN', RED, 'bold 64px Impact, sans-serif', 14, -0.05), w: 1.6, h: 0.8 },
     { t: word('HILFE', BLOOD, 'bold 90px Georgia, serif', 6, 0.04), w: 1.3, h: 0.65 },
@@ -5900,7 +5945,7 @@ try {
         for (let g = 0; g < 4; g++) for (let i = 0; i < 5; i++) { x.beginPath(); const bx = 30 + g * 55 + (g > 1 ? 0 : 0), by = 60 + (g % 2) * 90; if (i < 4) { x.moveTo(bx + i * 10, by); x.lineTo(bx + i * 10 + 2, by + 60); } else { x.moveTo(bx - 6, by + 50); x.lineTo(bx + 42, by + 8); } x.stroke(); } }), w: 0.6, h: 0.6 },
     { t: spray(256, 256, (x) => { x.fillStyle = BLOOD; for (let k = 0; k < 2; k++) { const ox = 70 + k * 100, oy = 90 + k * 30, a = k ? 0.3 : -0.2;   // кровавые отпечатки ладоней
         x.save(); x.translate(ox, oy); x.rotate(a); x.beginPath(); x.ellipse(0, 30, 26, 32, 0, 0, 7); x.fill(); for (let f = 0; f < 4; f++) { x.beginPath(); x.ellipse(-20 + f * 13, -20 - (f === 1 || f === 2 ? 10 : 0), 6, 22, 0, 0, 7); x.fill(); } x.beginPath(); x.ellipse(30, 18, 6, 18, -0.9, 0, 7); x.fill(); x.restore(); drips(x, BLOOD, ox - 20, ox + 20, oy + 55, 3, 60); } }), w: 0.75, h: 0.75 },
-  ].map(g => ({ ...g, m: new THREE.MeshStandardMaterial({ map: g.t, transparent: true, depthWrite: false, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 }) }));
+  ].map(g => ({ ...g, m: new THREE.MeshStandardMaterial({ map: g.t, color: 0x9a968e, transparent: true, depthWrite: false, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 }) }));
   const tags = []; let gPlaced = 0;
   for (let tries = 0; tries < 2000 && gPlaced < (vk ? 24 : 30); tries++) {
     const p = pts[Math.random() * pts.length | 0], [dx, dz] = pick(dirs), gy = p[2], G2 = tries > 600 && Math.random() < 0.6 ? GR[6 + (Math.random() * 4 | 0)] : GR[(gPlaced + (Math.random() * 3 | 0)) % GR.length], hw = G2.w / 2, hh = G2.h / 2, hy = gy + R(1.25, 2.0);
@@ -5919,6 +5964,101 @@ try {
   }
 })();
 } catch (e) { console.warn('decor', e); }
+let SKYFX = null;
+try {
+// ---------- живое небо: прожекторы ПВО шарят по тучам, рвутся зенитные снаряды, падает пепел и летят искры, молнии подсвечивают тучи ----------
+SKYFX = (() => {
+  const vk = MAP_ID === 'verruckt', grp = new THREE.Group(); scene.add(grp);
+  const radT = (a, b) => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, a); g.addColorStop(1, b); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); };
+  // прожекторы: конусы света от горизонта, медленно качаются
+  const beamT = (() => { const c = document.createElement('canvas'); c.width = 4; c.height = 128; const x = c.getContext('2d'), g = x.createLinearGradient(0, 128, 0, 0); g.addColorStop(0, 'rgba(255,255,255,0.9)'); g.addColorStop(0.5, 'rgba(255,255,255,0.3)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 4, 128); return new THREE.CanvasTexture(c); })();
+  const beams = [];
+  for (let i = 0; i < (vk ? 5 : 4); i++) {
+    const a = i / (vk ? 5 : 4) * 6.283 + 0.4, R = vk ? 74 : 44, BL = vk ? 85 : 50, piv = new THREE.Group(); piv.position.set(Math.cos(a) * R, 0, Math.sin(a) * R); grp.add(piv);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(3.2 * BL / 85, 0.35, BL, 14, 1, true).translate(0, BL / 2, 0), new THREE.MeshBasicMaterial({ map: beamT, color: 0xd8d2b8, transparent: true, opacity: 0.11, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    piv.add(m); piv.rotation.y = -a; beams.push({ piv, ph: Math.random() * 6.28, sp: 0.12 + Math.random() * 0.1, m });
+  }
+  // зенитки: вспышка, затем тёмный клуб дыма
+  const flashT = radT('rgba(255,220,150,1)', 'rgba(255,140,40,0)'), puffT = radT('rgba(20,16,13,0.85)', 'rgba(20,16,13,0)');
+  const flak = []; for (let i = 0; i < 12; i++) { const f = new THREE.Sprite(new THREE.SpriteMaterial({ map: flashT, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: 0 })), p = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffT, transparent: true, depthWrite: false, fog: false, opacity: 0 })); grp.add(f); grp.add(p); flak.push({ f, p, t: 9 }); }
+  let nextFlak = 1;
+  // пепел (падает, кружится) и искры (поднимаются) вокруг игрока
+  const mkPts = (n, col, size, add) => { const g = new THREE.BufferGeometry(), a = new Float32Array(n * 3); for (let i = 0; i < n * 3; i++) a[i] = (Math.random() - 0.5) * 30; g.setAttribute('position', new THREE.BufferAttribute(a, 3));
+    const m = new THREE.Points(g, new THREE.PointsMaterial({ map: radT('rgba(255,255,255,1)', 'rgba(255,255,255,0)'), color: col, size, transparent: true, depthWrite: false, opacity: 0.8, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending, sizeAttenuation: true }));
+    m.frustumCulled = false; scene.add(m); return { m, a, n, sp: new Float32Array(n).map(() => 0.3 + Math.random() * 0.7) }; };
+  const ash = mkPts(vk ? 420 : 260, 0x8a847a, 0.07, false), emb = mkPts(vk ? 110 : 60, 0xff8a30, 0.06, true);
+  const wrap = (v, c, h) => { const d = v - c; return d > h ? v - 2 * h : d < -h ? v + 2 * h : v; };
+  return { update(t, dt) {
+    const cam = camera.position; grp.position.set(cam.x, 0, cam.z);   // небо «едет» вместе с игроком, как купол
+    for (const b of beams) { b.piv.rotation.z = 0.35 + 0.3 * Math.sin(t * b.sp + b.ph); b.piv.rotation.x = 0.25 * Math.sin(t * b.sp * 0.7 + b.ph * 2); b.m.material.opacity = 0.09 + 0.03 * Math.sin(t * 2.3 + b.ph); }
+    if ((nextFlak -= dt) <= 0) { nextFlak = 0.35 + Math.random() * (vk ? 1.2 : 2.2); const f = flak.find(o => o.t > 3.2); if (f) { const a = Math.random() * 6.28, r = vk ? 45 + Math.random() * 20 : 32 + Math.random() * 12; f.x = Math.cos(a) * r; f.z = Math.sin(a) * r; f.y = vk ? 28 + Math.random() * 22 : 22 + Math.random() * 14; f.t = 0;
+        f.f.position.set(f.x, f.y, f.z); f.p.position.set(f.x, f.y, f.z); if (typeof AC !== 'undefined' && AC && Math.random() < 0.5) noise(0.9, 0.06, 'lowpass', 220, 60, 0.6 + Math.random() * 0.6, 0.8); } }
+    for (const f of flak) { f.t += dt; const u = f.t;
+      f.f.material.opacity = u < 0.12 ? 1 - u / 0.12 : 0; f.f.scale.setScalar(3 + u * 10);
+      f.p.material.opacity = u < 0.08 ? 0 : Math.max(0, 0.75 * (1 - (u - 0.08) / 3)); f.p.scale.setScalar(2.5 + Math.min(u, 3) * 2.2); if (u < 3.2) f.p.position.y = f.y + u * 0.4; }
+    const fl = typeof FEAR !== 'undefined' && FEAR.light > 0 ? 1 : 0;   // молния — тучи вспыхивают изнутри
+    const clouds = vk ? vkClouds : nachtClouds; if (clouds) { clouds.material.color.setScalar(1 + fl * 2.5); if (vk) clouds.rotation.y = t * 0.006; }
+    if (vkSky) vkSky.material.color.setScalar(1 + fl * 0.6);
+    for (const [P, dir] of [[ash, -1], [emb, 1]]) { const a = P.a;
+      for (let i = 0; i < P.n; i++) { const k = i * 3, s = P.sp[i];
+        a[k] += Math.sin(t * 0.8 + i) * 0.25 * dt + (dir > 0 ? 0.2 : 0.35) * dt; a[k + 1] += dir * s * (dir > 0 ? 1.4 : 0.55) * dt; a[k + 2] += Math.cos(t * 0.6 + i * 1.3) * 0.25 * dt;
+        a[k] = wrap(a[k], cam.x, 15); a[k + 2] = wrap(a[k + 2], cam.z, 15); a[k + 1] = wrap(a[k + 1], cam.y + 3, 8); }
+      P.m.geometry.attributes.position.needsUpdate = true; }
+    emb.m.material.opacity = 0.6 + 0.4 * Math.sin(t * 9);
+  } };
+})();
+} catch (e) { console.warn('skyfx', e); }
+let MIST = null;
+try {
+// ---------- живой туман: низкие клубы над полом в комнатах и во дворе; у ламп туман светится, вдали всё тонет в дымке ----------
+MIST = (() => {
+  const tex = [0, 1, 2].map(v => {   // мягкий клуб: несколько размытых пятен шума с плавным краем
+    const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+    for (let i = 0; i < 26; i++) { const a = Math.random() * 6.28, r = Math.random() * 34, px = 64 + Math.cos(a) * r, py = 64 + Math.sin(a) * r * 0.7, R = 18 + Math.random() * 26, g = x.createRadialGradient(px, py, 0, px, py, R);
+      g.addColorStop(0, `rgba(255,255,255,${0.16 + Math.random() * 0.14})`); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); }
+    const m = x.getImageData(0, 0, 128, 128), d = m.data;   // гасим края, чтобы не было квадратных границ
+    for (let y = 0; y < 128; y++) for (let k = 0; k < 128; k++) { const r = Math.hypot(k - 64, y - 64) / 64, f = Math.max(0, 1 - r * r) ; d[(y * 128 + k) * 4 + 3] *= f; }
+    x.putImageData(m, 0, 0); return new THREE.CanvasTexture(c);
+  });
+  const list = [], vk = MAP_ID === 'verruckt';
+  const wallClear = (x, z, y) => {   // расстояние до ближайшей стены на высоте клуба (чтобы клуб не резался стеной)
+    let best = 9;
+    for (const b of colliders) { if (b.prop || b.win || b.y1 < y + 0.3 || b.y0 > y + 1.6 || b.y1 - b.y0 < 1.2) continue;
+      const dx = Math.max(b.x0 - x, 0, x - b.x1), dz = Math.max(b.z0 - z, 0, z - b.z1); best = Math.min(best, Math.hypot(dx, dz)); }
+    return best;
+  };
+  const lampGlow = (x, y, z) => { let g = 0; for (const o of bulbs) { const p = o.l.position, d = Math.hypot(p.x - x, (p.y - y) * 0.7, p.z - z); g += o.base * Math.max(0, 1 - d / 6.5) ** 2; } return Math.min(1.4, g); };
+  const pts = [];
+  for (const n of NODES) { pts.push([n.x, n.z, n.y]); for (const e of n.n) { const m = NODES[e.j]; if (m && Math.abs(m.y - n.y) < 0.3) pts.push([(n.x + m.x) / 2, (n.z + m.z) / 2, n.y]); } }
+  if (vk) for (let i = 0; i < 40; i++) { const a = Math.random() * 6.28, r = 8 + Math.random() * 26; pts.push([Math.cos(a) * r, Math.sin(a) * r, 0]); }   // двор и опушка
+  const N = vk ? 120 : 80;
+  for (let i = 0; i < N * 3 && list.length < N; i++) {
+    const p = pts[Math.random() * pts.length | 0], x = p[0] + (Math.random() - 0.5) * 2.5, z = p[1] + (Math.random() - 0.5) * 2.5;
+    if (typeof stairAt === 'function' && stairAt(x, z)) continue;
+    const gy = floorAt(x, z, p[2] + 0.3); if (Math.abs(gy - p[2]) > 0.3) continue;
+    const cl = wallClear(x, z, gy); if (cl < 0.7) continue;
+    if (list.some(o => Math.hypot(o.ax - x, o.az - z) < 1.3 && Math.abs(o.ay - gy) < 1)) continue;
+    const size = Math.max(2.2, Math.min(vk && cl > 8 ? 11 : 7.5, cl * 2.1)), y = gy + 0.35 + Math.random() * 0.7 + size * 0.06;
+    const glow = lampGlow(x, y, z), base = vk ? [0.36, 0.33, 0.3] : [0.3, 0.31, 0.32];
+    const mat = new THREE.SpriteMaterial({ map: tex[i % 3], transparent: true, depthWrite: false, opacity: 0, fog: true, rotation: Math.random() * 6.28,
+      color: new THREE.Color(base[0] + glow * 0.55, base[1] + glow * 0.5, base[2] + glow * 0.38) });
+    const s = new THREE.Sprite(mat); s.scale.set(size, size * 0.55, 1); s.position.set(x, y, z); s.renderOrder = 2; scene.add(s);
+    list.push({ s, ax: x, ay: y, az: z, ph: Math.random() * 6.28, sp: 0.15 + Math.random() * 0.25, op: (vk ? 0.2 : 0.17) * (0.7 + Math.random() * 0.5), glow, rot: (Math.random() - 0.5) * 0.06 });
+  }
+  if (vk && scene.fog) { scene.fog.color.setHex(0x2e2a26); scene.fog.density = 0.022; }
+  const fd0 = scene.fog ? scene.fog.density : 0;
+  return { list, update(t, dt) {
+    if (scene.fog) scene.fog.density = fd0 * (1 + Math.sin(t * 0.07) * 0.12 + Math.sin(t * 0.023 + 1) * 0.08);   // туман то густеет, то редеет
+    const pw = typeof FEAR !== 'undefined' ? FEAR.power : 1, cam = camera.position;
+    for (const o of list) {
+      const u = t * o.sp + o.ph; o.s.position.set(o.ax + Math.sin(u) * 0.6, o.ay + Math.sin(u * 0.7) * 0.08, o.az + Math.cos(u * 0.8) * 0.6);
+      o.s.material.rotation += o.rot * dt;
+      const d = o.s.position.distanceTo(cam), near = Math.min(1, Math.max(0, (d - 1.2) / 3));   // вплотную клуб тает, а не висит плоской картинкой
+      o.s.material.opacity = o.op * near * (o.glow > 0.2 ? 0.45 + 0.55 * pw : 1);
+    }
+  } };
+})();
+} catch (e) { console.warn('mist', e); }
 
 
 // ---------- БАРРИКАДЫ у главных дверей домов (Verrückt): после 6 раунда можно построить; очень много HP, зомби ломают её долго ----------
@@ -6443,7 +6583,7 @@ function bossDecorate(z, add, body, skin, gore) {   // наросты, тяжи 
 }
 function bossSetup(z) {   // параметры босса после спавна
   z.run = false; z.gait = pick(['lurch', 'shamble']); z.armStyle = pick(['hang', 'claw']);
-  z.speed = BOSS_SPEED * (round >= 12 ? 1.2 : 1); z.hp = ZHP(round) * BOSS_HP_K; z.spitCd = rnd(1.5, 3); z.spitT = 0;
+  z.speed = BOSS_SPEED * (round >= 12 ? 1.2 : 1); z.hp = ZHP(round) * BOSS_HP_K; z.spitCd = rnd(0.8, 1.6); z.spitT = 0;
 }
 function bossLos(z, t) { const p = z.g.position; return Math.abs(t.floor - p.y) < 1.6 && los(p.x, p.z, t.x, t.z, p.y); }
 // true — босс стоит и плюётся (обычное движение в этот кадр не выполняется)
@@ -6452,10 +6592,10 @@ function bossSpitTick(z, target, dp, dt) {
   if (z.spitT > 0) {
     turn(z, target.x - z.g.position.x, target.z - z.g.position.z, dt);
     const was = z.spitT; z.spitT -= dt;
-    if (was > 0.25 && z.spitT <= 0.25) bossFire(z, target);   // выстрел в конце замаха
+    if (was > 0.2 && z.spitT <= 0.2) bossFire(z, target);   // выстрел в конце замаха
     return true;
   }
-  if (z.spitCd <= 0 && dp > 3.2 && dp < 22 && bossLos(z, target)) { z.spitT = 0.95; z.spitCd = rnd(3.2, 5.5); bossSnd('gurgle', z.g.position.x, z.g.position.z); return true; }
+  if (z.spitCd <= 0 && dp > 2.6 && dp < 24 && bossLos(z, target)) { z.spitT = 0.8; z.spitCd = rnd(1.5, 2.6); bossSnd('gurgle', z.g.position.x, z.g.position.z); return true; }
   return false;
 }
 function bossMouth(z) { const v = new THREE.Vector3(0, -0.1, 0.18); z.head.localToWorld(v); return v; }
@@ -6466,7 +6606,7 @@ function bossFire(z, target) {
   if (window.MP && MP.active && MP.isAuthority && MP.sendSpit) MP.sendSpit({ ...s, zid: z.mpId || '' });
 }
 function bossPose(z, dt) {   // замах перед плевком + пульсация наростов
-  if (z.spitT > 0) { const u = 1 - z.spitT / 0.95, k = u < 0.7 ? -0.45 * (u / 0.7) : -0.45 + 1.1 * Math.min(1, (u - 0.7) / 0.15); z.body.rotation.x += k; z.head.rotation.x = u < 0.7 ? -0.5 * u / 0.7 : 0.35; }
+  if (z.spitT > 0) { const u = 1 - z.spitT / 0.8, k = u < 0.7 ? -0.45 * (u / 0.7) : -0.45 + 1.1 * Math.min(1, (u - 0.7) / 0.15); z.body.rotation.x += k; z.head.rotation.x = u < 0.7 ? -0.5 * u / 0.7 : 0.35; }
   if (z.pus) { const t = performance.now() * 0.004 + z.seed; for (let i = 0; i < z.pus.length; i += 2) { const q = 1 + Math.sin(t + i) * 0.07; z.pus[i].scale.x = z.pus[i].scale.z = q; } }
 }
 // ---- плевки, лужи, слизь на экране ----
@@ -6915,12 +7055,21 @@ function updateZombie(z, dt) {
     }
   }
   if (z.state === 'chase' && !z.as) { // защита от застревания
-    if (!frozen && z.moved < spd * dt * 0.25 && z.atkT <= 0 && z.atkCd >= 0.25) { z.stuck += dt; z.stuckTot += dt; } else z.stuck = Math.max(0, z.stuck - dt);
+    const busy = z.atkT > 0 || (z.boss && z.spitT > 0) || Math.hypot(target.x - p.x, target.z - p.z) < 1.9;   // бьёт, плюётся или стоит вплотную — это не застревание
+    if (!frozen && !busy && z.moved < spd * dt * 0.25) { z.stuck += dt; z.stuckTot += dt; } else { z.stuck = Math.max(0, z.stuck - dt); if (z.moved > spd * dt * 0.5) z.stuckTot = Math.max(0, z.stuckTot - dt * 0.5); }
     if (z.stuck > 2) { const a = Math.random() * 6.28; z.nx = Math.cos(a); z.nz = Math.sin(a); z.nT = 0.6; z.stuck = 0; }
-    if (z.stuckTot > 10) { z.stuckTot = 0; p.set(w.entry.x, w.base || 0, w.entry.z); }
+    if (z.stuckTot > 12) {   // совсем застрял: переносим на ближайший узел навигации своего этажа (а не к окну через всю карту)
+      z.stuckTot = 0; let best = null, bd = 1e9;
+      for (const n of NODES) { if (Math.abs(n.y - p.y) > 0.7) continue; const d = Math.hypot(n.x - p.x, n.z - p.z); if (d > 0.6 && d < bd && !inStair(n.x, n.z)) { bd = d; best = n; } }
+      if (best && bd < 8) { p.set(best.x, best.y, best.z); z.wp = null; z.planT = 0; } else if (!best) p.set(w.entry.x, w.base || 0, w.entry.z);
+    }
   }
   // высота пола (лестницы)
-  const gy = floorAt(p.x, p.z, p.y);
+  let gy = floorAt(p.x, p.z, p.y);
+  if (z.state === 'chase' && z.safe && p.y - gy > 0.6) {   // шаг за край ступени/площадки: не падаем вниз (раньше зомби проваливались с винтовой лестницы и «пропадали»)
+    p.x = z.safe.x; p.z = z.safe.z; gy = floorAt(p.x, p.z, p.y); z.stuck += dt;
+  }
+  if (z.state === 'chase' && p.y - gy < 0.3) { z.safe = z.safe || {}; z.safe.x = p.x; z.safe.z = p.z; }
   if (z.state !== 'vault' && z.state !== 'rise') p.y = gy > p.y ? Math.min(gy, p.y + 10 * dt) : Math.max(gy, p.y - 14 * dt);
   // процедурная анимация: у каждого зомби своя походка (shamble / limp / lurch / run), стиль рук, атаки и разрыв
   z.mv += ((z.moved > 0.0005 ? 1 : 0) - z.mv) * Math.min(1, dt * 8);
@@ -7258,6 +7407,8 @@ function loop() {
   animFog(t);
   camFxUpdate(dt, t);
   fearUpdate(dt, t);
+  if (MIST) MIST.update(t, dt);
+  if (SKYFX) SKYFX.update(t, dt);
   updateKnife(dt);
   updateGrenades(dt);
   updateWeapon(dt, t);
