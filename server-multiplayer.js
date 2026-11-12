@@ -35,8 +35,8 @@ const WEAPONS = [
 const MAPS = {
   nacht: {
     doors: [
-      { x: -9.5, z: 4 }, { x: 4, z: -4 }, { x: -3, z: 4 },
-      { x: 10, z: -2 }, { x: 7, z: 1 },
+      { x: -9.5, z: 4 }, { x: -4, z: 10 }, { x: -3, z: 4 },
+      { x: -2, z: 10 },   // координаты = центр полотна двери на клиенте (px, pz): для ax:'z' px=fixed, pz=середина проёма
     ],
     windows: [
       [-8, -15, 1.7], [5, -15, 1.7], [-8, -15, 5.7], [5, -15, 5.7],
@@ -52,7 +52,11 @@ const MAPS = {
     },
   },
   verruckt: {
-    doors: [{ x: -9, z: -2.35 }, { x: 9, z: -2.35 }],   // платный вход на 2 этаж: левый и правый корпус (порядок как в VK_DOORS на клиенте)
+    doors: [
+      { x: -9, z: -2.35, price: 2000 }, { x: 9, z: -2.35, price: 2000 },   // вход на 2 этаж
+      { x: 13, z: -17, price: 1000 },                                      // сарай (Mystery Box)
+      { x: -6, z: 0, price: 1000 }, { x: 6, z: 0, price: 1000 },           // главные двери левого/правого дома
+    ],   // платный вход на 2 этаж: левый и правый корпус (порядок как в VK_DOORS на клиенте)
     windows: [],
     wall: { thompson: { x: 31.85, z: 0 }, shotgun: { x: 0, z: 31.85 } },
     box: { x: 0, z: -9.3, available: () => true },
@@ -378,7 +382,7 @@ io.on('connection', socket => {
       const door = cfg.doors[doorIndex];
       if (!door || room.game.doors[doorIndex]) return failPurchase(socket, 'Эта дверь уже открыта');
       if (!near(player, door.x, door.z, 3.2, -1, 3.2)) return failPurchase(socket, 'Подойдите ближе к двери');
-      price = 1000;
+      price = door.price || 1000;
     } else if (kind === 'cola') {
       const pk = cfg.perks.cola;
       if (!near(player, pk.x, pk.z, 2.8, pk.minY, pk.maxY)) return failPurchase(socket, 'Подойдите к автомату Speed Cola');
