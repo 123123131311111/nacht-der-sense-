@@ -2957,6 +2957,13 @@ const WIN = MAP_ID === 'nacht' ? windows.filter(w => w.lvl < 1 || (w.lvl > 3 && 
 // комната по координате (1 этаж): START — стартовая, CORR — коридор, EAST — восточная, HALL — большой зал с лестницей
 function zoneOf(x, z) { if (MAP_ID !== 'nacht') return vkZone(x, z); return z > 4 ? (x < -4 ? 'START' : x < -2 ? 'CORR' : 'EAST') : (z > 1 && x > -2 ? 'EAST' : 'HALL'); }
 WIN.forEach(w => w.zone = zoneOf(w.entry.x, w.entry.z));
+// Verrückt: 3 «могилы» во дворе рядом с корпусами — зомби вылезают из-под земли (дополнительно к воротам)
+const GRAVES = MAP_ID === 'verruckt' ? [{ x: -4.5, z: 11.5 }, { x: 4.5, z: -11.5 }, { x: 4.5, z: 11.5 }] : [];
+GRAVES.forEach(g => {
+  const dirt = new THREE.MeshStandardMaterial({ color: 0x2b1d12, roughness: 1 });
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.15, 0.05, 14), dirt); disc.position.set(g.x, 0.03, g.z); scene.add(disc);
+  for (let i = 0; i < 5; i++) { const a = i * 1.26 + 0.4, m = new THREE.Mesh(new THREE.SphereGeometry(0.22 + (i % 2) * 0.1, 7, 5), dirt); m.scale.y = 0.4; m.position.set(g.x + Math.cos(a) * 0.8, 0.04, g.z + Math.sin(a) * 0.8); scene.add(m); }
+});
 // ---------- частицы и анимации досок ----------
 const boardFx = [], parts = [];
 const dustGeo = new THREE.SphereGeometry(1, 6, 5), splGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -4243,7 +4250,14 @@ function spawnZombie(mp, network = false) {
     z.g.position.set(mp.x, mp.y || 0, mp.z); z.g.rotation.y = mp.yaw || 0;
     z.menu = false; z.networkRemote = true;
   } else if (mp) { z.g.position.set(mp.x, 0, mp.z); z.g.rotation.y = Math.random() * 6.28; z.menu = true; }
-  else {
+  else if (GRAVES.length && Math.random() < 0.4) {   // Verrückt: вылезает из-под земли
+    const gr = GRAVES[Math.random() * GRAVES.length | 0];
+    z.w = activeWin[Math.random() * activeWin.length | 0] || WIN[0]; z.state = 'rise'; z.t = 0; z.riseDur = 2.4 + Math.random() * 0.6;
+    z.g.position.set(gr.x + (Math.random() - 0.5) * 0.8, -2.1, gr.z + (Math.random() - 0.5) * 0.8);
+    z.g.rotation.y = Math.atan2(-gr.x, -gr.z) + (Math.random() - 0.5) * 0.8;
+    puffDust(z.g.position.x, 0.1, z.g.position.z, 14, [0, 0]);
+    if (window.MP && MP.active && MP.isAuthority) z.mpId = `${MP.socket.id}:${++mpZombieSeq}`;
+  } else {
     const lat = (Math.random() - 0.5) * 0.6; // SpawnPoint снаружи у окна
     z.g.position.set(w.spawn.x + Math.abs(w.dir.z) * lat, w.base || 0, w.spawn.z + Math.abs(w.dir.x) * lat);
     z.g.rotation.y = Math.atan2(-w.dir.x, -w.dir.z);
@@ -4442,6 +4456,11 @@ function updateZombie(z, dt) {
       const d = steer(z, w.entry.x, w.entry.z, spd, dt);
       if (d < 0.3 || z.apT > 25) { if (d >= 0.3) p.set(w.entry.x, w.base || 0, w.entry.z); z.state = 'chase'; } // пересёк EntryPoint -> погоня
     }
+  } else if (z.state === 'rise') {   // подъём из земли: не двигается, игрока не атакует
+    const f = Math.min(1, z.t / z.riseDur), e = f * f * (3 - 2 * f);
+    p.y = -2.1 * (1 - e);
+    if (Math.random() < dt * 8) puffDust(p.x, 0.1, p.z, 1, [0, 0]);
+    if (f >= 1) { p.y = 0; z.state = 'chase'; z.stuck = 0; z.planT = 0; z.apT = 0; }
   } else if (z.state === 'menu') { menuWalk(z, spd, dt);
   } else if (z.state === 'vault') { // перелезание: горизонтальное движение + дуга вверх через подоконник
     z.vt += dt; const f = Math.min(1, z.vt / z.vdur), e = f * f * (3 - 2 * f);
@@ -4481,7 +4500,7 @@ function updateZombie(z, dt) {
   }
   // высота пола (лестницы)
   const gy = floorAt(p.x, p.z, p.y);
-  if (z.state !== 'vault') p.y = gy > p.y ? Math.min(gy, p.y + 10 * dt) : Math.max(gy, p.y - 14 * dt);
+  if (z.state !== 'vault' && z.state !== 'rise') p.y = gy > p.y ? Math.min(gy, p.y + 10 * dt) : Math.max(gy, p.y - 14 * dt);
   // процедурная анимация: у каждого зомби своя походка (shamble / limp / lurch / run), стиль рук, атаки и разрыв
   z.mv += ((z.moved > 0.0005 ? 1 : 0) - z.mv) * Math.min(1, dt * 8);
   const mvv = z.gait === 'lurch' ? Math.max(z.mv, 0.75) : z.mv;
@@ -4519,6 +4538,7 @@ function updateZombie(z, dt) {
     z.lLeg.rotation.x = -1.3 * k; z.rLeg.rotation.x = -0.4 * k - 0.2; z.lLeg.kn.rotation.x = z.rLeg.kn.rotation.x = 0.4 * k;
     al = ar = -1.45 - 1.1 * k; eL = eR = -0.3; lean = 0.15 + 0.45 * k; roll = 0; dip = 0;
   }
+  if (z.state === 'rise') { const k = Math.sin(z.t * 6) * 0.25; al = -2.6 + k; ar = -2.6 - k; eL = eR = -0.2; lean = 0.5 * (1 - Math.min(1, z.t / z.riseDur)); }
   if (z.state === 'tear') {   // три манеры срывать доски
     if (z.tearKind === 0) { const k = Math.sin(z.t * 9) * 0.5; al = -1.2 + k; ar = -1.2 - k; }
     else if (z.tearKind === 1) { const k = Math.abs(Math.sin(z.t * 7)) * 0.9; al = ar = -1.4 - k; lean = 0.2 + k * 0.2; }

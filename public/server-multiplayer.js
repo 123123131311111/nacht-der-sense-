@@ -36,7 +36,7 @@ const MAPS = {
   nacht: {
     doors: [
       { x: -9.5, z: 4 }, { x: -4, z: 10 }, { x: -3, z: 4 },
-      { x: -2, z: 10 },
+      { x: -2, z: 10 },   // координаты = центр полотна двери на клиенте (px, pz): для ax:'z' px=fixed, pz=середина проёма
     ],
     windows: [
       [-8, -15, 1.7], [5, -15, 1.7], [-8, -15, 5.7], [5, -15, 5.7],
@@ -44,27 +44,28 @@ const MAPS = {
       [-15, -5.5, 1.7], [-15, 7, 5.7], [15, -2, 1.7], [15, 4, 5.7],
     ],
     wall: { thompson: { x: -14.7, z: 10 }, shotgun: { x: -14.7, z: -11.5 } },
-    box: { x: 0.3, z: -13.25, available: dr => !!(dr[0] || dr[2]) },
+    box: { x: 0.3, z: -13.25, available: dr => !!(dr[0] || dr[2] || dr[4]) },
     perks: {
       cola: { x: -14.25, z: 7, minY: -1, maxY: 3.2 },
       doubleTap: { x: -12, z: -14.25, minY: 3.2, maxY: 7.5 },
       juggernog: { x: -14.25, z: 2, minY: 3.2, maxY: 7.5 },
-      quickRevive: { x: 14.22, z: 8, minY: -1, maxY: 3.2 },   // столовая, 1 этаж (как QR на клиенте)
     },
   },
   verruckt: {
-    // Порядок и цены как в VK_DOORS на клиенте: [0, 1] — вход на 2 этаж (2000), [2] — сарай с ящиком (1000), [3, 4] — главные двери левого и правого дома (1000).
-    doors: [{ x: -9, z: -2.35, price: 2000 }, { x: 9, z: -2.35, price: 2000 }, { x: 13, z: -17, price: 1000 }, { x: -6, z: 0, price: 1000 }, { x: 6, z: 0, price: 1000 }],
+    doors: [
+      { x: -9, z: -2.35, price: 2000 }, { x: 9, z: -2.35, price: 2000 },   // вход на 2 этаж
+      { x: 13, z: -17, price: 1000 },                                      // сарай (Mystery Box)
+      { x: -6, z: 0, price: 1000 }, { x: 6, z: 0, price: 1000 },           // главные двери левого/правого дома
+    ],   // платный вход на 2 этаж: левый и правый корпус (порядок как в VK_DOORS на клиенте)
     windows: [],
-    wall: { thompson: { x: -19.8, z: 2.75 }, shotgun: { x: 19.8, z: -2.75 } },   // внутри корпусов: Thompson — левый, дробовик — правый
-    box: { x: 13, z: -21.35, available: dr => !!dr[2] },
+    wall: { thompson: { x: 31.85, z: 0 }, shotgun: { x: 0, z: 31.85 } },
+    box: { x: 0, z: -9.3, available: () => true },
     levers: [{ x: -16.3, z: 2.4 }, { x: 16.3, z: 2.4 }],   // рубильники на 2 этаже корпусов (как LEVERS на клиенте)
-    upgrader: { x: 30.9, z: -27.6 },   // Улучшайзер в северо-восточном углу двора (как UPG на клиенте)   // Mystery Box в сарае: доступен после покупки двери №2 (клиент: VK_SHED.cx, boxZ + 0.7)
+    upgrader: { x: 30.9, z: -27.6 },   // Улучшайзер в северо-восточном углу двора (как UPG на клиенте)
     perks: {
       cola: { x: -7.2, z: 3.2, minY: 3.2, maxY: 7.5 },
-      doubleTap: { x: 6.67, z: 2.9, minY: 3.2, maxY: 7.5 },   // у стены правого дома, 2 этаж (как DTAP на клиенте)
+      doubleTap: { x: 8.4, z: 3, minY: 3.2, maxY: 7.5 },
       juggernog: { x: 1000, z: 1000, minY: 3.2, maxY: 7.5 },
-      quickRevive: { x: -5.35, z: -4.6, minY: -1, maxY: 3.2 },   // у фасада левого дома (как QR на клиенте)
     },
   },
 };
@@ -91,7 +92,7 @@ function makePlayer(id, name, slot) {
   return {
     id, name: cleanName(name, id), color: ['#e04040', '#3a8ee6', '#46c46a', '#e6c83a'][slot], slot,
     x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0, active: false, downed: false, reviving: null,
-    points: 500, hp: 100, perks: { cola: false, doubleTap: false, juggernog: false, quickRevive: false },
+    points: 500, hp: 100, perks: { cola: false, doubleTap: false, juggernog: false },
     owned: { thompson: false, shotgun: false }, upg: Object.create(null), shots: Object.create(null), lastShotAt: -Infinity,
   };
 }
@@ -346,7 +347,7 @@ io.on('connection', socket => {
     const ctx = roomAndPlayer(socket);
     if (!ctx || ctx.player.downed || !ctx.player.active || typeof targetId !== 'string') return;
     const { room, player } = ctx, target = room.players[targetId], rv = player.reviving;
-    if (!target || !target.downed || !rv || rv.targetId !== targetId || Date.now() - rv.at < (player.perks.quickRevive ? 1650 : 2700)) return;   // 3 с, с Быстрым возрождением — 3 / 1.6 ≈ 1.9 с (с допуском)
+    if (!target || !target.downed || !rv || rv.targetId !== targetId || Date.now() - rv.at < 2700) return;
     if (Math.hypot(player.x - target.x, player.z - target.z) > 2.8 || Math.abs(player.y - target.y) > 1.8) return;
     player.reviving = null; target.downed = false;
     io.to(room.code).emit('playerRevived', { id: targetId, by: socket.id });
@@ -397,11 +398,6 @@ io.on('connection', socket => {
       if (!near(player, pk.x, pk.z, 2.8, pk.minY, pk.maxY)) return failPurchase(socket, 'Подойдите к автомату Джагер Фанта');
       if (player.perks.juggernog) return failPurchase(socket, 'Джагер Фанта уже куплено');
       price = 2000;
-    } else if (kind === 'quickRevive') {
-      const pk = cfg.perks.quickRevive;
-      if (!near(player, pk.x, pk.z, 2.8, pk.minY, pk.maxY)) return failPurchase(socket, 'Подойдите к автомату Быстрое возрождение');
-      if (player.perks.quickRevive) return failPurchase(socket, 'Быстрое возрождение уже куплено');
-      price = 1500;
     } else if (kind === 'thompson' || kind === 'shotgun') {
       const shotgun = kind === 'shotgun';
       const owned = shotgun ? player.owned.shotgun : player.owned.thompson;
@@ -425,7 +421,6 @@ io.on('connection', socket => {
     if (kind === 'cola') player.perks.cola = true;
     if (kind === 'doubleTap') player.perks.doubleTap = true;
     if (kind === 'juggernog') player.perks.juggernog = true;
-    if (kind === 'quickRevive') player.perks.quickRevive = true;
     if (kind === 'thompson') player.owned.thompson = true;
     if (kind === 'shotgun') player.owned.shotgun = true;
     if (kind === 'box') {
