@@ -35,6 +35,7 @@ const WEAPONS = [
   { body: 55, head: 110, interval: 140, pellets: 2 },  // двойные пистолеты (только Mystery Box): 2 пули за выстрел
   { body: 85, head: 170, interval: 100, pellets: 1 },  // MP40 (только Mystery Box)
   { body: 105, head: 210, interval: 85, pellets: 1 },  // STG-44 (только Mystery Box)
+  { body: 70, head: 140, interval: 60, pellets: 1 },   // MP5SD (только Mystery Box)
 ];
 // Всё, что привязано к карте. Порядок дверей и окон ОБЯЗАН совпадать с клиентом (index.html).
 // windows: [x, z, y] — центр окна на стене и высота глаз игрока на этом этаже.
@@ -495,7 +496,7 @@ io.on('connection', socket => {
       if (!near(player, boxPos.x, boxPos.z, 3.5, boxPos.minY === undefined ? -1 : boxPos.minY, boxPos.maxY === undefined ? 3.2 : boxPos.maxY)) return failPurchase(socket, 'Подойдите к Mystery Box');
       if (room.game.boxBusyUntil > Date.now()) return failPurchase(socket, 'Mystery Box уже используется');
       price = 950;
-      boxResult = 1 + Math.floor(Math.random() * 10);
+      boxResult = 1 + Math.floor(Math.random() * 11);
     } else return failPurchase(socket, 'Неизвестная покупка');
     if (player.points < price) return failPurchase(socket, 'Не хватает очков');
     player.points -= price;

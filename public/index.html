@@ -1929,11 +1929,98 @@ function animFires(t) {
 
 // ---------- Verrückt: без тумана ----------
 const mistSprites = [];
+// ---------- Verrückt: задний фон — тёмный мистический лес с болотом (панорама на куполе вокруг камеры) ----------
+let vkSky = null;
+function mkSwampSky() {
+  const CW = 2048, CH = 1024, HZ = CH * 0.5;
+  const cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
+  const c = cv.getContext('2d');
+  let sd = 20261112; const R = () => (sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296;   // детерминированно: у всех игроков одинаково
+  const FOGC = [100, 142, 150], DARK = [3, 9, 11];
+  const mixc = (t, a, b) => 'rgb(' + [0, 1, 2].map(i => Math.round(a[i] * (1 - t) + b[i] * t)).join(',') + ')';   // t=0 — тёмный, t=1 — цвет тумана
+  // небо и водная гладь
+  let g = c.createLinearGradient(0, 0, 0, HZ);
+  g.addColorStop(0, '#040b0d'); g.addColorStop(0.5, '#0c1f24'); g.addColorStop(0.82, '#335259'); g.addColorStop(1, '#6a949a');
+  c.fillStyle = g; c.fillRect(0, 0, CW, HZ);
+  g = c.createLinearGradient(0, HZ, 0, CH);
+  g.addColorStop(0, '#5b838a'); g.addColorStop(0.1, '#1f3f46'); g.addColorStop(0.5, '#0a1b1f'); g.addColorStop(1, '#030909');
+  c.fillStyle = g; c.fillRect(0, HZ, CW, CH - HZ);
+  // три узкие водные тропы, уходящие в туман
+  const GAPS = [CW * 0.12, CW * 0.45, CW * 0.78];
+  const inGap = (x, hw) => GAPS.some(a => Math.abs(x - a) < hw);
+  for (const a of GAPS) {
+    const pg = c.createLinearGradient(0, HZ, 0, HZ + 200);
+    pg.addColorStop(0, 'rgba(150,190,196,0.7)'); pg.addColorStop(0.55, 'rgba(40,80,88,0.45)'); pg.addColorStop(1, 'rgba(8,26,30,0)');
+    c.fillStyle = pg; c.beginPath(); c.moveTo(a - 3, HZ); c.lineTo(a + 3, HZ); c.lineTo(a + 120, HZ + 200); c.lineTo(a - 120, HZ + 200); c.closePath(); c.fill();
+  }
+  // деревья слоями: дальние светлее (в тумане), ближние — чёрные силуэты
+  const LAY = [{ n: 46, w: [8, 16], h: [0.30, 0.46], t: 0.8 }, { n: 36, w: [14, 26], h: [0.40, 0.5], t: 0.55 }, { n: 26, w: [22, 42], h: [0.46, 0.5], t: 0.3 }, { n: 16, w: [36, 64], h: [0.5, 0.5], t: 0.08 }];
+  for (const L of LAY) {
+    const col = mixc(L.t, DARK, FOGC);
+    c.fillStyle = col; c.strokeStyle = col;
+    for (let i = 0; i < L.n; i++) {
+      const x = R() * CW, w = L.w[0] + R() * (L.w[1] - L.w[0]), top = HZ - (L.h[0] + R() * (L.h[1] - L.h[0])) * CH;
+      const br = []; for (let k = 0; k < 4; k++) br.push([top + R() * (HZ - top) * 0.7, R() < 0.5 ? -1 : 1, 0.8 + R() * 2.2]);
+      if (inGap(x, 60 + L.t * 70)) continue;
+      for (const dx of [-CW, 0, CW]) {
+        const X = x + dx;
+        c.beginPath(); c.moveTo(X - w / 2, HZ + 6); c.lineTo(X - w * 0.3, top); c.lineTo(X + w * 0.3, top); c.lineTo(X + w / 2, HZ + 6); c.closePath(); c.fill();
+        c.lineWidth = Math.max(1.5, w * 0.16);
+        for (const b of br) { c.beginPath(); c.moveTo(X, b[0]); c.lineTo(X + b[1] * w * b[2], b[0] - w * b[2] * 0.8); c.lineTo(X + b[1] * w * b[2] * 1.4, b[0] - w * b[2] * 1.7); c.stroke(); }
+      }
+    }
+    const fg = c.createLinearGradient(0, HZ - 260, 0, HZ + 60);   // туман между слоями
+    fg.addColorStop(0, 'rgba(105,148,154,0)'); fg.addColorStop(0.8, 'rgba(105,148,154,' + (0.5 * L.t + 0.12) + ')'); fg.addColorStop(1, 'rgba(105,148,154,0)');
+    c.fillStyle = fg; c.fillRect(0, HZ - 260, CW, 320);
+  }
+  // свечение тумана в конце троп
+  for (const a of GAPS) {
+    const rg = c.createRadialGradient(a, HZ, 0, a, HZ, 150);
+    rg.addColorStop(0, 'rgba(175,210,214,0.75)'); rg.addColorStop(1, 'rgba(175,210,214,0)');
+    c.fillStyle = rg; c.fillRect(a - 150, HZ - 150, 300, 300);
+  }
+  // рябь на воде
+  c.lineWidth = 1;
+  for (let i = 0; i < 400; i++) { const y = HZ + 4 + R() * 200, s = (y - HZ) / 200, x = R() * CW, l = 8 + s * 50; c.strokeStyle = 'rgba(' + [90, 130, 138].join(',') + ',' + (0.12 + 0.15 * (1 - s)) + ')'; c.beginPath(); c.moveTo(x - l, y); c.lineTo(x + l, y); c.stroke(); }
+  // тёмная трава и камыши у воды
+  for (let i = 0; i < 1500; i++) {
+    const yb = HZ + 4 + R() * 140, s = (yb - HZ) / 140, x = R() * CW;
+    if (GAPS.some(a => Math.abs(x - a) < 6 + s * 80)) continue;
+    c.strokeStyle = mixc(Math.max(0, 0.7 - s), DARK, FOGC); c.lineWidth = 1 + s * 2;
+    const len = 8 + s * 55, bend = (R() - 0.5) * len * 0.5;
+    for (const dx of [-CW, 0, CW]) { c.beginPath(); c.moveTo(x + dx, yb); c.quadraticCurveTo(x + dx, yb - len * 0.6, x + dx + bend, yb - len); c.stroke(); }
+    if (R() < 0.12) { c.fillStyle = c.strokeStyle; c.beginPath(); c.ellipse(x + bend, yb - len - 3, 1.5 + s * 1.5, 4 + s * 4, 0, 0, 7); c.fill(); }
+  }
+  // огоньки и их отражения
+  c.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 36; i++) {
+    const near = R() < 0.65, x = near ? GAPS[(R() * 3) | 0] + (R() - 0.5) * 300 : R() * CW;
+    const s = 0.1 + R() * 0.9, yw = HZ + s * 150, y = yw - (8 + s * 46), r = 2 + s * 8;
+    const col = [[110, 255, 225], [120, 235, 255], [150, 255, 200]][(R() * 3) | 0];
+    for (const dx of [-CW, 0, CW]) {
+      const X = x + dx;
+      let rg = c.createRadialGradient(X, y, 0, X, y, r * 4); rg.addColorStop(0, 'rgba(' + col + ',0.9)'); rg.addColorStop(0.25, 'rgba(' + col + ',0.35)'); rg.addColorStop(1, 'rgba(' + col + ',0)');
+      c.fillStyle = rg; c.fillRect(X - r * 4, y - r * 4, r * 8, r * 8);
+      const yr = yw + (yw - y);   // отражение на воде
+      rg = c.createRadialGradient(X, yr, 0, X, yr, r * 3); rg.addColorStop(0, 'rgba(' + col + ',0.45)'); rg.addColorStop(1, 'rgba(' + col + ',0)');
+      c.save(); c.translate(X, yr); c.scale(0.5, 1.8); c.translate(-X, -yr); c.fillStyle = rg; c.fillRect(X - r * 3, yr - r * 3, r * 6, r * 6); c.restore();
+    }
+  }
+  c.globalCompositeOperation = 'source-over';
+  const tex = new THREE.CanvasTexture(cv);
+  tex.anisotropy = 4;
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(70, 48, 24), new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false }));
+  dome.renderOrder = -1000; dome.frustumCulled = false;
+  scene.add(dome);
+  return dome;
+}
 if (MAP_ID === 'verruckt') {
   scene.fog = null;
-  scene.background = new THREE.Color(0x0c0b0a);
+  scene.background = new THREE.Color(0x0a1618);
+  try { vkSky = mkSwampSky(); } catch (e) { console.warn('swamp sky', e); }
 }
 function animFog(t) {
+  if (vkSky) vkSky.position.copy(camera.position);   // купол неба всегда вокруг камеры
   for (const m of mistSprites) {
     const u = m.userData; m.position.x += u.vx * 0.016; m.position.z += u.vz * 0.016;
     if (m.position.x > 36) m.position.x = -36; else if (m.position.x < -36) m.position.x = 36;
@@ -2368,9 +2455,9 @@ const gun = new THREE.Group(); weaponScene.add(gun);
 const mSteel = new THREE.MeshStandardMaterial({ color: 0x5a5d62, metalness: 0.8, roughness: 0.35 });
 const mDark = new THREE.MeshStandardMaterial({ color: 0x1b1b1d, metalness: 0.7, roughness: 0.45 });
 const mGrip = new THREE.MeshStandardMaterial({ color: 0x2e1f14, roughness: 0.9 });
-const pistolG = new THREE.Group(), tommyG = new THREE.Group(), shotG = new THREE.Group(), rifleG = new THREE.Group(), garandG = new THREE.Group(), rayG = new THREE.Group(), lmgG = new THREE.Group(), m16G = new THREE.Group(), dualG = new THREE.Group(), mp40G = new THREE.Group(), stgG = new THREE.Group();
+const pistolG = new THREE.Group(), tommyG = new THREE.Group(), shotG = new THREE.Group(), rifleG = new THREE.Group(), garandG = new THREE.Group(), rayG = new THREE.Group(), lmgG = new THREE.Group(), m16G = new THREE.Group(), dualG = new THREE.Group(), mp40G = new THREE.Group(), stgG = new THREE.Group(), mp5G = new THREE.Group();
 gun.add(dualG); dualG.visible = false;
-gun.add(pistolG); gun.add(tommyG); gun.add(shotG); gun.add(rifleG); gun.add(garandG); gun.add(rayG); gun.add(lmgG); gun.add(m16G); gun.add(mp40G); gun.add(stgG); tommyG.visible = shotG.visible = rifleG.visible = garandG.visible = rayG.visible = lmgG.visible = m16G.visible = mp40G.visible = stgG.visible = false;
+gun.add(pistolG); gun.add(tommyG); gun.add(shotG); gun.add(rifleG); gun.add(garandG); gun.add(rayG); gun.add(lmgG); gun.add(m16G); gun.add(mp40G); gun.add(stgG); gun.add(mp5G); tommyG.visible = shotG.visible = rifleG.visible = garandG.visible = rayG.visible = lmgG.visible = m16G.visible = mp40G.visible = stgG.visible = mp5G.visible = false;
 const mWood = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.85 });
 function part(w, h, d, x, y, z, m, rx = 0, tg = pistolG) {
   const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -2757,6 +2844,43 @@ function buildModel(i, g) {
     // деревянный приклад с затыльником
     PF([[0.1, 0.045], [0.3, 0.05], [0.49, 0.046], [0.5, -0.095], [0.43, -0.09], [0.3, -0.06], [0.15, -0.035], [0.1, -0.02]], 0.04, 0, 0, 0, L.wood, 0.004);
     B(0.042, 0.14, 0.01, 0, -0.025, 0.5, L.dark);
+  } else if (i === 11) {   // ---- MP5SD ----
+    // low-poly: коробчатая ствольная коробка, штатный интегральный глушитель (толстый кожух вместо ствола), прямоугольное цевьё, длинный изогнутый магазин на 45, полимерная рукоять, выдвижной приклад
+    const L = (WM._lp = WM._lp || (() => { const f = m => { const c = m.clone(); c.flatShading = true; return c; }; return { blue: f(WM.blue), steel: f(WM.steel), dark: f(WM.dark), wood: f(WM.wood), brass: f(WM.brass) }; })());
+    if (!L.mp) { L.mp = L.blue.clone(); L.mp.color.setHex(0x24272c); L.bak = L.dark.clone(); L.bak.color.setHex(0x2b1c12); }
+    B(0.036, 0.05, 0.24, 0, 0.04, 0, L.mp);
+    B(0.003, 0.016, 0.055, 0.0185, 0.05, -0.03, L.dark);
+    B(0.0035, 0.008, 0.07, 0.0185, 0.022, 0.0, L.dark);
+    // рукоять взведения: ползёт по левой стороне цевья
+    mv('bolt');
+    B(0.014, 0.006, 0.006, -0.026, 0.045, -0.17, L.steel);
+    B(0.008, 0.012, 0.034, -0.036, 0.045, -0.17, L.steel);
+    S(0.0075, -0.036, 0.045, -0.19, L.steel, 1, 1, 1.3);
+    base();
+    // цевьё
+    RB(0.042, 0.046, 0.17, 0, 0.034, -0.205, L.mp, 0.008);
+    B(0.003, 0.012, 0.09, 0.0215, 0.04, -0.205, L.dark); B(0.003, 0.012, 0.09, -0.0215, 0.04, -0.205, L.dark);
+    // интегральный глушитель: кожух, стыковочное кольцо, рёбра, дульный срез
+    Z(0.0215, 0.0215, 0.3, 0, 0.04, -0.43, L.mp, 12);
+    Z(0.0235, 0.0235, 0.012, 0, 0.04, -0.285, L.dark, 12);
+    for (let k = 0; k < 4; k++) Z(0.0222, 0.0222, 0.004, 0, 0.04, -0.34 - k * 0.055, L.dark, 12);
+    Z(0.0225, 0.0225, 0.012, 0, 0.04, -0.58, L.dark, 12);
+    Z(0.0075, 0.0075, 0.004, 0, 0.04, -0.587, L.steel, 8);
+    // мушка и барабанный целик
+    B(0.004, 0.018, 0.006, 0, 0.074, -0.5, L.mp); B(0.003, 0.01, 0.006, 0, 0.087, -0.5, L.steel);
+    B(0.024, 0.012, 0.034, 0, 0.071, 0.07, L.mp); B(0.003, 0.012, 0.008, -0.007, 0.083, 0.07, L.steel); B(0.003, 0.012, 0.008, 0.007, 0.083, 0.07, L.steel);
+    // длинный изогнутый магазин на 45 патронов
+    B(0.034, 0.034, 0.056, 0, 0.0, -0.045, L.mp);
+    PF([[-0.07, 0.01], [-0.022, 0.01], [-0.026, -0.1], [-0.05, -0.215], [-0.095, -0.3], [-0.14, -0.285], [-0.108, -0.2], [-0.088, -0.1]], 0.028, 0, 0, 0, L.mp, 0.002);
+    for (let k = 0; k < 4; k++) B(0.03, 0.003, 0.045, 0, -0.07 - k * 0.04, -0.056 - k * 0.012, L.dark);
+    // полимерная рукоять, спусковая скоба и крючок
+    B(0.032, 0.11, 0.042, 0, -0.06, 0.082, L.dark, -0.28);
+    B(0.008, 0.006, 0.08, 0, -0.028, 0.025, L.steel); B(0.008, 0.03, 0.006, 0, -0.014, -0.014, L.steel); B(0.008, 0.03, 0.006, 0, -0.014, 0.064, L.steel);
+    B(0.005, 0.02, 0.005, 0, -0.01, 0.018, L.steel);
+    // выдвижной приклад: рамка и затыльник
+    B(0.005, 0.005, 0.3, 0.016, 0.052, 0.27, L.steel); B(0.005, 0.005, 0.3, -0.016, 0.052, 0.27, L.steel);
+    B(0.005, 0.005, 0.28, 0.016, -0.03, 0.26, L.steel); B(0.005, 0.005, 0.28, -0.016, -0.03, 0.26, L.steel);
+    B(0.034, 0.1, 0.012, 0, 0.01, 0.43, L.dark);
   } else {   // ---- Ray Gun ----
     const pr = [[0.001, -0.15], [0.03, -0.14], [0.05, -0.1], [0.056, -0.05], [0.052, 0.0], [0.045, 0.06], [0.04, 0.12], [0.034, 0.16], [0.03, 0.2], [0.022, 0.24], [0.018, 0.3], [0.02, 0.34], [0.026, 0.37], [0.001, 0.385]];
     const lg = new THREE.LatheGeometry(pr.map(p => new THREE.Vector2(p[0], p[1])), 24).rotateX(-Math.PI / 2);
@@ -2776,7 +2900,7 @@ function buildDual(g) {   // два M1911: по одному в каждой р�
   for (const s of [-1, 1]) { const p = new THREE.Group(); p.position.x = s * 0.2; g.add(p); buildModel(0, p); g.userData[s > 0 ? 'slideR' : 'slideL'] = p.userData.slide; }
 }
 [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G].forEach((gr, i) => buildModel(i, gr));   // в руках и в Mystery Box — одни и те же модели
-buildModel(9, mp40G); buildModel(10, stgG);   // MP40 и STG-44 (только Mystery Box)
+buildModel(9, mp40G); buildModel(10, stgG); buildModel(11, mp5G);   // MP40, STG-44 и MP5SD (только Mystery Box)
 buildDual(dualG);
 gun.rotation.order = 'YXZ';
 
@@ -2828,7 +2952,9 @@ const WEAPONS = [
   { name: 'MP40', own: false, mag: 32, magSize: 32, reserve: 128, fullRes: 160, maxReserve: 192, interval: 100, body: 85, head: 170, auto: true, reload: 2.2, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.014, rk: 0.5,
     base: [0.19, -0.2, -0.42], flash: [0, 0.045, -0.6] },
   { name: 'STG-44', own: false, mag: 30, magSize: 30, reserve: 120, fullRes: 150, maxReserve: 180, interval: 85, body: 105, head: 210, auto: true, reload: 2.4, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.008, rk: 0.6,
-    base: [0.19, -0.2, -0.42], flash: [0, 0.045, -0.72] }
+    base: [0.19, -0.2, -0.42], flash: [0, 0.045, -0.72] },
+  { name: 'MP5SD', own: false, mag: 45, magSize: 45, reserve: 180, fullRes: 225, maxReserve: 270, interval: 60, body: 70, head: 140, auto: true, reload: 2.3, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.01, rk: 0.35,
+    base: [0.19, -0.2, -0.42], flash: [0, 0.04, -0.66] }
 ];
 // единый прокрут для всего оружия: одинаковая скорость и кривая, число оборотов зависит только от времени перезарядки; вынос к центру минимальный
 const SPIN_SEC = 0.95;
@@ -2836,9 +2962,9 @@ WEAPONS.forEach(w => { w.spin.k = 0.3; w.spin.turns = 1; w.spin.push = [-0.03, 0
 const spinTurns = rl => Math.max(1, Math.round(rl / SPIN_SEC));
 // разброс (в долях половины высоты экрана; круг на экране = реальная область попаданий): spread — от бедра, bloom — прирост за выстрел
 // (bmax — потолок, bd — скорость спада в секунду), fs — размер вспышки
-[[.012, .03, .05, 1.1], [.005, .03, .05, 1.3], [.02, .04, .06, 1.9], [.02, .03, .05, 1.6], [.016, .035, .05, 1.6], [.01, .02, .05, 1.2], [.008, .045, .05, 1.5], [.008, .03, .05, 1.4], [.012, .03, .05, 1.2], [.012, .032, .05, 1.4], [.008, .03, .05, 1.5]]
+[[.012, .03, .05, 1.1], [.005, .03, .05, 1.3], [.02, .04, .06, 1.9], [.02, .03, .05, 1.6], [.016, .035, .05, 1.6], [.01, .02, .05, 1.2], [.008, .045, .05, 1.5], [.008, .03, .05, 1.4], [.012, .03, .05, 1.2], [.012, .032, .05, 1.4], [.008, .03, .05, 1.5], [.01, .025, .05, 0.6]]
   .forEach((a, i) => { const w = WEAPONS[i]; w.bloom = a[0]; w.bmax = a[1]; w.bd = a[2]; w.fs = a[3]; });
-[[280, 4], [300, 4], [200, 2.5], [480, 7], [450, 6], [0, 0], [320, 5], [340, 5], [280, 4], [330, 4.5], [350, 5.5]].forEach((a, i) => { WEAPONS[i].bv = a[0]; WEAPONS[i].tl = a[1]; });   // скорость пули (м/с) и длина следа (м); Ray Gun не трогаем
+[[280, 4], [300, 4], [200, 2.5], [480, 7], [450, 6], [0, 0], [320, 5], [340, 5], [280, 4], [330, 4.5], [350, 5.5], [330, 4.5]].forEach((a, i) => { WEAPONS[i].bv = a[0]; WEAPONS[i].tl = a[1]; });   // скорость пули (м/с) и длина следа (м); Ray Gun не трогаем
 const AIM = { move: 0, bloom: 0, cur: 0, g: -1 };   // движение/прыжок и стрельба раздвигают прицел, он сразу же определяет реальный разброс
 const WR = { z: 0, zV: 0, p: 0, pV: 0, y: 0, yV: 0, yw: 0, ywV: 0, r: 0, rV: 0 };   // пружины отдачи оружия (та же механика, что и инерция при повороте)
 function weaponKick(w) {
@@ -2861,7 +2987,7 @@ function updateHUD() {
 function switchWeapon(i) {
   if (UP.on || i === cur || !WEAPONS[i] || !WEAPONS[i].own) return;
   cur = i; reloading = false; swapT = SWAP_TIME; mouseDown = false; ANIM.t = 99; ANIM.ej = true;
-  [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G, dualG, mp40G, stgG].forEach((g, k) => g.visible = k === i);
+  [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G, dualG, mp40G, stgG, mp5G].forEach((g, k) => g.visible = k === i);
   flash2.visible = false;
   coneMat.color.setHex(i === 5 ? 0x40ff60 : 0xffa020); flashLocal.color.setHex(i === 5 ? 0x40ff60 : 0xffa030); flashWorld.color.setHex(i === 5 ? 0x40ff60 : 0xffa030);
   const f = WEAPONS[i].flash; flash.position.set(f[0], f[1], f[2]); flashLocal.position.set(f[0], f[1] + 0.02, f[2] - 0.02);
@@ -3100,17 +3226,17 @@ function updateAim(dt, w) {   // динамичный прицел: бедро +
 // ANIM.t — время с последнего выстрела. У каждого оружия своя подвижная деталь: затвор пистолета (при пустом магазине остаётся открытым),
 // рукоять затвора Thompson, помповое цевьё, цикл затвора Kar98k, шток Garand (+ вылет обоймы с «пингом»), пульсация колец Ray Gun.
 const ANIM = { t: 99, ej: true, lock: 0, clip: false };
-const GROUPS = [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G, dualG, mp40G, stgG];
+const GROUPS = [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G, dualG, mp40G, stgG, mp5G];
 const aEase = x => x * x * (3 - 2 * x), aClamp = x => Math.max(0, Math.min(1, x));
 const aPulse = (t, a, b, c) => t < a ? 0 : t < a + b ? aEase((t - a) / b) : t < a + b + c ? 1 - aEase((t - a - b) / c) : 0;
-const EJECT_AT = [0.012, 0.01, 0.29, 0.27, 0.012, -1, 0.012, 0.012, 0.012, 0.012, 0.012];   // когда вылетает гильза (у помпы и болтовки — когда затвор уже отошёл назад)
-const SHELL_PORT = [[0.285, -0.165, -0.42], [0.29, -0.2, -0.5], [0.3, -0.2, -0.42], [0.3, -0.22, -0.4], [0.3, -0.22, -0.4], [0, 0, 0], [0.3, -0.2, -0.4], [0.29, -0.2, -0.46], [0.285, -0.165, -0.42], [0.285, -0.175, -0.42], [0.29, -0.2, -0.46]];   // окно выброса в координатах камеры
+const EJECT_AT = [0.012, 0.01, 0.29, 0.27, 0.012, -1, 0.012, 0.012, 0.012, 0.012, 0.012, 0.012];   // когда вылетает гильза (у помпы и болтовки — когда затвор уже отошёл назад)
+const SHELL_PORT = [[0.285, -0.165, -0.42], [0.29, -0.2, -0.5], [0.3, -0.2, -0.42], [0.3, -0.22, -0.4], [0.3, -0.22, -0.4], [0, 0, 0], [0.3, -0.2, -0.4], [0.29, -0.2, -0.46], [0.285, -0.165, -0.42], [0.285, -0.175, -0.42], [0.29, -0.2, -0.46], [0.29, -0.2, -0.46]];   // окно выброса в координатах камеры
 const CASE_MAT = new THREE.MeshStandardMaterial({ color: 0xd0a843, metalness: 0.85, roughness: 0.3, emissive: 0x3a2a08 });
 const SHELL_RED = new THREE.MeshStandardMaterial({ color: 0xb02020, roughness: 0.6, emissive: 0x2a0606 });
 const CLIP_MAT = new THREE.MeshStandardMaterial({ color: 0xb0b4ba, metalness: 0.8, roughness: 0.35, emissive: 0x20222a });
 const CASE_G = [new THREE.CylinderGeometry(0.0055, 0.006, 0.023, 7), new THREE.CylinderGeometry(0.0055, 0.006, 0.023, 7), null,
   new THREE.CylinderGeometry(0.0062, 0.0085, 0.064, 7), new THREE.CylinderGeometry(0.006, 0.0085, 0.063, 7), null, new THREE.CylinderGeometry(0.0062, 0.0085, 0.064, 7), new THREE.CylinderGeometry(0.0055, 0.0065, 0.046, 7)];
-CASE_G[9] = new THREE.CylinderGeometry(0.0055, 0.006, 0.023, 7); CASE_G[10] = new THREE.CylinderGeometry(0.0062, 0.0085, 0.045, 7);   // MP40 (9 мм) и STG-44 (7,92×33)
+CASE_G[9] = new THREE.CylinderGeometry(0.0055, 0.006, 0.023, 7); CASE_G[10] = new THREE.CylinderGeometry(0.0062, 0.0085, 0.045, 7); CASE_G[11] = CASE_G[9];   // MP40 (9 мм) и STG-44 (7,92×33)
 const SHELL_G1 = new THREE.CylinderGeometry(0.0105, 0.0105, 0.05, 8), SHELL_G2 = new THREE.CylinderGeometry(0.011, 0.011, 0.018, 8), CLIP_G = new THREE.BoxGeometry(0.026, 0.005, 0.1);
 function ejectShell(i) {
   if (i === 5) return;
@@ -3146,7 +3272,7 @@ function weaponAnim(dt) {
   } else if (cur === 4) ud.oprod.position.z = 0.055 * aPulse(t, 0, 0.03, 0.07);
   else if (cur === 6) ud.bolt.position.z = 0.06 * aPulse(t, 0, 0.02, 0.05);
   else if (cur === 7) ud.bolt.position.z = 0.05 * aPulse(t, 0, 0.02, 0.04);
-  else if (cur === 9 || cur === 10) ud.bolt.position.z = 0.055 * aPulse(t, 0, 0.02, 0.05);   // рукоятка затвора MP40 / STG-44
+  else if (cur === 9 || cur === 10 || cur === 11) ud.bolt.position.z = 0.055 * aPulse(t, 0, 0.02, 0.05);   // рукоятка затвора MP40 / STG-44 / MP5SD
   else if (cur === 8) {   // оба затвора синхронно, на пустом магазине открыты
     ANIM.lock += ((w.mag === 0 ? 1 : 0) - ANIM.lock) * Math.min(1, dt * (w.mag === 0 ? 30 : 18));
     const z = 0.045 * Math.max(aPulse(t, 0, 0.035, 0.085), ANIM.lock); ud.slideR.position.z = z; ud.slideL.position.z = z;
@@ -3445,9 +3571,10 @@ const SHOT_FILES = {
   7: ['sounds/m16-shot.mp3'],     // M16A1: одиночный выстрел 5,56
   9: ['sounds/mp40-shot-1.wav', 'sounds/mp40-shot-2.wav', 'sounds/mp40-shot-3.wav', 'sounds/mp40-shot-4.wav', 'sounds/mp40-shot-5.wav', 'sounds/mp40-shot-6.wav', 'sounds/mp40-shot-7.wav', 'sounds/mp40-shot-8.wav'],   // MP40: отдельные выстрелы, нарезанные из записи очереди
   10: ['sounds/stg44-shot-1.wav', 'sounds/stg44-shot-2.wav', 'sounds/stg44-shot-3.wav', 'sounds/stg44-shot-4.wav', 'sounds/stg44-shot-5.wav', 'sounds/stg44-shot-6.wav'],   // STG-44: то же (последний — с затуханием)
+  11: ['sounds/mp5sd-shot.mp3'],   // MP5SD: одиночный выстрел с глушителем (запись обрезана до 0,5 с — очередь идёт быстрее, хвосты накладываются)
   6: ['sounds/lmg-shot-1.wav', 'sounds/lmg-shot-2.wav', 'sounds/lmg-shot-3.wav', 'sounds/lmg-shot-4.wav'],   // пулемёт: куски очереди по ~3 выстрела
 };
-const SHOT_GAIN = { 3: 1, 4: 1, 8: 0.85, 0: 0.9, 1: 0.7, 2: 0.9, 5: 0.85, 6: 0.8, 7: 0.75, 9: 0.8, 10: 0.8 };
+const SHOT_GAIN = { 3: 1, 4: 1, 8: 0.85, 0: 0.9, 1: 0.7, 2: 0.9, 5: 0.85, 6: 0.8, 7: 0.75, 9: 0.8, 10: 0.8, 11: 0.85 };
 const shotBufs = {}, shotLast = {};
 // загрузка звуков: без кэша браузера (иначе у второго игрока остаются старые файлы), с повторами; уже загруженное/загружаемое не трогаем
 const sndState = {};   // src → 'loading' | 'ok'
@@ -3634,6 +3761,7 @@ function shotSnd(i) {
   else if (i === 7) { noise(0.09, 0.5, 'bandpass', 2600, 700, 0, 0.7); tone(170, 0.08, 'sawtooth', 0.16, 65); }
   else if (i === 9) { noise(0.08, 0.45, 'bandpass', 2800, 800, 0, 0.7); tone(200, 0.07, 'square', 0.12, 75); }
   else if (i === 10) { noise(0.1, 0.55, 'bandpass', 2400, 600, 0, 0.7); tone(150, 0.09, 'sawtooth', 0.18, 60); }
+  else if (i === 11) { noise(0.07, 0.25, 'bandpass', 1800, 500, 0, 0.7); tone(140, 0.06, 'triangle', 0.1, 70); }   // запасной глухой звук с глушителем
   else { tone(1500, 0.35, 'sawtooth', 0.22, 160); tone(750, 0.35, 'square', 0.12, 90); tone(60, 0.3, 'sine', 0.4, 30); noise(0.25, 0.15, 'bandpass', 4000, 800); }
 }
 function stepSnd() { ensureAC(); noise(0.07, 0.07, 'lowpass', 350 + Math.random() * 120, 150); tone(75, 0.06, 'sine', 0.05, 45); }
@@ -4073,14 +4201,14 @@ boxBeam.position.set(BOX.x, BOX.h + 1.1, BOX.z); boxBeam.visible = false; scene.
 const boxLight = new THREE.PointLight(0xffc040, 0, 6, 2); boxLight.position.set(BOX.x, BOX.h + 0.6, BOX.z); scene.add(boxLight);
 const token = new THREE.Group(); token.position.set(BOX.x, 2.6, BOX.z); token.visible = false; scene.add(token);
 const boxModels = [];
-for (let i = 1; i <= 10; i++) {
+for (let i = 1; i <= 11; i++) {
   const wr = new THREE.Group(), md = new THREE.Group(); if (i === 8) buildDual(md); else buildModel(i, md);
   const c = new THREE.Box3().setFromObject(md).getCenter(new THREE.Vector3()); md.position.sub(c);
   wr.add(md); wr.scale.setScalar(1.9); wr.visible = false; token.add(wr); boxModels[i] = wr;
 }
-function showBoxModel(i) { for (let k = 1; k <= 10; k++) boxModels[k].visible = k === i; }
+function showBoxModel(i) { for (let k = 1; k <= 11; k++) boxModels[k].visible = k === i; }
 const boxS = { on: false, t: 0, tick: 0, shown: 1, final: 1, reward: true };
-function boxStart(finalWeapon, reward = true) { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = finalWeapon || (1 + (Math.random() * 10 | 0)); boxS.reward = reward; sfx('box'); }
+function boxStart(finalWeapon, reward = true) { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = finalWeapon || (1 + (Math.random() * 11 | 0)); boxS.reward = reward; sfx('box'); }
 // оружие из Mystery Box: если оно уже есть — пополняем патроны; иначе equip (пустой слот или замена удерживаемого)
 function giveWeapon(i) {
   const w = WEAPONS[i]; w.mag = w.magSize; w.reserve = w.fullRes;
@@ -4143,7 +4271,7 @@ function boxUpdate(dt) {
   boxS.t += dt; token.visible = true; token.rotation.y += dt * 3; token.position.y = 2.6 + Math.sin(boxS.t * 5) * 0.08;
   if (boxS.t < 5) {
     boxS.tick -= dt;
-    if (boxS.tick <= 0) { boxS.tick = 0.11; boxS.shown = 1 + (Math.random() * 10 | 0); showBoxModel(boxS.shown); sfx('tick'); }
+    if (boxS.tick <= 0) { boxS.tick = 0.11; boxS.shown = 1 + (Math.random() * 11 | 0); showBoxModel(boxS.shown); sfx('tick'); }
   } else {
     boxS.shown = boxS.final; showBoxModel(boxS.final);
     if (boxS.t >= 5.6) { boxS.on = false; if (boxS.reward) giveWeapon(boxS.final); pop(WEAPONS[boxS.final].name, 'head'); sfx('buy'); }
