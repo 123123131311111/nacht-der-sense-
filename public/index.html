@@ -212,6 +212,9 @@ body.touch #knife{bottom:32px}
 <div class="row"><span>Управление</span><div id="devs"><button id="devPc">🖥 ПК</button><button id="devTouch">📱 ТЕЛЕФОН</button></div></div>
 <label class="row" id="sensBox"><span>Чувствительность</span><input type="range" id="sens" min="40" max="220" value="100"><b id="sensV"></b></label>
 <label class="row"><span>Громкость</span><input type="range" id="vol" min="0" max="100" value="100"><b id="volV"></b></label>
+<label class="row"><span>Яркость</span><input type="range" id="bri" min="50" max="170" value="100"><b id="briV"></b></label>
+<label class="row"><span>Контраст</span><input type="range" id="con" min="50" max="150" value="100"><b id="conV"></b></label>
+<button class="mb" id="gfxReset">СБРОС ЯРКОСТИ / КОНТРАСТА</button>
 <button class="mb back" data-back>← НАЗАД</button></div>
 <div class="panel" id="pMode"><h2>РЕЖИМ ИГРЫ</h2>
 <button class="mb big" id="bSolo">ОДИНОЧНАЯ ИГРА</button>
@@ -246,7 +249,7 @@ body.touch #knife{bottom:32px}
 (function () {
   const T = THREE;
   const grad = (() => {
-    const d = new Uint8Array([46,46,46,255, 120,120,120,255, 200,200,200,255, 255,255,255,255]);
+    const d = new Uint8Array([70,70,70,255, 118,118,118,255, 168,168,168,255, 214,214,214,255]);
     const t = new T.DataTexture(d, 4, 1, T.RGBAFormat); t.minFilter = t.magFilter = T.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true; return t;
   })();
   const DROP = new Set(['roughness','metalness','envMap','envMapIntensity','bumpMap','bumpScale','normalMap','normalScale','roughnessMap','metalnessMap','aoMap','aoMapIntensity','lightMap','lightMapIntensity','displacementMap','displacementScale','displacementBias','refractionRatio','flatShading']);
@@ -259,14 +262,14 @@ body.touch #knife{bottom:32px}
         sh.fragmentShader = sh.fragmentShader
           .replace('#include <map_fragment>', `#include <map_fragment>
             { float l0 = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
-              diffuseColor.rgb = mix(vec3(l0), diffuseColor.rgb, 1.32);
-              diffuseColor.rgb = floor(diffuseColor.rgb * 7.0 + 0.5) / 7.0; }`)
+              diffuseColor.rgb = mix(vec3(l0), diffuseColor.rgb, 0.92);
+              diffuseColor.rgb = floor(diffuseColor.rgb * 12.0 + 0.5) / 12.0; }`)
           .replace('#include <dithering_fragment>', `#include <dithering_fragment>
             { float lq = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
-              if (lq > 0.0004) { float sq = sqrt(lq); float qq = floor(sq * 6.0 + 0.5) / 6.0; gl_FragColor.rgb = min(gl_FragColor.rgb * ((qq * qq) / lq), vec3(1.0)); }
+              if (lq > 0.0004) { float sq = sqrt(lq); float qq = floor(sq * 10.0 + 0.5) / 10.0; gl_FragColor.rgb = min(gl_FragColor.rgb * ((qq * qq) / lq), vec3(1.0)); }
               #ifndef FLAT_SHADED
               float rimT = 1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0);
-              gl_FragColor.rgb += step(0.78, rimT) * 0.09 * vec3(0.55, 0.72, 1.0);
+              gl_FragColor.rgb += step(0.78, rimT) * 0.03 * vec3(1.0, 0.95, 0.88);
               #endif
             }`);
       };
@@ -276,7 +279,7 @@ body.touch #knife{bottom:32px}
   T.MeshStandardMaterial = ToonStd; T.MeshPhysicalMaterial = ToonStd;
 
   // контур «инвертированный корпус» (для оружия от первого лица)
-  const hullMat = new T.MeshBasicMaterial({ color: 0x0a0612, side: T.BackSide, fog: false });
+  const hullMat = new T.MeshBasicMaterial({ color: 0x0a0807, side: T.BackSide, fog: false });
   hullMat.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed += normalize(normal) * 0.0075;'); };
   hullMat.customProgramCacheKey = () => 'hullx1';
   window.__addHulls = function (root) {
@@ -293,14 +296,14 @@ body.touch #knife{bottom:32px}
 <script>
 // ---------- сцена ----------
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x2a2342);   // CEL: сиреневые сумерки вместо чёрной пустоты
-scene.fog = new THREE.FogExp2(0x31294d, 0.038);
+scene.background = new THREE.Color(0x0c0b0a);   // тёмный нейтральный фон (без синего)
+scene.fog = new THREE.FogExp2(0x0e0d0c, 0.042);
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 80);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
-scene.add(new THREE.AmbientLight(0x5b5880, 1.0));
+scene.add(new THREE.AmbientLight(0x4a4642, 0.75));
 
 
 // ================= CEL: экранные контуры по глубине + FXAA + цветокоррекция =================
@@ -345,9 +348,9 @@ const POST = (function () {
           float lap = abs(zl + zr - 2.0 * z0) + abs(zu + zd - 2.0 * z0);
           float rel = lap / (max(z0, max(max(zl, zr), max(zu, zd))) + 1e-5);
           float e = smoothstep(0.07, 0.16, rel) * smoothstep(0.0004, 0.0012, lap);
-          col = mix(col, vec3(0.035, 0.025, 0.08), clamp(e, 0.0, 1.0) * 0.96);
+          col = mix(col, vec3(0.03, 0.026, 0.022), clamp(e, 0.0, 1.0) * 0.8);
           // цвет: насыщенность и контраст
-          float l = luma(col); col = mix(vec3(l), col, 1.18); col = (col - 0.5) * 1.07 + 0.5;
+          float l = luma(col); col = mix(vec3(l), col, 0.95);
           gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
         }`,
       depthTest: false, depthWrite: false
@@ -1668,6 +1671,17 @@ document.getElementById('bExit').addEventListener('click', () => requestExit(exi
 document.getElementById('bSet').addEventListener('click', () => view('set'));
 document.getElementById('bHelp').addEventListener('click', () => { showHelp(selDev); view('help'); });
 menuEl.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => view('main')));
+const briEl = document.getElementById('bri'), conEl = document.getElementById('con'), briV = document.getElementById('briV'), conV = document.getElementById('conV');
+function applyGfx(save) {
+  const b = briEl.value / 100, c = conEl.value / 100;
+  renderer.domElement.style.filter = (b === 1 && c === 1) ? '' : `brightness(${b}) contrast(${c})`;
+  briV.textContent = briEl.value + '%'; conV.textContent = conEl.value + '%';
+  if (save) try { localStorage.setItem('nb-bri', briEl.value); localStorage.setItem('nb-con', conEl.value); } catch (err) {}
+}
+try { const sb = localStorage.getItem('nb-bri'), sc = localStorage.getItem('nb-con'); if (sb >= 50 && sb <= 170) briEl.value = sb; if (sc >= 50 && sc <= 150) conEl.value = sc; } catch (err) {}
+briEl.addEventListener('input', () => applyGfx(true)); conEl.addEventListener('input', () => applyGfx(true));
+document.getElementById('gfxReset').addEventListener('click', () => { briEl.value = 100; conEl.value = 100; applyGfx(true); });
+applyGfx(false);
 const volEl = document.getElementById('vol'), volV = document.getElementById('volV'), sensV = document.getElementById('sensV');
 try { const vv = parseFloat(localStorage.getItem('nb-vol')); if (vv >= 0 && vv <= 1) window.NB_VOL = vv; } catch (err) {}
 volEl.value = Math.round((window.NB_VOL == null ? 1 : window.NB_VOL) * 100); volV.textContent = volEl.value + '%';
@@ -1926,9 +1940,9 @@ let moving = false, isSprint = false;
 renderer.autoClear = false;
 const weaponScene = new THREE.Scene();
 const weaponCam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 5);
-const wAmb = new THREE.AmbientLight(0x8a8a92, 1.0); weaponScene.add(wAmb);
+const wAmb = new THREE.AmbientLight(0x7a7672, 0.8); weaponScene.add(wAmb);
 const wDir = new THREE.DirectionalLight(0xffddb0, 1.5); wDir.position.set(1, 1.5, 1); weaponScene.add(wDir);
-const wRim = new THREE.DirectionalLight(0x9ab4ff, 0.8); wRim.position.set(-1, 0.5, -1); weaponScene.add(wRim);
+const wRim = new THREE.DirectionalLight(0xb8aea0, 0.5); wRim.position.set(-1, 0.5, -1); weaponScene.add(wRim);
 
 // освещение оружия берётся из мира: яркость и направление считаются по лампам рядом с игроком (в тёмных углах оружие тёмное)
 const WL = { lights: [], t: -9, m: 0.3, dir: new THREE.Vector3(0.4, 1, 0.6).normalize(), tmp: new THREE.Vector3(), acc: new THREE.Vector3(), tgt: new THREE.Vector3(), eye: new THREE.Vector3(), def: new THREE.Vector3(0.4, 1, 0.6).normalize() };
@@ -5206,6 +5220,35 @@ addEventListener('resize', () => {
 loop();
 </script>
 <!-- Мультиплеер: подключаем ПОСЛЕ основного скрипта игры -->
-<script src="multiplayer.js"></script>
+<script src="multiplayer.js" onerror="window.__mpMissing=true"></script>
+<script>
+// ===== Выбор карты (одиночная игра). Включается, только если multiplayer.js не подключился — иначе меню ведёт он. =====
+(function () {
+  if (window.MP) return;
+  window.MP = { active: false, inMultiplayerGame: false, isAuthority: true, players: [], selfId: null, socket: null, reportDowned() {}, registerShot() { return null; }, requestHit() {}, requestPlayerHit() {}, reviveStart() {}, reviveDone() {}, requestWindowRepair() {}, requestPurchase() { return false; }, requestDropPickup() {} };
+  const MAPS = [
+    { id: 'nacht', name: 'NACHT DER UNTOTEN', img: 'maps/nacht.jpg', d: 'Бункер · окна с досками · круговая лестница' },
+    { id: 'verruckt', name: 'VERRÜCKT', img: 'maps/verruckt.jpg', d: 'Двор с фонтаном · два корпуса · Улучшайзер' },
+    { id: 'soon', name: 'СКОРО', img: 'maps/soon.jpg', d: 'Новая карта в разработке', soon: true }
+  ];
+  const list = document.getElementById('mapList'), go = document.getElementById('bMapGo');
+  let sel = MAP_ID;
+  document.getElementById('mapCount').textContent = (MAPS.length - 1) + ' КАРТЫ';
+  MAPS.forEach(m => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'mc' + (m.soon ? ' soon' : '') + (m.id === sel ? ' sel' : ''); b.dataset.id = m.id;
+    b.innerHTML = `<div class="im"><img src="${m.img}" alt=""><span class="tag">${m.soon ? 'СКОРО' : 'ВЫБРАНО'}</span></div><div class="tx"><b>${m.name}</b><small>${m.d}</small></div>`;
+    if (!m.soon) b.addEventListener('click', () => { sel = m.id; list.querySelectorAll('.mc').forEach(x => x.classList.toggle('sel', x === b)); });
+    list.appendChild(b);
+  });
+  // «ИГРАТЬ» теперь сначала открывает выбор карты (перехватываем раньше обработчика запуска)
+  const play = document.getElementById('bPlay'), playing = () => play.textContent.indexOf('ПРОДОЛЖИТЬ') >= 0;
+  play.addEventListener('click', e => { if (playing()) return; e.stopImmediatePropagation(); view('maps'); }, true);
+  document.getElementById('bMapsBack').addEventListener('click', () => view('main'));
+  go.addEventListener('click', () => {
+    if (sel !== MAP_ID) { location.search = '?map=' + sel; return; }   // другая карта — страница перезагружается с ?map=
+    if (device && selDev === device) controls.lock(); else startDevice(selDev);
+  });
+})();
+</script>
 </body>
 </html>

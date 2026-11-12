@@ -33,21 +33,55 @@
     setView('mode');
   }, true);
 
+  setTimeout(function resume() {
+    let r = null, code = null;
+    try { r = sessionStorage.getItem('nb-resume'); code = sessionStorage.getItem('nb-rejoin'); sessionStorage.removeItem('nb-resume'); sessionStorage.removeItem('nb-rejoin'); } catch (e) {}
+    if (r === 'solo') { mode = 'solo'; setView('maps'); }
+    else if (r === 'multi') { mode = 'multi'; connect(); setView('mp'); }
+    else if (r === 'rejoin' && code) { mode = 'multi'; connect(); setView('mp'); const go = () => socket.emit('joinRoom', { code, name: myName() }); socket.connected ? go() : socket.once('connect', go); }
+  }, 0);
+
   function startGame() {           // запускаем штатный старт игры (внутри пользовательского клика)
     bypass = true; bPlay.click(); bypass = false;
   }
 
-  $('bSolo').onclick = () => { mode = 'solo'; startGame(); };
+  // ---- выбор карты: режим -> КАРТА -> (одиночная: старт / онлайн: лобби) ----
+  const MAPS = [
+    { id: 'nacht', name: 'NACHT DER UNTOTEN', img: 'maps/nacht.jpg', d: 'Бункер · окна с досками · круговая лестница' },
+    { id: 'verruckt', name: 'VERRÜCKT', img: 'maps/verruckt.jpg', d: 'Двор с фонтаном · два корпуса · Улучшайзер' },
+    { id: 'soon', name: 'СКОРО', img: 'maps/soon.jpg', d: 'Новая карта в разработке', soon: true }
+  ];
+  let selMap = MAP_ID;
+  const mapList = $('mapList');
+  $('mapCount').textContent = (MAPS.length - 1) + ' КАРТЫ';
+  MAPS.forEach(m => {
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'mc' + (m.soon ? ' soon' : '') + (m.id === selMap ? ' sel' : '');
+    b.innerHTML = '<div class="im"><img src="' + m.img + '" alt=""><span class="tag">' + (m.soon ? 'СКОРО' : 'ВЫБРАНО') + '</span></div><div class="tx"><b>' + m.name + '</b><small>' + m.d + '</small></div>';
+    if (!m.soon) b.addEventListener('click', () => { selMap = m.id; mapList.querySelectorAll('.mc').forEach(x => x.classList.toggle('sel', x === b)); });
+    mapList.appendChild(b);
+  });
+  // смена карты = перезагрузка с ?map=; после неё продолжаем с того же места (sessionStorage)
+  function reloadWith(map, resume) {
+    try { sessionStorage.setItem('nb-resume', resume); } catch (e) {}
+    location.search = '?map=' + map;
+  }
+  $('bSolo').onclick = () => { mode = 'solo'; setView('maps'); };
+  $('bMulti').onclick = () => { mode = 'multi'; connect(); setView('maps'); };
+  $('bMapsBack').onclick = () => setView('mode');
+  $('bMapGo').onclick = () => {
+    if (selMap !== MAP_ID) { reloadWith(selMap, mode === 'multi' ? 'multi' : 'solo'); return; }
+    if (mode === 'multi') setView('mp'); else startGame();
+  };
   $('bModeBack').onclick = () => setView('main');
-  $('bMulti').onclick = () => { mode = 'multi'; connect(); setView('mp'); };
-  $('bMpBack').onclick = () => setView('mode');
+  $('bMpBack').onclick = () => setView('maps');
 
   const nameInput = $('mpName');
   try { nameInput.value = localStorage.getItem('nb_name') || ''; } catch (e) {}
   const myName = () => { const n = nameInput.value.trim(); try { localStorage.setItem('nb_name', n); } catch (e) {} return n; };
   const showErr = t => { $('mpErr').textContent = t || ''; };
 
-  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName() }); };
+  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName(), map: MAP_ID }); };
   $('bJoin').onclick = () => { showErr(); socket.emit('joinRoom', { code: $('mpCode').value, name: myName() }); };
   $('bGo').onclick = () => startGame();
   $('bLeave').onclick = () => { socket.emit('leaveRoom'); clearRemote(); clearNetworkZombies(); roomCode = null; gameState = null; setView('mp'); };
@@ -63,10 +97,13 @@
     socket.on('connect', () => { selfId = socket.id; showErr(); });
     socket.on('disconnect', () => { clearRemote(); clearNetworkZombies(); roomCode = null; if (menuOn) { setView('mp'); showErr('Соединение потеряно'); } });
     socket.on('joinError', showErr);
+    // гость зашёл в комнату с другой картой — перезагружаемся на неё и входим по тому же коду
+    const wrongMap = m => { if (m && m !== MAP_ID && /^[a-z]+$/.test(m) && roomCode) { try { sessionStorage.setItem('nb-rejoin', roomCode); } catch (e) {} reloadWith(m, 'rejoin'); return true; } return false; };
 
     // Мы вошли в лобби.
-    socket.on('joined', ({ selfId: id, code, slot, players }) => {
+    socket.on('joined', ({ selfId: id, code, slot, players, map }) => {
       selfId = id; roomCode = code; mySlot = slot; entered = false;
+      if (wrongMap(map)) return;
       gameState = null; worldRevision = 0;
       clearRemote(); clearNetworkZombies();
       Object.values(players).forEach(p => { if (p.id !== selfId) createAvatar(p); });
