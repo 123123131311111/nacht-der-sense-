@@ -33,53 +33,47 @@
     setView('mode');
   }, true);
 
+  setTimeout(function resume() {
+    let r = null, code = null;
+    try { r = sessionStorage.getItem('nb-resume'); code = sessionStorage.getItem('nb-rejoin'); sessionStorage.removeItem('nb-resume'); sessionStorage.removeItem('nb-rejoin'); } catch (e) {}
+    if (r === 'solo') { mode = 'solo'; setView('maps'); }
+    else if (r === 'multi') { mode = 'multi'; connect(); setView('mp'); }
+    else if (r === 'rejoin' && code) { mode = 'multi'; connect(); setView('mp'); const go = () => socket.emit('joinRoom', { code, name: myName() }); socket.connected ? go() : socket.once('connect', go); }
+  }, 0);
+
   function startGame() {           // запускаем штатный старт игры (внутри пользовательского клика)
     bypass = true; bPlay.click(); bypass = false;
-    if (typeof reloadSounds === 'function') reloadSounds();   // у гостя тоже догружаем все звуки
   }
 
-  // ---- выбор карты: панель с карточками. Чтобы добавить карту — допиши запись в MAPS:
-  //      id, name, desc, img (картинка 16:9 в public/maps/), soon: true = «скоро»
+  // ---- выбор карты: режим -> КАРТА -> (одиночная: старт / онлайн: лобби) ----
   const MAPS = [
-    { id: 'nacht', name: 'NACHT DER UNTOTEN', desc: 'Бункер · 2 этажа · Mystery Box · перки', img: 'maps/nacht.jpg' },
-    { id: 'verruckt', name: 'VERRUCKT', desc: 'Психбольница · круглая · 2 этажа · только соло (прототип)', img: 'maps/verruckt.jpg', soloOnly: true },
-    { id: 'soon', name: '???', desc: 'Новая карта в разработке', img: 'maps/soon.jpg', soon: true },
+    { id: 'nacht', name: 'NACHT DER UNTOTEN', img: 'maps/nacht.jpg', d: 'Бункер · окна с досками · круговая лестница' },
+    { id: 'verruckt', name: 'VERRÜCKT', img: 'maps/verruckt.jpg', d: 'Двор с фонтаном · два корпуса · Улучшайзер' },
+    { id: 'soon', name: 'СКОРО', img: 'maps/soon.jpg', d: 'Новая карта в разработке', soon: true }
   ];
-  // Карта, которая сейчас построена в игре (index.html читает ?map=). Другую карту выбрать = перезагрузить страницу с ?map=
-  const CUR_MAP = (typeof MAP_ID !== 'undefined' && MAP_ID) || 'nacht';
-  window.NB_MAP = CUR_MAP;         // выбранная карта (игровой код может читать window.NB_MAP)
-  const mapList = $('mapList'), bMapGo = $('bMapGo');
-  const mapCards = []; let pickedMap = MAPS[0];
-  const goMap = () => {
-    if (window.NB_MAP !== CUR_MAP) { location.href = location.pathname + '?map=' + window.NB_MAP + '&start=' + mode; return; }   // нужна другая карта — перезагрузка
-    if (mode === 'multi') { connect(); setView('mp'); } else startGame();
-  };
-  const pickMap = m => {
-    window.NB_MAP = m.id; pickedMap = m;
-    mapCards.forEach(c => c.el.classList.toggle('sel', c.m === m));
-    setMapGoLabel();
-  };
+  let selMap = MAP_ID;
+  const mapList = $('mapList');
+  $('mapCount').textContent = (MAPS.length - 1) + ' КАРТЫ';
   MAPS.forEach(m => {
-    const b = document.createElement('button');
-    b.className = 'mc' + (m.soon ? ' soon' : '');
-    b.innerHTML = `<div class="im"><img src="${m.img}" alt="" draggable="false"></div><span class="tag">${m.soon ? '🔒 СКОРО' : '✓ ВЫБРАНО'}</span><div class="tx"><b>${m.name}</b><small>${m.desc}</small></div>`;
-    const img = b.querySelector('img'); img.onerror = () => { img.style.display = 'none'; };
-    if (!m.soon) { b.onclick = () => pickMap(m); b.ondblclick = () => { pickMap(m); goMap(); }; }
-    mapList.appendChild(b); mapCards.push({ el: b, m });
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'mc' + (m.soon ? ' soon' : '') + (m.id === selMap ? ' sel' : '');
+    b.innerHTML = '<div class="im"><img src="' + m.img + '" alt=""><span class="tag">' + (m.soon ? 'СКОРО' : 'ВЫБРАНО') + '</span></div><div class="tx"><b>' + m.name + '</b><small>' + m.d + '</small></div>';
+    if (!m.soon) b.addEventListener('click', () => { selMap = m.id; mapList.querySelectorAll('.mc').forEach(x => x.classList.toggle('sel', x === b)); });
+    mapList.appendChild(b);
   });
-  $('mapCount').textContent = `ДОСТУПНО: ${MAPS.filter(m => !m.soon).length} / ${MAPS.length}`;
-  function setMapGoLabel() {
-    const noMulti = mode === 'multi' && pickedMap.soloOnly;   // карта без сервера: в мультиплеере недоступна
-    bMapGo.textContent = noMulti ? 'ЭТА КАРТА — ТОЛЬКО СОЛО' : mode === 'multi' ? '▶ ДАЛЕЕ · ЛОББИ' : (window.NB_MAP !== CUR_MAP ? '▶ ЗАГРУЗИТЬ КАРТУ' : '▶ НАЧАТЬ ИГРУ');
-    bMapGo.disabled = noMulti;
+  // смена карты = перезагрузка с ?map=; после неё продолжаем с того же места (sessionStorage)
+  function reloadWith(map, resume) {
+    try { sessionStorage.setItem('nb-resume', resume); } catch (e) {}
+    location.search = '?map=' + map;
   }
-  pickMap(MAPS.find(m => m.id === CUR_MAP) || MAPS[0]);
-  bMapGo.onclick = goMap;
-  $('bSolo').onclick = () => { mode = 'solo'; setMapGoLabel(); setView('maps'); };
-  $('bModeBack').onclick = () => setView('main');
-  $('bMulti').onclick = () => { mode = 'multi'; setMapGoLabel(); setView('maps'); };
+  $('bSolo').onclick = () => { mode = 'solo'; setView('maps'); };
+  $('bMulti').onclick = () => { mode = 'multi'; connect(); setView('maps'); };
   $('bMapsBack').onclick = () => setView('mode');
-  { const st = new URLSearchParams(location.search).get('start'); if (st === 'solo' || st === 'multi') { mode = st; setMapGoLabel(); setView('maps'); } }
+  $('bMapGo').onclick = () => {
+    if (selMap !== MAP_ID) { reloadWith(selMap, mode === 'multi' ? 'multi' : 'solo'); return; }
+    if (mode === 'multi') setView('mp'); else startGame();
+  };
+  $('bModeBack').onclick = () => setView('main');
   $('bMpBack').onclick = () => setView('maps');
 
   const nameInput = $('mpName');
@@ -87,7 +81,7 @@
   const myName = () => { const n = nameInput.value.trim(); try { localStorage.setItem('nb_name', n); } catch (e) {} return n; };
   const showErr = t => { $('mpErr').textContent = t || ''; };
 
-  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName(), map: window.NB_MAP }); };
+  $('bCreate').onclick = () => { showErr(); socket.emit('createRoom', { name: myName(), map: MAP_ID }); };
   $('bJoin').onclick = () => { showErr(); socket.emit('joinRoom', { code: $('mpCode').value, name: myName() }); };
   $('bGo').onclick = () => startGame();
   $('bLeave').onclick = () => { socket.emit('leaveRoom'); clearRemote(); clearNetworkZombies(); roomCode = null; gameState = null; setView('mp'); };
@@ -103,11 +97,13 @@
     socket.on('connect', () => { selfId = socket.id; showErr(); });
     socket.on('disconnect', () => { clearRemote(); clearNetworkZombies(); roomCode = null; if (menuOn) { setView('mp'); showErr('Соединение потеряно'); } });
     socket.on('joinError', showErr);
+    // гость зашёл в комнату с другой картой — перезагружаемся на неё и входим по тому же коду
+    const wrongMap = m => { if (m && m !== MAP_ID && /^[a-z]+$/.test(m) && roomCode) { try { sessionStorage.setItem('nb-rejoin', roomCode); } catch (e) {} reloadWith(m, 'rejoin'); return true; } return false; };
 
     // Мы вошли в лобби.
-    socket.on('joined', ({ selfId: id, code, slot, players }) => {
+    socket.on('joined', ({ selfId: id, code, slot, players, map }) => {
       selfId = id; roomCode = code; mySlot = slot; entered = false;
-      if (typeof resetIntro === 'function') resetIntro();   // новая катка — вступление сыграет снова
+      if (wrongMap(map)) return;
       gameState = null; worldRevision = 0;
       clearRemote(); clearNetworkZombies();
       Object.values(players).forEach(p => { if (p.id !== selfId) createAvatar(p); });
@@ -118,21 +114,10 @@
     socket.on('playerLeft', removeAvatar);
     socket.on('gameState', receiveGameState);
     socket.on('zombieHit', applyNetworkHit);
-    socket.on('dropPicked', d => { if (d && typeof removeDropById === 'function') { removeDropById(d.id); collectMaxAmmo(); } });
     socket.on('playerHurt', hit => {
       if (!hit || hit.playerId !== selfId || !Number.isFinite(hit.damage)) return;
       if (typeof hurtPlayer === 'function') hurtPlayer(hit.damage);
     });
-    const markDowned = (id, v) => {
-      const gp = gameState && gameState.players && gameState.players.find(p => p.id === id); if (gp) gp.downed = v;
-      if (remote[id]) remote[id].downed = v;
-    };
-    socket.on('playerDowned', d => { if (d && d.id !== selfId) markDowned(d.id, true); });
-    socket.on('playerRevived', d => {
-      if (!d) return;
-      if (d.id === selfId) reviveSelf(); else markDowned(d.id, false);
-    });
-    socket.on('teamWipe', () => { if (typeof finalDeath === 'function') finalDeath(); });
     socket.on('purchaseCommitted', applyNetworkPurchase);
     socket.on('windowBoardAction', action => {
       if (!action || action.actorId === selfId || action.action !== 'repair') return;
@@ -148,7 +133,7 @@
       const player = remote[shot.id];
       if (player && player.muzzleLight) {
         player.muzzleLight.color.setHex(shot.weapon === 5 ? 0x45ff64 : 0xffa030);
-        player.muzzleLight.intensity = 2.5;
+        player.muzzleLight.intensity = 2.5; player.kick = 1;
         setTimeout(() => { if (player.muzzleLight) player.muzzleLight.intensity = 0; }, 90);
       }
       showShotTrace(shot);
@@ -160,7 +145,7 @@
       }
       const r = remote[d.id]; if (!r) return;
       if (!r.active) { r.active = true; r.group.position.set(d.x, d.y - EYE_HEIGHT, d.z); }   // первое появление — без «пролёта»
-      r.target = { x: d.x, y: d.y, z: d.z, yaw: d.yaw };
+      r.target = { x: d.x, y: d.y, z: d.z, yaw: d.yaw, pitch: Number.isFinite(d.pitch) ? d.pitch : 0 };
     });
   }
 
@@ -179,12 +164,12 @@
           if (p.perks) {
             if (p.perks.cola && !speedCola) { speedCola = true; perkMsg('cola'); }
             if (p.perks.doubleTap && !doubleTap) { doubleTap = true; perkMsg('dtap'); }
-            if (p.perks.juggernog && !juggernog) { applyJugg(); perkMsg('jugg'); }
+            if (p.perks.builder && typeof gotBuilder === 'function') gotBuilder(false);   // «Строитель» (Verrückt)
           }
         } else {
           const r = remote[p.id];
           if (r && p.active) {
-            r.active = true; r.downed = !!p.downed;
+            r.active = true;
             r.target = { x: p.x, y: p.y, z: p.z, yaw: p.yaw };
           }
         }
@@ -195,32 +180,30 @@
         if (open && DOORS[i] && !DOORS[i].open) openDoor(DOORS[i]);
       });
     }
-    if (state.started) {
+    // Хост — единственный источник раундов: он сам публикует round/roundActive/toSpawn/nextRoundIn.
+    // Если применять эхо этого же состояния обратно на хосте, nextRoundAt постоянно сдвигается вперёд
+    // и отсчёт до начала раунда никогда не доходит до нуля.
+    if (state.started && !window.MP.isAuthority) {
       started = true;
-      // Хост — источник правды по раундам. Эхо сервера всегда чуть устарело, и если
-      // применить его на хосте, оно откатывает round/toSpawn/таймер назад
-      // (таймер замедляется, «ROUND N» всплывает по несколько раз). Поэтому
-      // раунды, таймер и мир применяют только гости.
-      if (!window.MP.isAuthority) {
-        const previousRound = round;
-        round = state.round || round;
-        roundActive = !!state.roundActive;
-        toSpawn = state.toSpawn || 0;
-        roundEl.textContent = round ? String(round) : '';
-        if (typeof state.nextRoundIn === 'number') nextRoundAt = gtime + state.nextRoundIn;
-        if (round > previousRound && entered && !menuOn) {
-          annEl.textContent = 'ROUND ' + round;
-          annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
-          sfx('round');
+      const previousRound = round;
+      round = state.round || round;
+      if (round !== previousRound && typeof nades !== 'undefined') nades = NADE_PER_ROUND;   // новый раунд — снова 2 гранаты
+      roundActive = !!state.roundActive;
+      toSpawn = state.toSpawn || 0;
+      roundEl.textContent = round ? 'ROUND ' + round : '';
+      if (typeof state.nextRoundIn === 'number') nextRoundAt = gtime + state.nextRoundIn;
+      if (round > previousRound && entered && !menuOn) {
+        annEl.textContent = 'ROUND ' + round;
+        annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
+        sfx('round');
+      }
+      interEl.textContent = roundActive ? '' : `ROUND ${round + 1} IN ${Math.ceil(state.nextRoundIn || 0)}`;
+      if (!window.MP.isAuthority && entered && !menuOn) {
+        if (Array.isArray(state.zombies)) {
+          try { applyNetworkZombies(state.zombies); } catch (err) { console.warn('[MP] zombies', err); }
         }
-        interEl.textContent = roundActive ? '' : `ROUND ${round + 1} IN ${Math.ceil(state.nextRoundIn || 0)}`;
-        if (entered && !menuOn) {
-          if (Array.isArray(state.zombies)) {
-            try { applyNetworkZombies(state.zombies); } catch (err) { console.warn('[MP] zombies', err); }
-          }
-          if (Array.isArray(state.windowBoards)) {
-            try { applyNetworkWindows(state.windowBoards); } catch (err) { console.warn('[MP] windows', err); }
-          }
+        if (Array.isArray(state.windowBoards)) {
+          try { applyNetworkWindows(state.windowBoards); } catch (err) { console.warn('[MP] windows', err); }
         }
       }
     }
@@ -239,7 +222,6 @@
       zombies.splice(i, 1);
     }
     menuOn = false;
-    if (typeof reloadSounds === 'function') reloadSounds();
     document.body.classList.remove('menu');
     document.body.classList.add('playing');
     setView('main');
@@ -333,7 +315,6 @@
         z.eyes.forEach(e => e.visible = false);
         startRagdoll(z, !!hit.head, 0);
         if (typeof kills === 'number') kills++;
-        if (hit.drop && typeof spawnDrop === 'function') spawnDrop(hit.drop);   // красный бонус MAX AMMO — решение принял сервер
       }
       const dir = new THREE.Vector3(0, 0, 1);
       bloodHit(new THREE.Vector3(z.g.position.x, z.g.position.y + 1.1, z.g.position.z), dir, !!hit.head, false);
@@ -348,11 +329,9 @@
     } else if (event.kind === 'box') {
       boxStart(event.boxResult, own);
     } else if (own && event.kind === 'cola') {
-      speedCola = true; drinkPerk('cola');
+      speedCola = true; perkMsg('cola');
     } else if (own && event.kind === 'doubleTap') {
-      doubleTap = true; drinkPerk('dtap');
-    } else if (own && event.kind === 'juggernog') {
-      applyJugg(); drinkPerk('jugg');
+      doubleTap = true; perkMsg('dtap');
     } else if (own && event.kind === 'thompson') {
       const w = WEAPONS[1];
       w.mag = w.magSize; w.reserve = w.maxReserve - w.magSize;
@@ -389,9 +368,9 @@
     return true;
   }
 
-  function requestHit(zombie, head, shotId) {
+  function requestHit(zombie, head, shotId, scale) {
     if (!socket || !socket.connected || !roomCode || !zombie || !zombie.mpId || !shotId) return;
-    socket.emit('zombieHit', { zombieId: zombie.mpId, head: !!head, shotId });
+    socket.emit('zombieHit', { zombieId: zombie.mpId, head: !!head, shotId, scale: Number.isFinite(scale) ? scale : undefined });
   }
 
   function requestPlayerHit(playerId, zombieId) {
@@ -519,19 +498,68 @@
     spr.scale.set(1.6, 0.4, 1); spr.position.y = 1.95; spr.renderOrder = 10;
     return spr;
   }
+  // Солдат из простых форм: ботинки, штаны, жилет в цвете игрока, каска, лицо, руки с винтовкой. Начало координат — ступни, «вперёд» = -Z.
   function createAvatar(p) {
-    const group = new THREE.Group(); group.rotation.order = 'YXZ';   // начало координат = ступни; X — падение на пол
-    const mat = new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.8 });
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.2, 12), mat); body.position.y = 0.8; group.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), mat); head.position.y = 1.55; group.add(head);
-    const gun = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.6), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-    gun.position.set(0.25, 1.25, -0.4); group.add(gun);
-    const muzzleLight = new THREE.PointLight(0xffa030, 0, 2);
-    muzzleLight.position.set(0.25, 1.25, -0.76); group.add(muzzleLight);
+    const group = new THREE.Group();
+    const team = new THREE.Color(p.color);
+    const std = (c, r = 0.85, mt = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: mt });
+    const mSkin = std(0xc8a07c, 0.75), mCloth = std(0x3d4030), mClothD = std(0x2c2e22), mVest = std(team.clone().multiplyScalar(0.62), 0.7),
+          mBoot = std(0x141210, 0.9), mHelm = std(0x4a5232, 0.6), mBand = new THREE.MeshStandardMaterial({ color: team, roughness: 0.5, emissive: team.clone().multiplyScalar(0.35) }),
+          mGun = std(0x1d1d1f, 0.45, 0.6), mWood = std(0x5a3c24, 0.8), mPack = std(0x2f3322), mEye = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
+    const box = (w, h, d, mat, x, y, z, par) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); o.position.set(x, y, z); (par || group).add(o); return o; };
+    const cyl = (r0, r1, h, mat, x, y, z, par, seg = 8) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, h, seg), mat); o.position.set(x, y, z); (par || group).add(o); return o; };
+
+    // ноги: шарнир в бедре (y = 0.92), качаются при ходьбе
+    const legs = [-1, 1].map(sd => {
+      const leg = new THREE.Group(); leg.position.set(sd * 0.13, 0.92, 0); group.add(leg);
+      cyl(0.085, 0.07, 0.46, mCloth, 0, -0.24, 0, leg);              // бедро
+      cyl(0.07, 0.065, 0.4, mClothD, 0, -0.64, 0, leg);              // голень
+      box(0.13, 0.1, 0.27, mBoot, 0, -0.86, -0.04, leg);             // ботинок
+      return leg;
+    });
+    // торс
+    const torso = new THREE.Group(); torso.position.y = 0.92; group.add(torso);
+    box(0.44, 0.1, 0.25, mClothD, 0, 0.04, 0, torso);                // ремень
+    box(0.46, 0.5, 0.27, mCloth, 0, 0.32, 0, torso);                 // куртка
+    box(0.47, 0.36, 0.29, mVest, 0, 0.4, -0.005, torso);             // жилет в цвете игрока
+    box(0.1, 0.1, 0.05, mClothD, -0.12, 0.2, -0.16, torso); box(0.1, 0.1, 0.05, mClothD, 0.12, 0.2, -0.16, torso);   // подсумки
+    box(0.34, 0.4, 0.14, mPack, 0, 0.34, 0.21, torso);               // рюкзак
+    box(0.38, 0.1, 0.16, mPack, 0, 0.58, 0.2, torso);                // скатка
+    // верх тела (голова, руки, оружие) — наклоняется по взгляду вокруг плеч
+    const aim = new THREE.Group(); aim.position.set(0, 0.92 + 0.5, 0); group.add(aim);
+    cyl(0.055, 0.06, 0.08, mSkin, 0, 0.06, 0, aim);                  // шея
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 14, 12), mSkin); head.scale.set(0.92, 1.05, 1); head.position.set(0, 0.2, 0); aim.add(head);
+    box(0.034, 0.022, 0.012, mEye, -0.045, 0.21, -0.108, aim); box(0.034, 0.022, 0.012, mEye, 0.045, 0.21, -0.108, aim);   // глаза
+    const helm = new THREE.Mesh(new THREE.SphereGeometry(0.135, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), mHelm); helm.position.set(0, 0.22, 0.005); helm.scale.set(1.05, 1, 1.1); aim.add(helm);
+    cyl(0.152, 0.152, 0.018, mHelm, 0, 0.215, 0, aim, 16).scale.set(1, 1, 1.12);   // поля каски
+    box(0.2, 0.026, 0.02, mBand, 0, 0.255, -0.14, aim);              // повязка в цвете игрока на каске
+    // руки: плечо → кисть у оружия
+    const arm = (sd, hand) => {
+      const sh = new THREE.Vector3(sd * 0.26, -0.04, 0), d = new THREE.Vector3().subVectors(hand, sh), L = d.length();
+      const o = cyl(0.058, 0.048, L, mCloth, 0, 0, 0, aim, 7); o.position.copy(sh).addScaledVector(d, 0.5);
+      o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
+      const hnd = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), mSkin); hnd.position.copy(hand); aim.add(hnd);
+    };
+    // оружие — отдельная группа (для отдачи), центр у правой кисти
+    const gun = new THREE.Group(); gun.position.set(0.1, -0.22, -0.28); aim.add(gun);
+    box(0.06, 0.11, 0.34, mGun, 0, 0, -0.02, gun);                   // ствольная коробка
+    cyl(0.017, 0.017, 0.4, mGun, 0, 0.025, -0.4, gun, 6).rotation.x = Math.PI / 2;   // ствол
+    box(0.05, 0.07, 0.3, mWood, 0, -0.01, 0.3, gun);                 // приклад
+    box(0.045, 0.16, 0.06, mGun, 0, -0.12, -0.04, gun);              // магазин
+    box(0.04, 0.09, 0.05, mWood, 0, -0.08, 0.1, gun);                // рукоять
+    arm(1, new THREE.Vector3(0.1, -0.24, -0.2));                     // правая — на рукояти
+    arm(-1, new THREE.Vector3(0.08, -0.2, -0.46));                   // левая — под цевьём
+    const muzzleLight = new THREE.PointLight(0xffa030, 0, 3);
+    muzzleLight.position.set(0.1, -0.2, -0.95); aim.add(muzzleLight);
+    const flash = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffc060, transparent: true, opacity: 0, depthWrite: false }));
+    flash.position.set(0.1, -0.2, -0.95); aim.add(flash);
+    // кольцо под ногами в цвете игрока — видно издалека
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.38, 0.46, 24), new THREE.MeshBasicMaterial({ color: team, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; group.add(ring);
     group.add(makeLabel(p.name));
     group.visible = false;                            // покажем, когда игрок реально войдёт в игру
     scene.add(group);
-    remote[p.id] = { group, muzzleLight, active: false, target: { x: 0, y: EYE_HEIGHT, z: 0, yaw: 0 } };
+    remote[p.id] = { group, muzzleLight, flash, legs, torso, aim, gun, kick: 0, phase: 0, active: false, target: { x: 0, y: EYE_HEIGHT, z: 0, yaw: 0, pitch: 0 } };
   }
   function removeAvatar(id) {
     const r = remote[id]; if (!r) return;
@@ -541,18 +569,32 @@
   }
   function clearRemote() { Object.keys(remote).forEach(removeAvatar); }
 
-  // Плавное движение чужих аватаров.
+  // Плавное движение чужих аватаров + походка (по реальной скорости), наклон по взгляду, отдача при выстреле.
   (function smooth() {
     requestAnimationFrame(smooth);
     for (const id in remote) {
       const r = remote[id], t = r.target, g = r.group;
       if (!r.active) continue;
+      const px = g.position.x, pz = g.position.z;
       g.position.x += (t.x - g.position.x) * 0.25;
-      g.position.y += ((t.y - EYE_HEIGHT + (r.downed ? 0.3 : 0)) - g.position.y) * 0.25;
-      g.rotation.x += ((r.downed ? -Math.PI / 2 : 0) - g.rotation.x) * 0.15;   // повалённый лежит на спине
+      g.position.y += ((t.y - EYE_HEIGHT) - g.position.y) * 0.25;
       g.position.z += (t.z - g.position.z) * 0.25;
       let dy = t.yaw - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * 0.25;
       g.visible = !menuOn;
+      if (!r.legs) continue;
+      const sp = Math.hypot(g.position.x - px, g.position.z - pz) * 60;          // м/с при ~60 кадрах/с
+      const k = Math.min(1, sp / 4);
+      r.phase += Math.min(sp, 9) * 0.045 + 0.0;
+      const sw = Math.sin(r.phase) * 0.75 * k;
+      r.legs[0].rotation.x = sw; r.legs[1].rotation.x = -sw;
+      r.torso.position.y = 0.92 + Math.abs(Math.sin(r.phase)) * 0.025 * k;
+      r.aim.position.y = r.torso.position.y + 0.5;
+      const pitch = Math.max(-0.9, Math.min(0.9, t.pitch || 0));
+      r.aim.rotation.x += (pitch - r.aim.rotation.x) * 0.3;
+      r.aim.rotation.z = Math.sin(r.phase) * 0.03 * k;
+      if (r.kick > 0) r.kick = Math.max(0, r.kick - 0.12);
+      r.gun.position.z = -0.28 + r.kick * 0.06; r.gun.rotation.x = r.kick * 0.1;
+      r.flash.material.opacity = r.kick > 0.6 ? 0.9 : 0;
     }
   })();
 
@@ -574,10 +616,6 @@
     requestPurchase,
     requestHit,
     requestPlayerHit,
-    reportDowned() { if (socket && socket.connected && roomCode) socket.emit('playerDowned'); },
-    reviveStart(targetId) { if (socket && socket.connected && roomCode) socket.emit('reviveStart', { targetId }); },
-    reviveDone(targetId) { if (socket && socket.connected && roomCode) socket.emit('reviveDone', { targetId }); },
-    requestDropPickup(id) { if (socket && socket.connected && roomCode) socket.emit('pickupDrop', { id }); },
     requestWindowRepair(index) {
       if (socket && socket.connected && roomCode) socket.emit('windowBoardAction', { action: 'repair', index });
     },
