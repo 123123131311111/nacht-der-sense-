@@ -285,7 +285,7 @@ body.menu #embers{display:block}
 <div id="round"></div><div id="points"></div><div id="pops"></div><div id="prompt"></div><div id="hpbar"><div></div></div><div id="hurt"></div><div id="announce"></div><div id="inter"></div><div id="perks"></div>
 <div id="over"></div>
 <div id="info"><canvas id="embers"></canvas><div id="menu" data-view="main">
-<h1 class="logo"><small>ЗОМБИ · ВЫЖИВАНИЕ</small>NACHT<br>DER BUNKER</h1>
+<h1 class="logo"><small>ЗОМБИ · ВЫЖИВАНИЕ</small>NACHT<br>DER SENSE</h1>
 <p id="infoMsg">Продержись как можно дольше</p>
 <div id="mapBadge">КАРТА: <b id="mapBadgeName"></b></div>
 <div id="mainBtns"><button class="mb big" id="bPlay">▶ ИГРАТЬ</button><button class="mb" id="bSet">⚙ НАСТРОЙКА</button><button class="mb" id="bHelp">? ПОМОЩЬ</button><button class="mb" id="bExit">✕ ВЫЙТИ В МЕНЮ</button></div>
@@ -709,20 +709,20 @@ function vkGrassTex() {
   if (VK_GRASS_TEX) return VK_GRASS_TEX;
   const S = 512, mk = () => { const c = document.createElement('canvas'); c.width = c.height = S; return c; };
   const c = mk(), g = c.getContext('2d'), hc = mk(), hg = hc.getContext('2d'), R = Math.random;
-  g.fillStyle = '#1d3a15'; g.fillRect(0, 0, S, S); hg.fillStyle = '#808080'; hg.fillRect(0, 0, S, S);
+  g.fillStyle = '#0d2010'; g.fillRect(0, 0, S, S); hg.fillStyle = '#808080'; hg.fillRect(0, 0, S, S);
   const wrap = (x, y, r, fn) => { for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) { if (x + dx > -r && x + dx < S + r && y + dy > -r && y + dy < S + r) fn(x + dx, y + dy); } };
   for (let i = 0; i < 90; i++) {   // крупные пятна — разные оттенки, чтобы газон не был однотонным
-    const x = R() * S, y = R() * S, r = 30 + R() * 70, l = 16 + R() * 12, h = 98 + R() * 20;
-    wrap(x, y, r, (X, Y) => { const gr = g.createRadialGradient(X, Y, 0, X, Y, r); gr.addColorStop(0, `hsla(${h},42%,${l}%,0.5)`); gr.addColorStop(1, `hsla(${h},42%,${l}%,0)`); g.fillStyle = gr; g.fillRect(X - r, Y - r, r * 2, r * 2); });
+    const x = R() * S, y = R() * S, r = 30 + R() * 70, l = 8 + R() * 8, h = 100 + R() * 18;
+    wrap(x, y, r, (X, Y) => { const gr = g.createRadialGradient(X, Y, 0, X, Y, r); gr.addColorStop(0, `hsla(${h},40%,${l}%,0.5)`); gr.addColorStop(1, `hsla(${h},42%,${l}%,0)`); g.fillStyle = gr; g.fillRect(X - r, Y - r, r * 2, r * 2); });
   }
   for (let i = 0; i < 9000; i++) {   // стебельки
-    const x = R() * S, y = R() * S, len = 4 + R() * 9, a = -Math.PI / 2 + (R() - 0.5) * 0.9, l = 11 + R() * 22, h = 92 + R() * 30;
+    const x = R() * S, y = R() * S, len = 4 + R() * 9, a = -Math.PI / 2 + (R() - 0.5) * 0.9, l = 6 + R() * 14, h = 98 + R() * 24;
     const ex = Math.cos(a) * len, ey = Math.sin(a) * len;
     wrap(x, y, 14, (X, Y) => { g.strokeStyle = `hsl(${h},46%,${l}%)`; g.lineWidth = 1 + R() * 1.1; g.beginPath(); g.moveTo(X, Y); g.lineTo(X + ex, Y + ey); g.stroke();
-      hg.strokeStyle = `rgba(${l > 24 ? 235 : 40},${l > 24 ? 235 : 40},${l > 24 ? 235 : 40},0.5)`; hg.lineWidth = 1.2; hg.beginPath(); hg.moveTo(X, Y); hg.lineTo(X + ex, Y + ey); hg.stroke(); });
+      hg.strokeStyle = `rgba(${l > 13 ? 235 : 40},${l > 13 ? 235 : 40},${l > 13 ? 235 : 40},0.5)`; hg.lineWidth = 1.2; hg.beginPath(); hg.moveTo(X, Y); hg.lineTo(X + ex, Y + ey); hg.stroke(); });
   }
   for (let i = 0; i < 26; i++) {   // мелкие цветки: белые и жёлтые
-    const x = R() * S, y = R() * S, col = R() < 0.6 ? '#9a9884' : '#9a8630';
+    const x = R() * S, y = R() * S, col = R() < 0.6 ? '#5c5b50' : '#5c501e';
     wrap(x, y, 4, (X, Y) => { g.fillStyle = col; g.beginPath(); g.arc(X, Y, 1.6, 0, 6.3); g.fill(); });
   }
   const map = new THREE.CanvasTexture(c), bump = new THREE.CanvasTexture(hc);
@@ -733,7 +733,7 @@ function vkGrassTex() {
 function vkGrass(x0, x1, z0, z1) {   // кусок газона; addBox уже даёт UV 1 единица = 3 м, текстура растянута до тайла в 4 м
   const t = vkGrassTex();
   t.map.repeat.set(0.75, 0.75); t.bump.repeat.set(0.75, 0.75);
-  if (!VK_GRASS_TEX.mat) VK_GRASS_TEX.mat = new THREE.MeshStandardMaterial({ map: t.map, bumpMap: t.bump, bumpScale: 1.5, color: 0xcfd8c8, roughness: 1, metalness: 0 });
+  if (!VK_GRASS_TEX.mat) VK_GRASS_TEX.mat = new THREE.MeshStandardMaterial({ map: t.map, bumpMap: t.bump, bumpScale: 1.5, color: 0x8a9a86, roughness: 1, metalness: 0 });
   return addBox(x0, x1, -0.5, 0, z0, z1, VK_GRASS_TEX.mat);
 }
 function vkFloors() {
@@ -1673,8 +1673,8 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
       const pts = []; for (const t of [-32, -16, 16, 32]) { pts.push([t, -35.1], [t, 35.1]); }
       for (const t of [-28, -14, 0, 14, 28]) { pts.push([-35.1, t], [35.1, t]); }
       const pm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.1, 5.2, 8), lampIron, pts.length);
-      const bm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.26, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffdca0, fog: false }), pts.length);
-      const hm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.95, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.13, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }), pts.length);
+      const bm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.26, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffdca0 }), pts.length);
+      const hm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.95, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.13, blending: THREE.AdditiveBlending, depthWrite: false }), pts.length);
       const q0 = new THREE.Quaternion();
       pts.forEach((p, i) => {
         MX.compose(V3.set(p[0], 2.6, p[1]), q0, SC.set(1, 1, 1)); pm.setMatrixAt(i, MX);
@@ -1697,6 +1697,7 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
 
 // ---------- улица: небо, земля, мёртвые деревья, горящие дома ----------
 const fires = [], BM = c => new THREE.MeshBasicMaterial({ color: c, fog: false });
+const _streetFrom = scene.children.length;   // всё, что создаёт «улица» ниже, начинается с этого индекса
 {
   const [c, g] = cv(4, 256), gr = g.createLinearGradient(0, 0, 0, 256);
   [[0, '#040304'], [0.35, '#120909'], [0.46, '#4f1e0a'], [0.5, '#93380f'], [0.53, '#2a1208'], [1, '#0a0605']].forEach(s => gr.addColorStop(s[0], s[1]));
@@ -1735,6 +1736,8 @@ function tree(x, z) {
   g.position.set(x, 0, z); g.rotation.y = Math.random() * 6; scene.add(g);
 }
 for (let i = 0, n = 0; i < 400 && n < 44; i++) { const a = Math.random() * 6.28, r = RR(37, 58), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.max(Math.abs(x), Math.abs(z)) < 46) continue; tree(x, z); n++; }
+// Verrückt — закрытый двор в густом тумане: небо, горящие дома и зарева (они не подчиняются туману) не нужны
+if (MAP_ID === 'verruckt') for (let i = _streetFrom; i < scene.children.length; i++) scene.children[i].visible = false;
 function animFires(t) {
   for (const o of fires) {
     if (o.f) { const p = o.f.userData.p; o.f.scale.set(1 + 0.18 * Math.sin(t * 9 + p), 1 + 0.3 * Math.sin(t * 6.3 + p * 2), 1 + 0.18 * Math.cos(t * 8 + p)); }
@@ -1747,7 +1750,7 @@ function animFires(t) {
 const mistSprites = [];
 if (MAP_ID === 'verruckt') {
   const FOGC = 0x23201f;
-  scene.fog = new THREE.FogExp2(FOGC, 0.06);
+  scene.fog = new THREE.FogExp2(FOGC, 0.105);   // за ~25 м не видно ничего
   scene.background = new THREE.Color(FOGC);
   const [mc, mg] = cv(128, 128), mr = mg.createRadialGradient(64, 64, 0, 64, 64, 64);
   mr.addColorStop(0, 'rgba(150,146,140,0.55)'); mr.addColorStop(0.5, 'rgba(120,116,112,0.25)'); mr.addColorStop(1, 'rgba(100,96,92,0)');

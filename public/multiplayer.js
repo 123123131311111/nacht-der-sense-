@@ -180,7 +180,10 @@
         if (open && DOORS[i] && !DOORS[i].open) openDoor(DOORS[i]);
       });
     }
-    if (state.started) {
+    // Хост — единственный источник раундов: он сам публикует round/roundActive/toSpawn/nextRoundIn.
+    // Если применять эхо этого же состояния обратно на хосте, nextRoundAt постоянно сдвигается вперёд
+    // и отсчёт до начала раунда никогда не доходит до нуля.
+    if (state.started && !window.MP.isAuthority) {
       started = true;
       const previousRound = round;
       round = state.round || round;
