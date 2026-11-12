@@ -1672,45 +1672,45 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
       im.frustumCulled = false; scene.add(im);
     }
 
-    // ---------- деревья: обгорелые — чёрные обугленные стволы с обломанными сучьями, без листвы ----------
+    // ---------- лес: высокие живые ели (ствол + 5 ярусов хвои), InstancedMesh; дальние тонут в сизой дымке ----------
     const treeList = [];
-    const plant = (x, z, s = 1, solid = false) => treeList.push({ x, z, s, ry: SR() * 6.28, solid });
+    const plant = (x, z, s = 1, solid = false, tall = 1) => treeList.push({ x, z, s, ry: SR() * 6.28, solid, tall });
     function buildTrees() {
       const n = treeList.length; if (!n) return;
-      const BR = 5;   // сучьев на дерево
-      const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.3, 1, 7), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x050200 }), n * 2);
-      const limb = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.02, 0.085, 1, 5), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x040200 }), n * BR);
-      const C = new THREE.Color(), UPV = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3(), q2 = new THREE.Quaternion();
+      const TIERS = 5;
+      const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.14, 0.34, 1, 7).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x050302 }), n);
+      const fol = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 9).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x04100c }), n * TIERS);
+      const C = new THREE.Color(), FOG = new THREE.Color(0x5f8a90), GREENS = [0x0e2a20, 0x123226, 0x0b2219, 0x17382b, 0x10281f];
       treeList.forEach((t, i) => {
-        const h = (3.6 + SR() * 1.6) * t.s, lean = (SR() - 0.5) * 0.14;   // высота и лёгкий наклон
-        const tilt = new THREE.Quaternion().setFromEuler(EU.set(lean, t.ry, lean * 0.6));
-        // основной ствол (нижние 70%) и обломанная верхушка (сломана под углом)
-        const h1 = h * 0.72; MX.compose(V3.set(t.x, h1 / 2, t.z), tilt, SC.set(t.s, h1, t.s)); trunk.setMatrixAt(i * 2, MX);
-        trunk.setColorAt(i * 2, C.setHex([0x0d0a08, 0x120d0a, 0x0a0807, 0x15100c][i % 4]));
-        const topQ = new THREE.Quaternion().setFromEuler(EU.set(0.5 + SR() * 0.4, t.ry + SR() * 6, 0.2)), h2 = h * 0.38;
-        dir.copy(UPV).applyQuaternion(topQ);
-        MX.compose(V3.set(t.x + dir.x * h2 / 2, h1 + dir.y * h2 / 2 - 0.05, t.z + dir.z * h2 / 2), topQ, SC.set(t.s * 0.55, h2, t.s * 0.55)); trunk.setMatrixAt(i * 2 + 1, MX);
-        trunk.setColorAt(i * 2 + 1, C.setHex(0x090706));
-        for (let k = 0; k < BR; k++) {   // голые обугленные сучья
-          const a = SR() * 6.283, ph = 0.6 + SR() * 0.7, L = (0.9 + SR() * 1.5) * t.s, hy = h * (0.35 + SR() * 0.55);
-          dir.set(Math.cos(a) * Math.sin(ph), Math.cos(ph), Math.sin(a) * Math.sin(ph)); q2.setFromUnitVectors(UPV, dir);
-          MX.compose(V3.set(t.x + dir.x * L / 2, hy + dir.y * L / 2, t.z + dir.z * L / 2), q2, SC.set(t.s, L, t.s)); limb.setMatrixAt(i * BR + k, MX);
-          limb.setColorAt(i * BR + k, C.setHex([0x0b0907, 0x100c09, 0x080605][k % 3]));
+        const H = (11 + SR() * 9) * t.s * t.tall;   // высота 11…20 м (× масштаб)
+        const dist = Math.hypot(t.x, t.z), fogK = Math.min(0.62, Math.max(0, (dist - 44) / 38));   // чем дальше — тем светлее (воздушная дымка)
+        const lean = (SR() - 0.5) * 0.05, q = new THREE.Quaternion().setFromEuler(EU.set(lean, t.ry, lean));
+        MX.compose(V3.set(t.x, 0, t.z), q, SC.set(t.s, H * 0.62, t.s)); trunk.setMatrixAt(i, MX);
+        trunk.setColorAt(i, C.setHex([0x1a120c, 0x211810, 0x15100b][i % 3]).lerp(FOG, fogK * 0.6));
+        const base = GREENS[(SR() * GREENS.length) | 0], R0 = (2.5 + SR() * 1.1) * t.s * (0.8 + 0.2 * t.tall);
+        for (let k = 0; k < TIERS; k++) {   // ярусы хвои: снизу широкие, к макушке сужаются и перекрываются
+          const f = k / TIERS, y0 = H * (0.2 + 0.64 * f), h = H * 0.3 * (1 - f * 0.45), r = R0 * (1 - f * 0.82);
+          MX.compose(V3.set(t.x, y0, t.z), q, SC.set(r, h, r)); fol.setMatrixAt(i * TIERS + k, MX);
+          fol.setColorAt(i * TIERS + k, C.setHex(base).multiplyScalar(0.85 + 0.3 * f).lerp(FOG, fogK));
         }
-        if (t.solid) { const c = addBox(t.x - 0.36 * t.s, t.x + 0.36 * t.s, 0, 3.6, t.z - 0.36 * t.s, t.z + 0.36 * t.s, INVM); if (c.userData.col) c.userData.col.prop = true; }   // ствол держит игрока и пули
+        if (t.solid) { const c = addBox(t.x - 0.4 * t.s, t.x + 0.4 * t.s, 0, 3.6, t.z - 0.4 * t.s, t.z + 0.4 * t.s, INVM); if (c.userData.col) c.userData.col.prop = true; }   // ствол держит игрока и пули
       });
-      trunk.frustumCulled = false; limb.frustumCulled = false; scene.add(trunk); scene.add(limb);
+      trunk.frustumCulled = false; fol.frustumCulled = false; scene.add(trunk); scene.add(fol);
     }
     // во дворе (стволы — коллизия): углы и края, вдали от проходов зомби (|x| < 4 у ворот) и от парковок
     [[-28.5, -6.5, 1.1], [-28.5, 6.5, 1.0], [28.5, -6.5, 1.0], [28.5, 6.5, 1.1],
      [22.5, -13, 1.0], [29.5, -17, 1.2], [27.5, -29.5, 1.0], [22, -29.5, 1.1], [19.5, -31, 0.9],
      [-22.5, 13, 1.0], [-29.5, 17, 1.2], [-27.5, 29.5, 1.0], [-22, 29.5, 1.1], [-30.2, 24.5, 0.9], [-17.5, 14.5, 1.0],
      [-8, -29.5, 1.0], [7, -29.5, 1.1], [14.5, -30, 1.0], [-8, 29.5, 1.1], [-14.5, 30, 1.0], [7, 29.5, 1.0]
-    ].forEach(t => plant(t[0], t[1], t[2], true));
-    // за оградой: на тротуаре (решётка забора видна сквозь листву), ствол без коллизии
-    for (const t of [-30, -22, -14, 14, 22, 30]) { plant(t, -34.2, 1.1); plant(t, 34.2, 1.1); }
-    for (const t of [-26, -18, -10, 0, 10, 18, 26]) { plant(-34.2, t, 1.1); plant(34.2, t, 1.1); }
-    for (const t of [-34, -22, -10, 10, 22, 34]) { plant(t, -43.4, 1.2); plant(t, 43.4, 1.2); plant(-43.4, t, 1.2); plant(43.4, t, 1.2); }
+    ].forEach(t => plant(t[0], t[1], t[2], true, 0.85));
+    // настоящий лес за дорогой: 3 плотных кольца, квадратный контур (дорога и тротуар заканчиваются на |x|,|z| = 44.4), на въездах деревья реже
+    for (const [r0, r1, cnt, tall] of [[47.5, 53, 120, 1.0], [53, 61, 150, 1.25], [61, 68, 130, 1.5]]) {
+      for (let i = 0; i < cnt; i++) {
+        const side = (SR() * 4) | 0, u = (SR() * 2 - 1) * (r1 + 3), d = r0 + SR() * (r1 - r0);
+        const x = side < 2 ? u : (side === 2 ? -d : d), z = side < 2 ? (side === 0 ? -d : d) : u;
+        plant(x + (SR() - 0.5) * 2, z + (SR() - 0.5) * 2, 0.9 + SR() * 0.5, false, tall);
+      }
+    }
 
     // ---------- дорога вокруг ограды: тротуар, асфальт, разделительная пунктирная линия, фонари, припаркованные машины ----------
     ring(32.2, 35.6, 0.02, walk); ring(35.6, 42, 0.03, asphalt); ring(42, 44.4, 0.02, walk);
@@ -1739,6 +1739,13 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
         const d = side % 2 ? 40.3 : -40.3, van = r > 0.9, col = CAR_COL[(SR() * CAR_COL.length) | 0], j = (SR() - 0.5) * 0.8;
         if (side < 2) addCar(t + j, d, Math.PI / 2 + (SR() - 0.5) * 0.06, col, van); else addCar(d, t + j, (side === 2 ? 0 : Math.PI) + (SR() - 0.5) * 0.06, col, van);
       }
+    }
+    { // сизая дымка между рядами деревьев — глубина и «болотное» настроение
+      const [hc, h] = cv(4, 64), hg = h.createLinearGradient(0, 0, 0, 64);
+      hg.addColorStop(0, 'rgba(95,138,144,0)'); hg.addColorStop(0.55, 'rgba(95,138,144,0.30)'); hg.addColorStop(1, 'rgba(70,105,110,0.5)');
+      h.fillStyle = hg; h.fillRect(0, 0, 4, 64);
+      const ht = new THREE.CanvasTexture(hc);
+      for (const r of [52, 60]) { const hz = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 22, 48, 1, true), new THREE.MeshBasicMaterial({ map: ht, transparent: true, side: THREE.BackSide, depthWrite: false, fog: false })); hz.position.y = 8; hz.renderOrder = 2; scene.add(hz); }
     }
     buildCars(); buildTrees();
   })();
@@ -1917,6 +1924,8 @@ function buildNachtBackdrop() {
 if (MAP_ID === 'nacht') {   // старый фон (небо, горящие дома, деревья) на Nacht скрываем и строим новый
   for (let i = _streetFrom; i < scene.children.length; i++) scene.children[i].visible = false;
   buildNachtBackdrop();
+} else if (MAP_ID === 'verruckt') {   // Verrückt: старую «улицу» (небо, горящие дома, деревья, зарева) скрываем — иначе её небо перекрывает болотный купол; земля (единственный PlaneGeometry) остаётся
+  for (let i = _streetFrom; i < scene.children.length; i++) { const o = scene.children[i]; if (!(o.isMesh && o.geometry && o.geometry.type === 'PlaneGeometry')) o.visible = false; }
 }
 function animFires(t) {
   if (nachtClouds) nachtClouds.rotation.y = t * 0.006;
@@ -2017,6 +2026,7 @@ function mkSwampSky() {
 if (MAP_ID === 'verruckt') {
   scene.fog = null;
   scene.background = new THREE.Color(0x0a1618);
+  camera.far = 130; camera.updateProjectionMatrix();   // лес тянется до ~100 м по диагонали — иначе дальние деревья обрезались бы
   try { vkSky = mkSwampSky(); } catch (e) { console.warn('swamp sky', e); }
 }
 function animFog(t) {
