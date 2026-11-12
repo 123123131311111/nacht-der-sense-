@@ -267,9 +267,16 @@ io.on('connection', socket => {
     const { room, player } = ctx;
     if (typeof shotId !== 'string' || shotId.length > 80) return;
     weapon = Number(weapon);
-    const interval = weapon === -1 ? 2000 : (WEAPONS[weapon] && WEAPONS[weapon].interval);
-    if (!interval) return;
     const now = Date.now();
+    if (weapon === -2) {   // осколочная граната: 2 за раунд, регистрируется в момент взрыва
+      if (player.nadeRound !== room.game.round) { player.nadeRound = room.game.round; player.nadesLeft = 2; }
+      if (player.nadesLeft <= 0 || now - (player.lastNadeAt || 0) < 300) return;
+      player.nadesLeft--; player.lastNadeAt = now;
+      player.shots[shotId] = { weapon, at: now, hits: 0, hitIds: new Set(), maxHits: 24 };
+      return;
+    }
+    const interval = weapon === -1 ? 500 : (WEAPONS[weapon] && WEAPONS[weapon].interval);
+    if (!interval) return;
     if (now - player.lastShotAt < interval * 0.75) return;
     player.lastShotAt = now;
     const maxHits = weapon === -1 ? 24 : (WEAPONS[weapon].pellets || 1);
@@ -281,7 +288,7 @@ io.on('connection', socket => {
     });
   });
 
-  socket.on('zombieHit', ({ zombieId, shotId, head } = {}) => {
+  socket.on('zombieHit', ({ zombieId, shotId, head, scale } = {}) => {
     const ctx = roomAndPlayer(socket);
     if (!ctx || typeof zombieId !== 'string' || typeof shotId !== 'string') return;
     const { room, player } = ctx;
@@ -289,13 +296,14 @@ io.on('connection', socket => {
     if (!shot || Date.now() - shot.at > 3000 || shot.hits >= shot.maxHits ||
         (shot.weapon !== 2 && shot.weapon !== 8 && shot.hitIds.has(zombieId))) return;
     const zombie = room.game.zombies.find(z => z.id === zombieId);
-    if (!zombie || zombie.state === 'dying' || !(shot.weapon === -1 || WEAPONS[shot.weapon])) return;
+    if (!zombie || zombie.state === 'dying' || !(shot.weapon === -1 || shot.weapon === -2 || WEAPONS[shot.weapon])) return;
     shot.hits++;
     if (shot.weapon !== 2 && shot.weapon !== 8) shot.hitIds.add(zombieId);
-    const weapon = shot.weapon === -1
+    const weapon = shot.weapon === -2 ? { body: 800 * Math.max(0.35, Math.min(1, Number(scale) || 0.35)), head: 800 * Math.max(0.35, Math.min(1, Number(scale) || 0.35)) }   // граната: урон 800 в центре, не меньше 35% на краю
+      : shot.weapon === -1
       ? (room.game.round <= 3 ? { body: 100000, head: 100000 } : { body: Math.max(10, 150 * Math.pow(0.8, room.game.round - 3)), head: Math.max(10, 150 * Math.pow(0.8, room.game.round - 3)) })   // нож: до 3 раунда с 1 удара, дальше слабее
       : WEAPONS[shot.weapon];
-    const damage = (head ? weapon.head : weapon.body) * (player.perks.doubleTap ? 2 : 1) * (player.upg && player.upg[shot.weapon] ? 2 : 1);   // улучшенное оружие: урон x2
+    const damage = (head ? weapon.head : weapon.body) * (player.perks.doubleTap && shot.weapon !== -2 ? 2 : 1) * (player.upg && player.upg[shot.weapon] ? 2 : 1);   // улучшенное оружие: урон x2
     zombie.hp = Math.max(0, zombie.hp - damage);
     const killed = zombie.hp <= 0;
     if (killed) zombie.state = 'dying';
