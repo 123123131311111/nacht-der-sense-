@@ -885,6 +885,25 @@ const TXK = {
     txStain(t, 12, 30, 100, [30, 28, 22, 0.25]); txCrack(t, 3, 1.4);
     return t;
   } },
+  cobble: { S: 1024, n: 3.2, gen(S) {   // брусчатка: неровные скруглённые камни ~25 см, тёмные швы с землёй, сколы и мох
+    const n = 12, C = S / n, N1 = NZ(S, 8, 8, 4, 70), N2 = NZ(S, 256, 256, 2, 71), J = [];
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) J.push([(i + 0.15 + 0.7 * hsh(i, j + 300)) * C, (j + 0.15 + 0.7 * hsh(i + 300, j)) * C]);
+    const t = texGen(S, (x, y, i, o) => {
+      const cx = Math.floor(x / C), cy = Math.floor(y / C); let f1 = 1e9, f2 = 1e9, id = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const gx = cx + dx, gy = cy + dy, wx = ((gx % n) + n) % n, wy = ((gy % n) + n) % n, p = J[wy * n + wx], px = p[0] + (gx - wx) * C, py = p[1] + (gy - wy) * C, d = Math.hypot(x - px, y - py);
+        if (d < f1) { f2 = f1; f1 = d; id = wy * n + wx; } else if (d < f2) f2 = d;
+      }
+      const edge = (f2 - f1) / C, gap = 0.07 + (N2[i] - 0.5) * 0.04;
+      if (edge < gap) { const m = 40 + N2[i] * 20; txC(o, m, m * 0.95, m * 0.8); o.h = 0.05; return; }   // шов: земля
+      const k = Math.min(1, (edge - gap) / 0.18), dome = Math.sqrt(k), sh = hsh(id, 7), moss = N1[i] > 0.62 && edge < gap + 0.06;
+      const v = (150 + (sh - 0.5) * 60) * (0.82 + 0.25 * N1[i]) * (0.78 + 0.22 * dome) + (N2[i] - 0.5) * 18;
+      if (moss) txC(o, v * 0.55, v * 0.68, v * 0.42); else txC(o, v * (1.02 + (sh - 0.5) * 0.1), v, v * (0.94 - (sh - 0.5) * 0.06));
+      o.h = 0.25 + dome * 0.6 + (N2[i] - 0.5) * 0.08;
+    });
+    txStain(t, 16, 40, 140, [25, 22, 16, 0.28]); txStain(t, 6, 20, 60, [60, 10, 8, 0.12]);   // грязь и старые пятна крови
+    return t;
+  } },
   stone: { S: 512, n: 2, gen(S) {   // песчаник (фонтан, бордюр; тонируется): слои, поры, прожилки
     const N1 = NZ(S, 3, 8, 5, 42), N2 = NZ(S, 192, 192, 1, 43), N3 = NZ(S, 16, 16, 3, 44);
     const t = texGen(S, (x, y, i, o) => { const l = Math.sin(N1[i] * 14) * 0.5 + 0.5; let v = (200 + l * 22 + (N3[i] - 0.5) * 30) * (0.92 + 0.08 * N2[i]), h = 0.5 + (N3[i] - 0.5) * 0.4 + l * 0.08; if (N2[i] > 0.9) { v *= 0.7; h -= 0.3; } txC(o, v, v * 0.97, v * 0.9); o.h = h; });
@@ -1063,6 +1082,7 @@ const WALLS = {
 // ---------- геометрия и коллизии ----------
 const MAP_ID = new URLSearchParams(location.search).get('map') === 'verruckt' ? 'verruckt' : 'nacht';   // карта выбирается параметром ?map=
 const colliders = [], worldMeshes = [], windows = [];
+let FOUNT = null;   // анимация воды фонтана (Verrückt)
 // Геометрия коробки. UV — по мировым координатам (1 = 3 м), поэтому кирпич, обои и плитка на соседних кусках стены
 // продолжаются без швов. Материалы с userData.tx === 'unit' (ящики, коробки) получают 0..1 на каждую грань.
 // Каждая коробка чуть-чуть (1,5–5 мм) раздута на свою величину: совпадающие грани соседних коробок больше не «мерцают» (z-fighting).
@@ -1167,7 +1187,7 @@ const VK_START = 'YARD', VK_BOX_ZONE = 'SHED', VK_RC = 0, VK_K = 0;
 // Сарай с Mystery Box (к северу от правого корпуса). ДОЛЖЕН совпадать с MAPS.verruckt в server-multiplayer.js: дверь (cx, zf), ящик (cx, boxZ + 0.7).
 const VK_SHED = { cx: 13, x0: 8.8, x1: 17.2, zb: -23, zf: -17, t: 0.34, dw: 1.3, boxZ: -22.05 };
 // [x, y света, z, опора]: 'p' — уличный фонарь на столбе от пола (двор и 2-й этаж, где потолка нет), 'c' — подвес к перекрытию 2-го этажа (1-й этаж корпусов).
-const VK_LAMPS = [[-8, 3.1, 0, 'c'], [8, 3.1, 0, 'c'], [-12.5, 3.1, -5.5, 'c'], [12.5, 3.1, 5.5, 'c'], [-12.5, 3.1, 5.5, 'c'], [12.5, 3.1, -5.5, 'c'], [-12.5, 7.1, 0, 'c'], [12.5, 7.1, 0, 'c'], [3, 3.1, -7, 'p'], [-3, 3.1, 7, 'p'], [-9, 7.1, -6, 'c'], [9, 7.1, -6, 'c'], [0, 4.2, 0, 'p'], [0, 3.1, -22, 'p'], [0, 3.1, 22, 'p'], [-24, 3.1, 0, 'p'], [24, 3.1, 0, 'p'], [-24, 3.1, -22, 'p'], [24, 3.1, 22, 'p'], [-24, 3.1, 22, 'p'], [24, 3.1, -22, 'p'], [13, 3.1, -19.6, 'c'], [13, 3.1, -14.6, 'p']];
+const VK_LAMPS = [[-8, 3.1, 0, 'c'], [8, 3.1, 0, 'c'], [-12.5, 3.1, -5.5, 'c'], [12.5, 3.1, 5.5, 'c'], [-12.5, 3.1, 5.5, 'c'], [12.5, 3.1, -5.5, 'c'], [-12.5, 7.1, 0, 'c'], [12.5, 7.1, 0, 'c'], [3, 3.1, -7, 'p'], [-3, 3.1, 7, 'p'], [-9, 7.1, -6, 'c'], [9, 7.1, -6, 'c'], [0, 4.2, 0, 'p'], [2.35, 3.1, -22, 'p'], [-2.35, 3.1, 22, 'p'], [-24, 3.1, 0, 'p'], [24, 3.1, 0, 'p'], [-24, 3.1, -22, 'p'], [24, 3.1, 22, 'p'], [-24, 3.1, 22, 'p'], [24, 3.1, -22, 'p'], [13, 3.1, -19.6, 'c'], [13, 3.1, -14.6, 'p']];
 const VK_DOORS = [];
 function vkZone() { return 'YARD'; }
 function vkBlock(x, z, size, y0, y1, mat) { return addBox(x - size / 2, x + size / 2, y0, y1, z - size / 2, z + size / 2, mat); }
@@ -1903,6 +1923,44 @@ cot(-14.6, -6.6, 'x', 4, M2.blue); cot(-14.6, -5.3, 'x', 4);
   const spray = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10), water);
   spray.position.set(0, 1.48, 0); spray.scale.y = 1.5; scene.add(spray);
   const fountainLight = new THREE.PointLight(0x7395a0, 0.65, 8, 2); fountainLight.position.set(0, 1.8, 0); scene.add(fountainLight);
+  try {
+  // вода: прозрачная гладь с бегущей рябью, тёмное замшелое дно под ней, струя из бронзовой трубки, капли и круги от них
+  const FW = (() => {
+    const S = 256, H = new Float32Array(S * S);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const u = x / S * 6.283, v = y / S * 6.283;
+      H[y * S + x] = 0.5 + 0.18 * Math.sin(u * 3 + v * 2) + 0.12 * Math.sin(u * 7 - v * 4 + 1.3) + 0.08 * Math.sin(u * 2 - v * 9 + 2.1) + 0.05 * Math.sin(u * 13 + v * 11); }
+    const n = new THREE.CanvasTexture(nrmTex(H, S, 2.2)); n.wrapS = n.wrapT = THREE.RepeatWrapping; n.repeat.set(2.5, 2.5); return n;
+  })();
+  const bed = new THREE.Mesh(new THREE.CircleGeometry(2.3, 40), PMT(0x2e3a30, 'stone', 1, 0)); bed.rotation.x = -Math.PI / 2; bed.position.y = 0.12; scene.add(bed);   // дно
+  const wMat = new THREE.MeshStandardMaterial({ color: 0x1f4448, roughness: 0.06, metalness: 0.15, transparent: true, opacity: 0.72, normalMap: FW, normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.6, depthWrite: false });
+  waterTop.material = wMat; waterTop.renderOrder = 3;
+  const wMat2 = wMat.clone(); wMat2.normalMap = FW.clone(); wMat2.normalMap.needsUpdate = true; wMat2.normalMap.repeat.set(1.3, 1.3); wMat2.opacity = 0.25; wMat2.color.setHex(0x3a6a6a);
+  const water2 = new THREE.Mesh(waterTop.geometry, wMat2); water2.rotation.x = -Math.PI / 2; water2.position.y = 0.595; water2.renderOrder = 4; scene.add(water2);   // второй слой ряби — интерференция волн
+  spray.visible = false;
+  const N = 220, pg = new THREE.BufferGeometry(), pa = new Float32Array(N * 3), pv = [];
+  for (let i = 0; i < N; i++) { pv.push({ x: 0, y: -9, z: 0, vx: 0, vy: 0, vz: 0, t: Math.random() * 1.3 }); }
+  pg.setAttribute('position', new THREE.BufferAttribute(pa, 3));
+  const dropT = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'), g = x.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
+  const drops = new THREE.Points(pg, new THREE.PointsMaterial({ map: dropT, color: 0xa8d0d8, size: 0.07, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending })); drops.frustumCulled = false; scene.add(drops);
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.06, 0.55, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0x9ccad2, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })); col.position.set(0, 1.64, 0); scene.add(col);   // сама струя
+  const ringG = new THREE.RingGeometry(0.85, 1, 32).rotateX(-Math.PI / 2), rings = [];
+  for (let i = 0; i < 14; i++) { const r = new THREE.Mesh(ringG, new THREE.MeshBasicMaterial({ color: 0xcfe6ea, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); r.position.y = 0.6; scene.add(r); rings.push({ r, t: 9 }); }
+  const ripple = (x, z, s) => { const o = rings.find(q => q.t > 1.4); if (!o) return; o.t = 0; o.s = s; o.r.position.set(x, 0.6, z); };
+  let rpT = 0;
+  FOUNT = { update(dt, t) {
+    FW.offset.set(t * 0.03, t * 0.017); wMat2.normalMap.offset.set(-t * 0.021, t * 0.026); wMat2.normalMap.rotation = 0.6;
+    for (let i = 0; i < N; i++) { const p = pv[i];
+      p.t += dt;
+      if (p.y < 0.6 && p.vy < 0) { if (Math.random() < 0.05 && p.y > -1) ripple(p.x, p.z, 0.25); const a = Math.random() * 6.28, r = 0.25 + Math.random() * 0.55; Object.assign(p, { x: 0, y: 1.88, z: 0, vx: Math.cos(a) * r, vy: 1.6 + Math.random() * 0.9, vz: Math.sin(a) * r }); }
+      p.vy -= 9.8 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+      pa[i * 3] = p.x; pa[i * 3 + 1] = p.y; pa[i * 3 + 2] = p.z;
+    }
+    pg.attributes.position.needsUpdate = true;
+    if ((rpT -= dt) <= 0) { rpT = 0.25; ripple(0, 0, 0.35); }   // круги от падающей струи у центра
+    for (const o of rings) { if (o.t > 1.4) continue; o.t += dt; const k = o.t / 1.4; o.r.scale.setScalar(o.s + k * (o.s > 0.3 ? 1.8 : 0.5)); o.r.material.opacity = 0.35 * (1 - k); }
+    col.scale.x = col.scale.z = 1 + Math.sin(t * 23) * 0.1;
+  } };
+  } catch (e) { console.warn('fountain', e); }
 
   // Старая машина стоит между фонтаном и нижними воротами, как на чертеже.
   const car = new THREE.Group(), CG = carGeos(false), carPaint = PMT(0x3e4444, 'paint', 0.55, 0.3, 1);
@@ -2166,10 +2224,15 @@ cot(-14.6, -6.6, 'x', 4, M2.blue); cot(-14.6, -5.3, 'x', 4);
     }
   })();
   // Разбитые плиты и дорожки ведут от обоих проходов к фонтану.
-  flatPlane(2.8, 13.2, 0, 0.015, -8.2, 0, PM(0x42413d, 1, 0));
-  flatPlane(2.8, 13.2, 0, 0.016, 8.2, 0, PM(0x42413d, 1, 0));
-  flatPlane(2.8, 17, 0, 0.015, -23.5, 0, PM(0x42413d, 1, 0));
-  flatPlane(2.8, 17, 0, 0.016, 23.5, 0, PM(0x42413d, 1, 0));
+  { // мощёные дорожки от ворот к фонтану: брусчатка одним куском (раньше — два куска с зазором), гранитный бордюр по краям
+    const cob = PMT(0x8a857a, 'cobble', 0.92, 0.02, 2.4), curb = PMT(0x6a675e, 'stone', 0.85, 0.02);
+    for (const sg of [-1, 1]) {
+      const z0 = 3.7, z1 = 32, zc = sg * (z0 + z1) / 2, L = z1 - z0;
+      flatPlane(3.0, L, 0, 0.018, zc, 0, cob);
+      for (const sx of [-1, 1]) addBox(sx * 1.5 - 0.09, sx * 1.5 + 0.09, 0, 0.07, zc - L / 2, zc + L / 2, curb, false);
+    }
+    flatPlane(7.4, 7.4, 0, 0.012, 0, 0, cob);   // площадка вокруг фонтана
+  }
   trash(-4.5, 4.5, -30, -27, 0, 10); trash(-4.5, 4.5, 27, 30, 0, 10); trash(-20, 20, -20, 20, 0, 14);
   barrel(-13.4, -11.5, 0, 0x37342d); barrel(13.3, 11.5, 0, 0x3a2920); barrel(-30.8, -11.2, 0, 0x37342d); barrel(30.8, 11.2, 0, 0x3a2920); barrel(-26, 25, 0, 0x3a2920); barrel(25, -26, 0, 0x37342d);
   crate(-24, 8, 1.0, 0, mats.crate); crate(24, -8, 1.0, 0, mats.crate); crate(-10, -24, 0.8, 0, mats.crate); crate(12, 24, 0.9, 0, mats.crate);
@@ -2314,8 +2377,8 @@ cot(-14.6, -6.6, 'x', 4, M2.blue); cot(-14.6, -5.3, 'x', 4);
       dashes.forEach((d, i) => { QQ.setFromEuler(EU.set(0, d[2] ? Math.PI / 2 : 0, 0)); MX.compose(V3.set(d[0], 0.045, d[1]), QQ, SC.set(1, 1, 1)); im.setMatrixAt(i, MX); });
       im.frustumCulled = false; scene.add(im); }
     { // фонари: столбы и светящиеся плафоны (без реальных источников света, чтобы не нагружать сцену)
-      const pts = []; for (const t of [-32, -16, 16, 32]) { pts.push([t, -35.1], [t, 35.1]); }
-      for (const t of [-28, -14, 0, 14, 28]) { pts.push([-35.1, t], [35.1, t]); }
+      const pts = [], LR = 33.2; for (const t of [-32, -16, 16, 32]) { pts.push([t, -LR], [t, LR]); }   // на тротуаре, а не у самого края проезжей части
+      for (const t of [-28, -14, 0, 14, 28]) { pts.push([-LR, t], [LR, t]); }
       const pm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.1, 5.2, 8), lampIron, pts.length);
       const bm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.26, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffdca0 }), pts.length);
       const hm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.95, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.13, blending: THREE.AdditiveBlending, depthWrite: false }), pts.length);
@@ -2451,7 +2514,7 @@ function tree(x, z) {
 }
 for (let i = 0, n = 0; i < 400 && n < 44; i++) { const a = Math.random() * 6.28, r = RR(37, 58), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.max(Math.abs(x), Math.abs(z)) < 46) continue; tree(x, z); n++; }
 // ---------- Nacht: новый задний фон — ночное небо с луной и облаками, развалины города за стенами, мёртвый лес, дымка, дальние пожары ----------
-let nachtClouds = null;
+let nachtClouds = null, nachtSkyMesh = null;
 function buildNachtBackdrop() {
   const W = 1024, H = 512, TAU = Math.PI * 2;
   const wrap = (x, r, fn) => { for (const dx of [-W, 0, W]) if (x + dx > -r && x + dx < W + r) fn(x + dx); };
@@ -2484,7 +2547,7 @@ function buildNachtBackdrop() {
   g.globalCompositeOperation = 'source-over';
   const skyTex = new THREE.CanvasTexture(sc); skyTex.anisotropy = 4;
   const sky = new THREE.Mesh(new THREE.SphereGeometry(62, 32, 20), new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false }));
-  sky.renderOrder = -2; scene.add(sky);
+  sky.renderOrder = -2; scene.add(sky); nachtSkyMesh = sky;
 
   // --- второй слой: медленно плывущие тяжёлые тучи (прозрачная сфера, вращается в animFires) ---
   const [cc, c] = cv(W, H);
@@ -2888,6 +2951,16 @@ document.getElementById('bHelp').addEventListener('click', () => { showHelp(selD
 menuEl.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => view('main')));
 // ---------- журнал изменений: новые записи добавляются В НАЧАЛО массива ----------
 const CHANGELOG = [
+  { v: '1.15', d: '12 ноября 2026', groups: [
+    ['Новое оружие', ['SPAS-12 в Mystery Box: полуавтоматический дробовик — 8 дробин, выстрел раз в 0,32 с (помповый — раз в 0,85 с), урон дробины 72', 'Модель: воронёная коробка с надписью, ствол с перфорированным кожухом и компенсатором, трубчатый магазин, ребристое цевьё, рукоять с выемками и сложенный стальной приклад с отверстиями', 'Свой звук выстрела; гильзы — красные патроны, как у дробовика']],
+  ] },
+  { v: '1.14', d: '12 ноября 2026', groups: [
+    ['Баланс', ['Ray Gun ослаблен ещё: выстрел раз в 0,85 с (было 0,65), урон 555 (было 746) — с одного попадания убивает до 10 волны']],
+    ['Verrückt', ['Дорожки от ворот к фонтану — сплошная брусчатка с гранитным бордюром, без зазора между кусками; вокруг фонтана мощёная площадка', 'Фонари во дворе стоят рядом с дорожками, а не посередине; уличные фонари отодвинуты от проезжей части', 'Фонтан: прозрачная вода с бегущей рябью в два слоя, видно замшелое дно, бьёт струя, капли падают и расходятся кругами']],
+  ] },
+  { v: '1.13', d: '12 ноября 2026', groups: [
+    ['Небо', ['Небо больше не картинка: тучи двумя слоями плывут с разной скоростью и меняют форму', 'Небо стало тёмным, почти чёрным в зените, у горизонта — тусклое зарево пожаров', 'Звёзды, которые мерцают и прячутся за тучами', 'Луна с ореолом подсвечивает края туч', 'Молния подсвечивает тучи изнутри']],
+  ] },
   { v: '1.12', d: '12 ноября 2026', groups: [
     ['Verrückt', ['Убраны горшки с растениями из холлов корпусов', 'Убраны ящики Mystery Box со 2 этажей корпусов (стояли в проходе) — ящик теперь только в сарае', 'Новые деревья: рваные тёмные ели со свисающими лапами, полумёртвые ели с голыми сучьями и сухие корявые деревья; цвета темнее и разные']],
     ['Небо', ['Прожекторы ПВО медленно шарят по тучам', 'В небе рвутся зенитные снаряды: вспышка, клуб дыма и далёкий хлопок', 'Падает пепел и летят искры от пожаров', 'Во время молний тучи вспыхивают изнутри', 'Тучи медленно плывут']],
@@ -3380,9 +3453,9 @@ const gun = new THREE.Group(); weaponScene.add(gun);
 const mSteel = new THREE.MeshStandardMaterial({ color: 0x5a5d62, metalness: 0.8, roughness: 0.35 });
 const mDark = new THREE.MeshStandardMaterial({ color: 0x1b1b1d, metalness: 0.7, roughness: 0.45 });
 const mGrip = new THREE.MeshStandardMaterial({ color: 0x2e1f14, roughness: 0.9 });
-const pistolG = new THREE.Group(), tommyG = new THREE.Group(), shotG = new THREE.Group(), rifleG = new THREE.Group(), garandG = new THREE.Group(), rayG = new THREE.Group(), lmgG = new THREE.Group(), m16G = new THREE.Group(), dualG = new THREE.Group(), mp40G = new THREE.Group(), stgG = new THREE.Group(), mp5G = new THREE.Group();
+const pistolG = new THREE.Group(), tommyG = new THREE.Group(), shotG = new THREE.Group(), rifleG = new THREE.Group(), garandG = new THREE.Group(), rayG = new THREE.Group(), lmgG = new THREE.Group(), m16G = new THREE.Group(), dualG = new THREE.Group(), mp40G = new THREE.Group(), stgG = new THREE.Group(), spasG = new THREE.Group(), mp5G = new THREE.Group();
 gun.add(dualG); dualG.visible = false;
-gun.add(pistolG); gun.add(tommyG); gun.add(shotG); gun.add(rifleG); gun.add(garandG); gun.add(rayG); gun.add(lmgG); gun.add(m16G); gun.add(mp40G); gun.add(stgG); gun.add(mp5G); tommyG.visible = shotG.visible = rifleG.visible = garandG.visible = rayG.visible = lmgG.visible = m16G.visible = mp40G.visible = stgG.visible = mp5G.visible = false;
+gun.add(pistolG); gun.add(tommyG); gun.add(shotG); gun.add(rifleG); gun.add(garandG); gun.add(rayG); gun.add(lmgG); gun.add(m16G); gun.add(mp40G); gun.add(stgG); gun.add(mp5G); gun.add(spasG); spasG.visible = false; tommyG.visible = shotG.visible = rifleG.visible = garandG.visible = rayG.visible = lmgG.visible = m16G.visible = mp40G.visible = stgG.visible = mp5G.visible = false;
 const mWood = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.85 });
 function part(w, h, d, x, y, z, m, rx = 0, tg = pistolG) {
   const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -3865,6 +3938,44 @@ function buildModel(i, g) {
     B(0.005, 0.005, 0.3, 0.016, 0.052, 0.27, L.steel); B(0.005, 0.005, 0.3, -0.016, 0.052, 0.27, L.steel);
     B(0.005, 0.005, 0.28, 0.016, -0.03, 0.26, L.steel); B(0.005, 0.005, 0.28, -0.016, -0.03, 0.26, L.steel);
     B(0.034, 0.1, 0.012, 0, 0.01, 0.43, L.dark);
+  } else if (i === 12) {   // ---- SPAS-12 ----
+    // боевой дробовик: воронёная ствольная коробка, ствол с перфорированным кожухом, под ним трубчатый магазин, ребристое полимерное цевьё,
+    // пистолетная рукоять и сложенный поверх коробки стальной приклад с отверстиями и крюком-упором
+    const L = (WM._lp = WM._lp || (() => { const f = m => { const c = m.clone(); c.flatShading = true; return c; }; return { blue: f(WM.blue), steel: f(WM.steel), dark: f(WM.dark), wood: f(WM.wood), brass: f(WM.brass) }; })());
+    if (!L.spRec) { L.spRec = L.blue.clone(); L.spRec.color.setHex(0x1d2024); L.spPoly = L.dark.clone(); L.spPoly.color.setHex(0x222326); L.spStock = L.blue.clone(); L.spStock.color.setHex(0x44474a); L.spStock.roughness = 0.62;
+      const [c, g] = cv(256, 32); g.fillStyle = 'rgba(0,0,0,0)'; g.fillRect(0, 0, 256, 32); g.fillStyle = 'rgba(200,200,190,0.55)'; g.font = 'bold 15px "Courier New", monospace'; g.fillText('SPAS-12  CAL.12  MADE IN ITALY', 4, 21);
+      L.spTxt = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }); }
+    // ствольная коробка, окно выброса, надпись
+    RB(0.052, 0.078, 0.29, 0, 0.032, -0.02, L.spRec, 0.008);
+    B(0.003, 0.02, 0.085, 0.0265, 0.044, -0.06, L.dark); B(0.004, 0.006, 0.05, 0.0275, 0.044, -0.06, L.steel);   // окно выброса и затвор
+    const tx = add(new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.025), L.spTxt), 0.0268, 0.015, -0.02, 0, Math.PI / 2, 0); tx.renderOrder = 1;
+    // ствол с дульным компенсатором и мушкой
+    Z(0.0145, 0.0145, 0.6, 0, 0.05, -0.43, L.spRec, 12);
+    Z(0.0175, 0.0175, 0.05, 0, 0.05, -0.735, L.dark, 12); for (let k = 0; k < 3; k++) Z(0.0182, 0.0182, 0.004, 0, 0.05, -0.718 - k * 0.014, L.steel, 12);
+    B(0.004, 0.02, 0.008, 0, 0.074, -0.73, L.spRec); S(0.004, 0, 0.085, -0.73, L.brass);
+    // перфорированный кожух ствола: верхняя планка и боковины с прорезями
+    B(0.03, 0.004, 0.36, 0, 0.069, -0.33, L.spRec);
+    for (const sx of [-1, 1]) for (let k = 0; k < 7; k++) { B(0.004, 0.024, 0.026, sx * 0.0175, 0.056, -0.175 - k * 0.048, L.spRec); }
+    // трубчатый магазин и колпачок
+    Z(0.0135, 0.0135, 0.48, 0, 0.012, -0.4, L.spRec, 12); Z(0.0155, 0.0155, 0.03, 0, 0.012, -0.645, L.dark, 12);
+    // цевьё: подвижное, ребристое (насечка поперёк)
+    mv('pump');
+    RB(0.066, 0.062, 0.21, 0, 0.004, -0.325, L.spPoly, 0.014);
+    for (let k = 0; k < 9; k++) B(0.068, 0.046, 0.005, 0, 0.0, -0.4 + k * 0.019, L.dark);
+    base();
+    // пистолетная рукоять с выемками под пальцы, спусковая скоба, крючок
+    PF([[0.06, 0.0], [0.12, 0.0], [0.17, -0.06], [0.19, -0.15], [0.17, -0.168], [0.12, -0.165], [0.1, -0.11], [0.085, -0.08], [0.088, -0.05], [0.07, -0.02]], 0.036, 0, 0, 0, L.spPoly, 0.006);
+    for (let k = 0; k < 3; k++) B(0.038, 0.004, 0.01, 0, -0.07 - k * 0.03, 0.083 + k * 0.004, L.dark);
+    ARC(0.028, 0.0035, 0, -0.006, 0.035, L.spRec); B(0.006, 0.022, 0.007, 0, -0.012, 0.035, L.steel);
+    // сложенный приклад: две стальные полосы вдоль коробки, круглые облегчающие отверстия, шарнир сзади и крюк-упор спереди
+    for (const sx of [-1, 1]) {
+      B(0.006, 0.036, 0.34, sx * 0.031, 0.085, -0.03, L.spStock);
+      for (let k = 0; k < 4; k++) add(new THREE.Mesh(new THREE.CylinderGeometry(0.0115, 0.0115, 0.008, 14).rotateZ(Math.PI / 2), L.dark), sx * 0.031, 0.085, -0.11 + k * 0.05);
+      B(0.006, 0.02, 0.12, sx * 0.031, 0.04, 0.17, L.spStock, -0.62);   // косая тяга к шарниру над рукоятью
+    }
+    B(0.068, 0.012, 0.03, 0, 0.1, 0.13, L.spStock); B(0.068, 0.03, 0.012, 0, 0.088, -0.19, L.spStock);   // затыльная перемычка и упор
+    add(new THREE.Mesh(new THREE.TorusGeometry(0.017, 0.005, 6, 12, Math.PI), L.spStock), 0, 0.07, -0.205, Math.PI / 2, 0, 0);   // крюк-упор
+    Z(0.009, 0.009, 0.074, 0, 0.012, 0.14, L.steel, 10);   // ось шарнира
   } else {   // ---- Ray Gun ----
     const pr = [[0.001, -0.15], [0.03, -0.14], [0.05, -0.1], [0.056, -0.05], [0.052, 0.0], [0.045, 0.06], [0.04, 0.12], [0.034, 0.16], [0.03, 0.2], [0.022, 0.24], [0.018, 0.3], [0.02, 0.34], [0.026, 0.37], [0.001, 0.385]];
     const lg = new THREE.LatheGeometry(pr.map(p => new THREE.Vector2(p[0], p[1])), 24).rotateX(-Math.PI / 2);
@@ -3884,7 +3995,7 @@ function buildDual(g) {   // два M1911: по одному в каждой р�
   for (const s of [-1, 1]) { const p = new THREE.Group(); p.position.x = s * 0.2; g.add(p); buildModel(0, p); g.userData[s > 0 ? 'slideR' : 'slideL'] = p.userData.slide; }
 }
 [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G].forEach((gr, i) => buildModel(i, gr));   // в руках и в Mystery Box — одни и те же модели
-buildModel(9, mp40G); buildModel(10, stgG); buildModel(11, mp5G);   // MP40, STG-44 и MP5SD (только Mystery Box)
+buildModel(9, mp40G); buildModel(10, stgG); buildModel(11, mp5G); buildModel(12, spasG);   // MP40, STG-44 и MP5SD (только Mystery Box)
 buildDual(dualG);
 gun.rotation.order = 'YXZ';
 
@@ -3912,7 +4023,7 @@ const flashLocal = new THREE.PointLight(0xffa030, 5, 3.5); flashLocal.position.s
 const flashWorld = new THREE.PointLight(0xffa030, 0, 12, 2); scene.add(flashWorld); // подсвечивает комнату
 
 const ZHP = r => Math.round(125 * Math.pow(1.16, r));   // здоровье зомби по раундам (усилено)
-const RAY_DMG = Math.ceil(ZHP(12)) + 4;   // = 746: убивает с одного выстрела до 12 раунда включительно (было 865 — до 13)
+const RAY_DMG = Math.ceil(ZHP(10)) + 4;   // = 555: с одного выстрела до 10 раунда (1.8: 746 — до 12, раньше 865)
 // ---------- арсенал и инвентарь (2 слота) ----------
 const WEAPONS = [
   { name: 'M1911', own: true, mag: 8, magSize: 8, reserve: 80, fullRes: 80, interval: 150, body: 50, head: 100, auto: false, reload: 1.25, spin: { turns: 2, k: 0.1, pivot: [0, -0.025, 0.01], push: [-0.1, 0.1, -0.08] }, spread: 0, rk: 1,
@@ -3925,7 +4036,7 @@ const WEAPONS = [
     base: [0.19, -0.2, -0.4], flash: [0, 0.045, -0.84] },
   { name: 'GARAND', own: false, mag: 10, magSize: 10, reserve: 60, fullRes: 60, interval: 280, body: 250, head: 500, auto: false, reload: 2.4, spin: { turns: 1, k: 0.4, pivot: [0, 0.01, -0.19], push: [-0.17, 0.2, -0.95] }, spread: 0, rk: 1.3,
     base: [0.19, -0.2, -0.4], flash: [0, 0.045, -0.84] },
-  { name: 'RAY GUN', own: false, mag: 20, magSize: 20, reserve: 80, fullRes: 80, interval: 650, dmg: RAY_DMG, proj: true, auto: false, reload: 1.9, spin: { turns: -1, k: 0.2, pivot: [0, -0.01, -0.14], push: [-0.1, 0.12, -0.05] }, spread: 0, rk: 0.8,
+  { name: 'RAY GUN', own: false, mag: 20, magSize: 20, reserve: 80, fullRes: 80, interval: 850, dmg: RAY_DMG, proj: true, auto: false, reload: 1.9, spin: { turns: -1, k: 0.2, pivot: [0, -0.01, -0.14], push: [-0.1, 0.12, -0.05] }, spread: 0, rk: 0.8,
     base: [0.2, -0.17, -0.4], flash: [0, 0.03, -0.38] },
   { name: 'LMG', own: false, mag: 100, magSize: 100, reserve: 200, fullRes: 200, maxReserve: 200, interval: 100, body: 110, head: 220, auto: true, reload: 4.5, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.02, rk: 0.6,
     base: [0.19, -0.2, -0.42], flash: [0, 0.04, -1.0] },
@@ -3938,7 +4049,9 @@ const WEAPONS = [
   { name: 'STG-44', own: false, mag: 30, magSize: 30, reserve: 120, fullRes: 150, maxReserve: 180, interval: 85, body: 105, head: 210, auto: true, reload: 2.4, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.008, rk: 0.6,
     base: [0.19, -0.2, -0.42], flash: [0, 0.045, -0.72] },
   { name: 'MP5SD', own: false, mag: 45, magSize: 45, reserve: 180, fullRes: 225, maxReserve: 270, interval: 60, body: 70, head: 140, auto: true, reload: 2.3, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.01, rk: 0.35,
-    base: [0.19, -0.2, -0.42], flash: [0, 0.04, -0.66] }
+    base: [0.19, -0.2, -0.42], flash: [0, 0.04, -0.66] },
+  { name: 'SPAS-12', own: false, mag: 8, magSize: 8, reserve: 40, fullRes: 40, maxReserve: 48, interval: 320, body: 72, head: 144, pellets: 8, auto: false, reload: 3.0, spin: { turns: 1, k: 0.55, pivot: [0, 0.01, -0.12], push: [-0.17, 0.2, -0.9] }, spread: 0.075, rk: 1.7,
+    base: [0.19, -0.2, -0.4], flash: [0, 0.05, -0.78] }   // полуавтомат (только Mystery Box): 8 дробин, вдвое быстрее помпового
 ];
 // единый прокрут для всего оружия: одинаковая скорость и кривая, число оборотов зависит только от времени перезарядки; вынос к центру минимальный
 const SPIN_SEC = 0.95;
@@ -3948,7 +4061,7 @@ const spinTurns = rl => Math.max(1, Math.round(rl / SPIN_SEC));
 // (bmax — потолок, bd — скорость спада в секунду), fs — размер вспышки
 [[.012, .03, .05, 1.1], [.005, .03, .05, 1.3], [.02, .04, .06, 1.9], [.02, .03, .05, 1.6], [.016, .035, .05, 1.6], [.01, .02, .05, 1.2], [.008, .045, .05, 1.5], [.008, .03, .05, 1.4], [.012, .03, .05, 1.2], [.012, .032, .05, 1.4], [.008, .03, .05, 1.5], [.01, .025, .05, 0.6]]
   .forEach((a, i) => { const w = WEAPONS[i]; w.bloom = a[0]; w.bmax = a[1]; w.bd = a[2]; w.fs = a[3]; });
-[[280, 4], [300, 4], [200, 2.5], [480, 7], [450, 6], [0, 0], [320, 5], [340, 5], [280, 4], [330, 4.5], [350, 5.5], [330, 4.5]].forEach((a, i) => { WEAPONS[i].bv = a[0]; WEAPONS[i].tl = a[1]; });   // скорость пули (м/с) и длина следа (м); Ray Gun не трогаем
+[[280, 4], [300, 4], [200, 2.5], [480, 7], [450, 6], [0, 0], [320, 5], [340, 5], [280, 4], [330, 4.5], [350, 5.5], [330, 4.5], [210, 2.5]].forEach((a, i) => { WEAPONS[i].bv = a[0]; WEAPONS[i].tl = a[1]; });   // скорость пули (м/с) и длина следа (м); Ray Gun не трогаем
 const AIM = { move: 0, bloom: 0, cur: 0, g: -1 };   // движение/прыжок и стрельба раздвигают прицел, он сразу же определяет реальный разброс
 const WR = { z: 0, zV: 0, p: 0, pV: 0, y: 0, yV: 0, yw: 0, ywV: 0, r: 0, rV: 0 };   // пружины отдачи оружия (та же механика, что и инерция при повороте)
 function weaponKick(w) {
@@ -3971,7 +4084,7 @@ function updateHUD() {
 function switchWeapon(i) {
   if (UP.on || i === cur || !WEAPONS[i] || !WEAPONS[i].own) return;
   cur = i; reloading = false; swapT = SWAP_TIME; mouseDown = false; ANIM.t = 99; ANIM.ej = true;
-  [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G, dualG, mp40G, stgG, mp5G].forEach((g, k) => g.visible = k === i);
+  [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G, dualG, mp40G, stgG, mp5G, spasG].forEach((g, k) => g.visible = k === i);
   flash2.visible = false;
   coneMat.color.setHex(i === 5 ? 0x40ff60 : 0xffa020); flashLocal.color.setHex(i === 5 ? 0x40ff60 : 0xffa030); flashWorld.color.setHex(i === 5 ? 0x40ff60 : 0xffa030);
   const f = WEAPONS[i].flash; flash.position.set(f[0], f[1], f[2]); flashLocal.position.set(f[0], f[1] + 0.02, f[2] - 0.02);
@@ -4210,11 +4323,11 @@ function updateAim(dt, w) {   // динамичный прицел: бедро +
 // ANIM.t — время с последнего выстрела. У каждого оружия своя подвижная деталь: затвор пистолета (при пустом магазине остаётся открытым),
 // рукоять затвора Thompson, помповое цевьё, цикл затвора Kar98k, шток Garand (+ вылет обоймы с «пингом»), пульсация колец Ray Gun.
 const ANIM = { t: 99, ej: true, lock: 0, clip: false };
-const GROUPS = [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G, dualG, mp40G, stgG, mp5G];
+const GROUPS = [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G, dualG, mp40G, stgG, mp5G, spasG];
 const aEase = x => x * x * (3 - 2 * x), aClamp = x => Math.max(0, Math.min(1, x));
 const aPulse = (t, a, b, c) => t < a ? 0 : t < a + b ? aEase((t - a) / b) : t < a + b + c ? 1 - aEase((t - a - b) / c) : 0;
 const EJECT_AT = [0.012, 0.01, 0.29, 0.27, 0.012, -1, 0.012, 0.012, 0.012, 0.012, 0.012, 0.012];   // когда вылетает гильза (у помпы и болтовки — когда затвор уже отошёл назад)
-const SHELL_PORT = [[0.285, -0.165, -0.42], [0.29, -0.2, -0.5], [0.3, -0.2, -0.42], [0.3, -0.22, -0.4], [0.3, -0.22, -0.4], [0, 0, 0], [0.3, -0.2, -0.4], [0.29, -0.2, -0.46], [0.285, -0.165, -0.42], [0.285, -0.175, -0.42], [0.29, -0.2, -0.46], [0.29, -0.2, -0.46]];   // окно выброса в координатах камеры
+const SHELL_PORT = [[0.285, -0.165, -0.42], [0.29, -0.2, -0.5], [0.3, -0.2, -0.42], [0.3, -0.22, -0.4], [0.3, -0.22, -0.4], [0, 0, 0], [0.3, -0.2, -0.4], [0.29, -0.2, -0.46], [0.285, -0.165, -0.42], [0.285, -0.175, -0.42], [0.29, -0.2, -0.46], [0.29, -0.2, -0.46], [0.3, -0.2, -0.44]];   // окно выброса в координатах камеры
 const CASE_MAT = new THREE.MeshStandardMaterial({ color: 0xd0a843, metalness: 0.85, roughness: 0.3, emissive: 0x3a2a08 });
 const SHELL_RED = new THREE.MeshStandardMaterial({ color: 0xb02020, roughness: 0.6, emissive: 0x2a0606 });
 const CLIP_MAT = new THREE.MeshStandardMaterial({ color: 0xb0b4ba, metalness: 0.8, roughness: 0.35, emissive: 0x20222a });
@@ -4234,7 +4347,7 @@ function ejectShell(i) {
     scheduleShellSnd(o.y, v.y, fy);
   };
   const v = new THREE.Vector3().addScaledVector(r, rnd2(1.8, 2.8)).addScaledVector(u, rnd2(1.0, 2.0)).addScaledVector(f, rnd2(-0.3, 0.5));
-  if (i === 2) { const g = new THREE.Group(); g.add(new THREE.Mesh(SHELL_G1, SHELL_RED)); const b = new THREE.Mesh(SHELL_G2, CASE_MAT); b.position.y = -0.025; g.add(b); mk(g, v); }
+  if (i === 2 || i === 12) { const g = new THREE.Group(); g.add(new THREE.Mesh(SHELL_G1, SHELL_RED)); const b = new THREE.Mesh(SHELL_G2, CASE_MAT); b.position.y = -0.025; g.add(b); mk(g, v); }
   else mk(new THREE.Mesh(CASE_G[i], CASE_MAT), v);
   if (i === 4 && ANIM.clip) {   // последний патрон: обойма Garand вылетает вверх со звоном
     ANIM.clip = false; sfx('ping');
@@ -4250,6 +4363,7 @@ function weaponAnim(dt) {
     ud.slide.position.z = 0.045 * Math.max(aPulse(t, 0, 0.035, 0.085), ANIM.lock);
   } else if (cur === 1) ud.bolt.position.z = 0.075 * aPulse(t, 0, 0.025, 0.05);
   else if (cur === 2) ud.pump.position.z = 0.075 * aPulse(t, 0.14, 0.15, 0.2);
+  else if (cur === 12) ud.pump.position.z = 0.02 * aPulse(t, 0, 0.02, 0.05);   // SPAS-12 полуавтомат: цевьё лишь вздрагивает от отдачи
   else if (cur === 3) {   // рукоятка вверх → затвор назад → вперёд → рукоятка вниз
     ud.bolt.rotation.z = 1.1 * (aEase(aClamp((t - 0.1) / 0.12)) - aEase(aClamp((t - 0.42) / 0.12)));
     ud.bolt.position.z = 0.075 * (aEase(aClamp((t - 0.22) / 0.1)) - aEase(aClamp((t - 0.32) / 0.1)));
@@ -4557,10 +4671,11 @@ const SHOT_FILES = {
   7: ['sounds/m16-shot.mp3'],     // M16A1: одиночный выстрел 5,56
   9: ['sounds/mp40-shot-1.wav', 'sounds/mp40-shot-2.wav', 'sounds/mp40-shot-3.wav', 'sounds/mp40-shot-4.wav', 'sounds/mp40-shot-5.wav', 'sounds/mp40-shot-6.wav', 'sounds/mp40-shot-7.wav', 'sounds/mp40-shot-8.wav'],   // MP40: отдельные выстрелы, нарезанные из записи очереди
   10: ['sounds/stg44-shot-1.wav', 'sounds/stg44-shot-2.wav', 'sounds/stg44-shot-3.wav', 'sounds/stg44-shot-4.wav', 'sounds/stg44-shot-5.wav', 'sounds/stg44-shot-6.wav'],   // STG-44: то же (последний — с затуханием)
-  11: ['sounds/mp5sd-shot.mp3'],   // MP5SD: одиночный выстрел с глушителем (запись обрезана до 0,5 с — очередь идёт быстрее, хвосты накладываются)
+  11: ['sounds/mp5sd-shot.mp3'],
+  12: ['sounds/spas12-shot.mp3'],   // SPAS-12: тяжёлый выстрел, хвост эха обрезан до 1,6 с с затуханием   // MP5SD: одиночный выстрел с глушителем (запись обрезана до 0,5 с — очередь идёт быстрее, хвосты накладываются)
   6: ['sounds/lmg-shot-1.wav', 'sounds/lmg-shot-2.wav', 'sounds/lmg-shot-3.wav', 'sounds/lmg-shot-4.wav'],   // пулемёт: куски очереди по ~3 выстрела
 };
-const SHOT_GAIN = { 3: 1, 4: 1, 8: 0.85, 0: 0.9, 1: 0.7, 2: 0.9, 5: 0.85, 6: 0.8, 7: 0.75, 9: 0.8, 10: 0.8, 11: 0.85 };
+const SHOT_GAIN = { 3: 1, 4: 1, 8: 0.85, 0: 0.9, 1: 0.7, 2: 0.9, 5: 0.85, 6: 0.8, 7: 0.75, 9: 0.8, 10: 0.8, 11: 0.85, 12: 1 };
 const shotBufs = {}, shotLast = {};
 // загрузка звуков: без кэша браузера (иначе у второго игрока остаются старые файлы), с повторами; уже загруженное/загружаемое не трогаем
 const sndState = {};   // src → 'loading' | 'ok'
@@ -4739,7 +4854,7 @@ function shotSnd(i) {
   else if (SHOT_FILES[i] && playShotFile(i)) return;   // записанный звук, если уже загружен; иначе ниже — синтезированный
   if (i === 0) { noise(0.14, 0.5, 'bandpass', 2200, 500, 0, 0.8); tone(240, 0.12, 'triangle', 0.35, 60); }
   else if (i === 1) { noise(0.08, 0.4, 'bandpass', 3000, 900, 0, 0.7); tone(180, 0.08, 'square', 0.12, 70); }
-  else if (i === 2) { noise(0.45, 0.8, 'lowpass', 2500, 180); noise(0.1, 0.5, 'highpass', 1500, 1500); tone(100, 0.3, 'sine', 0.6, 35); }
+  else if (i === 2 || i === 12) { noise(0.45, 0.8, 'lowpass', 2500, 180); noise(0.1, 0.5, 'highpass', 1500, 1500); tone(100, 0.3, 'sine', 0.6, 35); }
   else if (i === 3) { noise(0.25, 0.6, 'bandpass', 1600, 250, 0, 0.6); tone(130, 0.22, 'triangle', 0.45, 45); }
   else if (i === 4) { noise(0.2, 0.6, 'bandpass', 2600, 400, 0, 0.7); tone(320, 0.14, 'sawtooth', 0.18, 90); tone(110, 0.2, 'sine', 0.4, 50); tone(1800, 0.5, 'sine', 0.05, 1700, 0.05); }
   else if (i === 6) { noise(0.1, 0.6, 'bandpass', 2000, 500, 0, 0.7); tone(140, 0.09, 'sawtooth', 0.2, 60); }
@@ -5189,14 +5304,14 @@ boxBeam.position.set(BOX.x, BOX.h + 1.1, BOX.z); boxBeam.visible = false; scene.
 const boxLight = new THREE.PointLight(0xffc040, 0, 6, 2); boxLight.position.set(BOX.x, BOX.h + 0.6, BOX.z); scene.add(boxLight);
 const token = new THREE.Group(); token.position.set(BOX.x, 2.6, BOX.z); token.visible = false; scene.add(token);
 const boxModels = [];
-for (let i = 1; i <= 11; i++) {
+for (let i = 1; i <= 12; i++) {
   const wr = new THREE.Group(), md = new THREE.Group(); if (i === 8) buildDual(md); else buildModel(i, md);
   const c = new THREE.Box3().setFromObject(md).getCenter(new THREE.Vector3()); md.position.sub(c);
   wr.add(md); wr.scale.setScalar(1.9); wr.visible = false; token.add(wr); boxModels[i] = wr;
 }
-function showBoxModel(i) { for (let k = 1; k <= 11; k++) boxModels[k].visible = k === i; }
+function showBoxModel(i) { for (let k = 1; k <= 12; k++) boxModels[k].visible = k === i; }
 const boxS = { on: false, t: 0, tick: 0, shown: 1, final: 1, reward: true };
-function boxStart(finalWeapon, reward = true) { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = finalWeapon || (1 + (Math.random() * 11 | 0)); boxS.reward = reward; sfx('box'); }
+function boxStart(finalWeapon, reward = true) { boxS.on = true; boxS.t = 0; boxS.tick = 0; boxS.final = finalWeapon || (1 + (Math.random() * 12 | 0)); boxS.reward = reward; sfx('box'); }
 // оружие из Mystery Box: если оно уже есть — пополняем патроны; иначе equip (пустой слот или замена удерживаемого)
 function giveWeapon(i) {
   const w = WEAPONS[i]; w.mag = w.magSize; w.reserve = w.fullRes;
@@ -5257,7 +5372,7 @@ function boxUpdate(dt) {
   boxS.t += dt; token.visible = true; token.rotation.y += dt * 3; token.position.y = 2.6 + Math.sin(boxS.t * 5) * 0.08;
   if (boxS.t < 5) {
     boxS.tick -= dt;
-    if (boxS.tick <= 0) { boxS.tick = 0.11; boxS.shown = 1 + (Math.random() * 11 | 0); showBoxModel(boxS.shown); sfx('tick'); }
+    if (boxS.tick <= 0) { boxS.tick = 0.11; boxS.shown = 1 + (Math.random() * 12 | 0); showBoxModel(boxS.shown); sfx('tick'); }
   } else {
     boxS.shown = boxS.final; showBoxModel(boxS.final);
     if (boxS.t >= 5.6) { boxS.on = false; if (boxS.reward) giveWeapon(boxS.final); pop(WEAPONS[boxS.final].name, 'head'); sfx('buy'); }
@@ -6008,6 +6123,54 @@ SKYFX = (() => {
   } };
 })();
 } catch (e) { console.warn('skyfx', e); }
+let SKY3 = null;
+try {
+// ---------- НЕБО v3: живое процедурное (шейдер) — тучи плывут двумя слоями, мерцают звёзды, луна за тучами, зарево пожаров у горизонта ----------
+SKY3 = (() => {
+  const vk = MAP_ID === 'verruckt';
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
+    uniforms: { uT: { value: 0 }, uFlash: { value: 0 }, uGlow: { value: new THREE.Color(vk ? 0x5a2a10 : 0x4a1410) }, uMoon: { value: new THREE.Vector3(-0.45, 0.5, -0.74).normalize() }, uMoonCol: { value: new THREE.Color(vk ? 0xd8c8a8 : 0xc8a090) } },
+    vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `
+      varying vec3 vD; uniform float uT, uFlash; uniform vec3 uGlow, uMoon, uMoonCol;
+      float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+      float h31(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+      float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+      float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { v += a * n2(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return v; }
+      void main(){
+        vec3 d = normalize(vD); float h = d.y;
+        // тёмный градиент: почти чёрный зенит, у горизонта — тусклое зарево
+        vec3 col = mix(vec3(0.010, 0.012, 0.018), vec3(0.002, 0.003, 0.006), smoothstep(0.0, 0.8, h));
+        col += uGlow * 0.55 * exp(-max(h, 0.0) * 9.0) * (0.75 + 0.25 * sin(uT * 0.7 + d.x * 3.0));
+        // звёзды: случайные точки на сфере, мерцают
+        vec3 sp = d * 260.0, cell = floor(sp), fr = fract(sp) - 0.5; float r = h31(cell);
+        float star = step(0.9935, r) * smoothstep(0.32, 0.0, length(fr)) * (0.5 + 0.5 * sin(uT * (2.0 + r * 6.0) + r * 80.0)) * (0.6 + 1.2 * fract(r * 97.0));
+        float big = step(0.9986, h31(cell + 7.0)) * smoothstep(0.45, 0.0, length(fr)) * 1.6;
+        float stars = (star + big) * smoothstep(0.02, 0.25, h);
+        // луна с ореолом
+        float md = dot(d, uMoon), moon = smoothstep(0.99935, 0.9996, md), halo = pow(max(md, 0.0), 220.0) * 0.6 + pow(max(md, 0.0), 18.0) * 0.08;
+        // тучи: проекция на плоскость неба, два слоя с разной скоростью
+        vec2 uv = d.xz / (max(h, 0.0) + 0.12);
+        float c1 = fbm(uv * 0.55 + vec2(uT * 0.018, uT * 0.007)), c2 = fbm(uv * 1.15 + vec2(uT * 0.032, -uT * 0.012) + 5.0);
+        float cl = smoothstep(0.38, 0.74, c1 * 0.65 + c2 * 0.45) * smoothstep(-0.02, 0.18, h);
+        float edge = smoothstep(0.35, 0.6, c1 * 0.65 + c2 * 0.45) - cl;   // светлые кромки у краёв туч
+        float shade = 0.55 + 0.45 * (c2 - 0.3);   // тучи неоднородные: светлее и темнее места
+        vec3 cloudCol = vec3(0.07, 0.066, 0.072) * shade + uGlow * 0.45 * exp(-h * 3.0) + uMoonCol * (halo * 0.9 + pow(max(md, 0.0), 6.0) * 0.06);
+        col += stars * vec3(0.85, 0.88, 1.0) * (1.0 - cl);
+        col += uMoonCol * (moon * 1.1 + halo) * (1.0 - cl * 0.85);
+        col = mix(col, cloudCol, cl * 0.95) + uMoonCol * edge * (halo * 1.4 + 0.02);
+        col = mix(col, vec3(0.010, 0.008, 0.008) + uGlow * 0.15, smoothstep(0.0, -0.06, h));   // ниже горизонта — тёмная дымка
+        col += vec3(0.45, 0.5, 0.65) * uFlash * (cl * 0.9 + 0.12) * (0.6 + 0.4 * c2);   // молния подсвечивает тучи изнутри
+        gl_FragColor = vec4(col, 1.0);
+      }`
+  });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(60, 48, 24), mat); dome.renderOrder = -1000; dome.frustumCulled = false; scene.add(dome);
+  for (const o of [vkSky, vkClouds, nachtClouds, typeof nachtSkyMesh !== 'undefined' ? nachtSkyMesh : null]) if (o) o.visible = false;   // старые картинки неба больше не нужны
+  return { dome, update(t) { dome.position.copy(camera.position); mat.uniforms.uT.value = t; mat.uniforms.uFlash.value = typeof FEAR !== 'undefined' && FEAR.light > 0 ? 1 : 0; } };
+})();
+} catch (e) { console.warn('sky3', e); }
 let MIST = null;
 try {
 // ---------- живой туман: низкие клубы над полом в комнатах и во дворе; у ламп туман светится, вдали всё тонет в дымке ----------
@@ -7409,6 +7572,8 @@ function loop() {
   fearUpdate(dt, t);
   if (MIST) MIST.update(t, dt);
   if (SKYFX) SKYFX.update(t, dt);
+  if (SKY3) SKY3.update(t);
+  if (FOUNT) FOUNT.update(dt, t);
   updateKnife(dt);
   updateGrenades(dt);
   updateWeapon(dt, t);
