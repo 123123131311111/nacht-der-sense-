@@ -9,7 +9,8 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 4;
-const DROP_CHANCE = 0.03, DROP_LIFE_MS = 32000;   // красный бонус MAX AMMO: шанс при убийстве зомби
+const UPG_PRICE = 5500, UPG_MS = 4200;   // Улучшайзер (Verrückt): цена и время анимации — как на клиенте
+const DROP_CHANCE = 0.02, DP_CHANCE = 0.01, DROP_LIFE_MS = 32000, DP_MS = 25000;   // бонусы при убийстве зомби: MAX AMMO (2%) и DOUBLE POINTS (1%, x2 очки на 25 с)
 const rooms = Object.create(null);
 const roomOf = Object.create(null);
 
@@ -56,7 +57,9 @@ const MAPS = {
     doors: [{ x: -9, z: -2.35, price: 2000 }, { x: 9, z: -2.35, price: 2000 }, { x: 13, z: -17, price: 1000 }, { x: -6, z: 0, price: 1000 }, { x: 6, z: 0, price: 1000 }],
     windows: [],
     wall: { thompson: { x: -19.8, z: 2.75 }, shotgun: { x: 19.8, z: -2.75 } },   // внутри корпусов: Thompson — левый, дробовик — правый
-    box: { x: 13, z: -21.35, available: dr => !!dr[2] },   // Mystery Box в сарае: доступен после покупки двери №2 (клиент: VK_SHED.cx, boxZ + 0.7)
+    box: { x: 13, z: -21.35, available: dr => !!dr[2] },
+    levers: [{ x: -16.3, z: 2.4 }, { x: 16.3, z: 2.4 }],   // рубильники на 2 этаже корпусов (как LEVERS на клиенте)
+    upgrader: { x: 30.9, z: -27.6 },   // Улучшайзер в северо-восточном углу двора (как UPG на клиенте)   // Mystery Box в сарае: доступен после покупки двери №2 (клиент: VK_SHED.cx, boxZ + 0.7)
     perks: {
       cola: { x: -7.2, z: 3.2, minY: 3.2, maxY: 7.5 },
       doubleTap: { x: 6.67, z: 2.9, minY: 3.2, maxY: 7.5 },   // у стены правого дома, 2 этаж (как DTAP на клиенте)
@@ -89,7 +92,7 @@ function makePlayer(id, name, slot) {
     id, name: cleanName(name, id), color: ['#e04040', '#3a8ee6', '#46c46a', '#e6c83a'][slot], slot,
     x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0, active: false, downed: false, reviving: null,
     points: 500, hp: 100, perks: { cola: false, doubleTap: false, juggernog: false, quickRevive: false },
-    owned: { thompson: false, shotgun: false }, shots: Object.create(null), lastShotAt: -Infinity,
+    owned: { thompson: false, shotgun: false }, upg: Object.create(null), shots: Object.create(null), lastShotAt: -Infinity,
   };
 }
 function makeRoom(code, hostId, map) {
@@ -99,6 +102,7 @@ function makeRoom(code, hostId, map) {
     game: {
       started: false, round: 0, roundActive: false, toSpawn: 0, nextRoundIn: 0,
       doors: cfg.doors.map(() => false),
+      levers: [false, false], upgBusyUntil: 0,
       windowBoards: cfg.windows.map(() => ({ boards: 4, pending: 0 })), zombies: [],
       revision: 0, boxBusyUntil: 0, drops: [], dropSeq: 0,
     },
@@ -114,6 +118,7 @@ function gamePayload(room) {
     toSpawn: game.toSpawn,
     nextRoundIn: game.nextRoundIn,
     doors: game.doors.slice(),
+    levers: (game.levers || []).slice(),
     windowBoards: game.windowBoards,
     // Keep the network snapshot gameplay-only. Animation and model variation
     // are generated independently by each client.
@@ -125,6 +130,7 @@ function gamePayload(room) {
       id: p.id, name: p.name, x: p.x, y: p.y, z: p.z,
       yaw: p.yaw, pitch: p.pitch, active: p.active, points: p.points, hp: p.hp, downed: !!p.downed,
       perks: { ...p.perks },
+      upg: { ...p.upg },
     })),
   };
 }
@@ -264,18 +270,19 @@ io.on('connection', socket => {
     const weapon = shot.weapon === -1
       ? (room.game.round <= 3 ? { body: 100000, head: 100000 } : { body: Math.max(10, 150 * Math.pow(0.8, room.game.round - 3)), head: Math.max(10, 150 * Math.pow(0.8, room.game.round - 3)) })   // нож: до 3 раунда с 1 удара, дальше слабее
       : WEAPONS[shot.weapon];
-    const damage = (head ? weapon.head : weapon.body) * (player.perks.doubleTap ? 2 : 1);
+    const damage = (head ? weapon.head : weapon.body) * (player.perks.doubleTap ? 2 : 1) * (player.upg && player.upg[shot.weapon] ? 2 : 1);   // улучшенное оружие: урон x2
     zombie.hp = Math.max(0, zombie.hp - damage);
     const killed = zombie.hp <= 0;
     if (killed) zombie.state = 'dying';
-    const reward = killed ? (shot.weapon === -1 ? 120 : (head ? 100 : 60)) : 10;
+    const reward = (killed ? (shot.weapon === -1 ? 120 : (head ? 100 : 60)) : 10) * ((room.game.dpUntil || 0) > Date.now() ? 2 : 1);   // Double Points действует на всю комнату
     player.points += reward;
     let drop = null;
     if (killed) {
       const now = Date.now();
       room.game.drops = room.game.drops.filter(d => now - d.at < DROP_LIFE_MS);
-      if (Math.random() < DROP_CHANCE) {
-        drop = { id: `d${++room.game.dropSeq}`, x: clamp(finite(zombie.x), -30, 30), y: finite(zombie.y), z: clamp(finite(zombie.z), -30, 30) };
+      const roll = Math.random(), kind = roll < DROP_CHANCE ? 'ammo' : (roll < DROP_CHANCE + DP_CHANCE ? 'double' : null);
+      if (kind) {
+        drop = { id: `d${++room.game.dropSeq}`, kind, x: clamp(finite(zombie.x), -30, 30), y: finite(zombie.y), z: clamp(finite(zombie.z), -30, 30) };
         room.game.drops.push({ ...drop, at: now });
       }
     }
@@ -298,7 +305,8 @@ io.on('connection', socket => {
     const d = room.game.drops[i];
     if (!near(player, d.x, d.z, 2.4, d.y - 0.6, d.y + 3.4)) return;
     room.game.drops.splice(i, 1);
-    io.to(room.code).emit('dropPicked', { id, playerId: socket.id });
+    if (d.kind === 'double') { room.game.dpUntil = now + DP_MS; io.to(room.code).emit('doublePoints', { duration: DP_MS / 1000, playerId: socket.id }); }
+    io.to(room.code).emit('dropPicked', { id, playerId: socket.id, kind: d.kind || 'ammo' });
   });
 
   socket.on('zombieAttack', ({ playerId, zombieId } = {}) => {
@@ -427,6 +435,36 @@ io.on('connection', socket => {
     io.to(room.code).emit('purchaseCommitted', {
       playerId: socket.id, kind, doorIndex, price, weaponIndex, boxResult,
     });
+    sendGame(room);
+  });
+
+  // ---------- Verrückt: рубильники и Улучшайзер ----------
+  socket.on('leverRequest', ({ index } = {}) => {
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || !ctx.room.game.started) return;
+    const { room, player } = ctx, cfg = cfgOf(room);
+    index = Number(index);
+    const lv = cfg.levers && cfg.levers[index];
+    if (!lv || room.game.levers[index]) return;
+    if (!near(player, lv.x, lv.z, 3.2, 3.2, 7.5)) return failPurchase(socket, 'Подойдите к рубильнику');
+    room.game.levers[index] = true;
+    io.to(room.code).emit('leverToggled', { index, playerId: socket.id });
+    sendGame(room);
+  });
+  socket.on('upgradeRequest', ({ weapon } = {}) => {
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || !ctx.room.game.started) return;
+    const { room, player } = ctx, up = cfgOf(room).upgrader;
+    if (!up) return failPurchase(socket, 'Улучшайзера нет на этой карте');
+    if (!room.game.levers.every(Boolean)) return failPurchase(socket, 'Сначала включите оба рубильника');
+    weapon = Number(weapon);
+    if (!Number.isInteger(weapon) || weapon < 0 || weapon >= WEAPONS.length) return;
+    if (player.upg[weapon]) return failPurchase(socket, 'Это оружие уже улучшено');
+    if (!near(player, up.x, up.z, 3.4, -1, 3.2)) return failPurchase(socket, 'Подойдите к Улучшайзеру');
+    if ((room.game.upgBusyUntil || 0) > Date.now()) return failPurchase(socket, 'Улучшайзер занят');
+    if (player.points < UPG_PRICE) return failPurchase(socket, 'Не хватает очков');
+    player.points -= UPG_PRICE; player.upg[weapon] = true; room.game.upgBusyUntil = Date.now() + UPG_MS;
+    io.to(room.code).emit('upgradeStarted', { playerId: socket.id, weapon, duration: UPG_MS / 1000, price: UPG_PRICE });
     sendGame(room);
   });
 

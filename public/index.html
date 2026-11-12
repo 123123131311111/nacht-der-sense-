@@ -2243,6 +2243,7 @@ const slots = [0, -1]; // СТРОГО 2 слота: индексы в WEAPONS, 
 let flashS = 1; const FLASH_T = 0.085;
 let cur = 0, reloading = false, reloadT = 0, recoil = 0, flashT = 0, lastShot = 0, bobT = 0, bobAmp = 0, swapT = 0, mouseDown = false;
 const SWAP_TIME = 0.35;
+const UP = { on: false, t: 0, weapon: -1, mine: false, pending: 0, sparkAcc: 0, s0: new THREE.Vector3(), q0: new THREE.Quaternion() };   // состояние улучшения оружия в Улучшайзере (Verrückt)
 const ammoEl = document.getElementById('ammo');
 function updateHUD() {
   const w = WEAPONS[cur], sc = slots.indexOf(cur);
@@ -2251,7 +2252,7 @@ function updateHUD() {
     `<small>${reloading ? 'RELOADING' : (w.mag === 0 ? (w.reserve ? (touchMode ? 'ПЕРЕЗАРЯДКА' : 'PRESS R') : 'NO AMMO') : '')}</small>`;
 }
 function switchWeapon(i) {
-  if (i === cur || !WEAPONS[i] || !WEAPONS[i].own) return;
+  if (UP.on || i === cur || !WEAPONS[i] || !WEAPONS[i].own) return;
   cur = i; reloading = false; swapT = SWAP_TIME; mouseDown = false; ANIM.t = 99; ANIM.ej = true;
   [pistolG, tommyG, shotG, rifleG, garandG, rayG, lmgG, m16G, dualG, mp40G, stgG].forEach((g, k) => g.visible = k === i);
   flash2.visible = false;
@@ -2402,7 +2403,7 @@ function updateBlood(dt) {
 }
 function shoot() {
   const w = WEAPONS[cur], now = performance.now();
-  if (!controls.isLocked || dead || downed || PD.on || reloading || swapT > 0 || knifeT > 0 || now - lastShot < w.interval) return;
+  if (!controls.isLocked || dead || downed || PD.on || UP.on || reloading || swapT > 0 || knifeT > 0 || now - lastShot < w.interval) return;
   if (w.mag <= 0) { if (w.reserve > 0) startReload(); else { lastShot = now; sfx('dry'); } return; }
   lastShot = now; w.mag -= w.dual ? Math.min(2, w.mag) : 1; ANIM.t = 0; ANIM.ej = false; ANIM.clip = (cur === 4 && w.mag === 0); recoil = 1; flashT = FLASH_T; flashS = (w.fs || 1) * (0.85 + Math.random() * 0.4); updateHUD(); camShoot(w); weaponKick(w);
   const shotId = window.MP && MP.active ? MP.registerShot(cur) : null;
@@ -2422,7 +2423,7 @@ function shoot() {
 }
 function startReload() {
   const w = WEAPONS[cur];
-  if (PD.on || reloading || w.mag >= w.magSize || w.reserve <= 0 || !controls.isLocked) return;
+  if (PD.on || UP.on || reloading || w.mag >= w.magSize || w.reserve <= 0 || !controls.isLocked) return;
   reloading = true; reloadT = 0; twCaught = false; updateHUD();
   { const rl0 = w.reload * (speedCola ? 0.5 : 1); w.spin.turns = spinTurns(rl0); reloadSnd(rl0, w.spin); }
 }
@@ -2624,7 +2625,7 @@ const knifeG = new THREE.Group(); knifeG.visible = false; knifeG.rotation.order 
 }
 const knifeEl = document.getElementById('knife');
 function knifeAttack() {
-  if (PD.on) return;
+  if (PD.on || UP.on) return;
   if (!controls.isLocked || dead || downed || knifeCd > 0 || knifeT > 0) return;
   knifeCd = KNIFE_CD; knifeT = 0.0001; knifeHit = false; mouseDown = false; sfx('swish');
 }
@@ -2748,8 +2749,8 @@ function loadShotBufs() {
 const SFX_FILES = { box: 'sounds/mystery-box-spin.mp3', round: 'sounds/round-start.mp3', shell: 'sounds/shell-drop.mp3',
   bh1: 'sounds/board-hit-1.wav', bh2: 'sounds/board-hit-2.wav', bh3: 'sounds/board-hit-3.wav', bh4: 'sounds/board-hit-4.wav', bh5: 'sounds/board-hit-5.wav',   // заколачивание досок
   zg1: 'sounds/zombie-growl-1.mp3', zg2: 'sounds/zombie-growl-2.mp3', zfar: 'sounds/zombie-far-scream.mp3',
-  maxammo: 'sounds/max-ammo.mp3', door: 'sounds/door-open.mp3', tear: 'sounds/board-tear.mp3', popen: 'sounds/perk-open.mp3', pdrink: 'sounds/perk-drink.mp3', pthrow: 'sounds/perk-throw.mp3' };   // покупка перка: открыть бутылку, глотки, бросок об пол   // рык рядом ×2, далёкий крик
-const SFX_GAIN = { box: 0.8, round: 0.8, shell: 0.55, maxammo: 0.85, door: 0.9, tear: 0.85, popen: 1, pdrink: 1, pthrow: 0.75, bh1: 0.9, bh2: 0.9, bh3: 0.9, bh4: 0.9, bh5: 0.9 }, SFX_SINGLE = { box: 1, round: 1, maxammo: 1, door: 1, popen: 1, pdrink: 1, pthrow: 1 };   // box/round — одновременно звучит только один экземпляр
+  maxammo: 'sounds/max-ammo.mp3', door: 'sounds/door-open.mp3', tear: 'sounds/board-tear.mp3', popen: 'sounds/perk-open.mp3', pdrink: 'sounds/perk-drink.mp3', pthrow: 'sounds/perk-throw.mp3', dpoints: 'sounds/double-points.mp3', upg: 'sounds/upgrader.mp3' };   // покупка перка: открыть бутылку, глотки, бросок об пол   // рык рядом ×2, далёкий крик
+const SFX_GAIN = { box: 0.8, round: 0.8, shell: 0.55, maxammo: 0.85, door: 0.9, tear: 0.85, popen: 1, pdrink: 1, pthrow: 0.75, dpoints: 0.9, upg: 0.95, bh1: 0.9, bh2: 0.9, bh3: 0.9, bh4: 0.9, bh5: 0.9 }, SFX_SINGLE = { box: 1, round: 1, maxammo: 1, door: 1, popen: 1, pdrink: 1, pthrow: 1, dpoints: 1, upg: 1 };   // box/round — одновременно звучит только один экземпляр
 const sfxBufs = {}, sfxLive = {};
 
 // позиционный звук из буфера: громкость по расстоянию, панорама по направлению относительно камеры, опциональный ФНЧ (для далёких звуков)
@@ -2879,6 +2880,11 @@ function sfx(k) {
   else if (k === 'nail') { noise(0.03, 0.22, 'highpass', 4500, 4500, 0, 2); tone(2400, 0.07, 'square', 0.045, 1700); tone(220, 0.05, 'square', 0.09, 100); }
   else if (k === 'swish') noise(0.28, 0.14, 'bandpass', 350, 1800, 0, 1.5);
   else if (k === 'maxammo') { if (!playSfxFile('maxammo')) { buySnd(); tone(660, 0.5, 'triangle', 0.1, 990); } }
+  else if (k === 'dpoints') { if (!playSfxFile('dpoints')) { buySnd(); tone(880, 0.45, 'triangle', 0.1, 1320); } }
+  else if (k === 'upg') { if (!playSfxFile('upg')) { tone(70, 3.6, 'sawtooth', 0.1, 220); tone(140, 3.6, 'square', 0.04, 440); noise(3.4, 0.2, 'bandpass', 500, 3000); } }
+  else if (k === 'lever') { noise(0.05, 0.3, 'lowpass', 900, 300); tone(140, 0.12, 'square', 0.14, 70); tone(70, 0.22, 'sawtooth', 0.12, 45, 0.08); noise(0.08, 0.12, 'highpass', 3000, 3000, 0.18); }
+  else if (k === 'upgon') { tone(90, 1.8, 'sawtooth', 0.1, 700); tone(180, 1.8, 'square', 0.05, 1400); noise(1.6, 0.2, 'bandpass', 400, 4000); tone(880, 0.7, 'triangle', 0.1, 1760, 1.4); }
+  else if (k === 'upgdone') { tone(1046, 0.18, 'triangle', 0.12); tone(1568, 0.55, 'triangle', 0.12, undefined, 0.14); noise(0.1, 0.1, 'highpass', 5000, 5000); }
   else if (k === 'popen' || k === 'pdrink' || k === 'pthrow') { playSfxFile(k); }
   else if (k === 'pop') { noise(0.05, 0.3, 'highpass', 3500, 3500, 0, 2); tone(900, 0.06, 'square', 0.06, 400); noise(0.25, 0.1, 'highpass', 5000, 7000, 0.05, 1); }   // откупорить бутылку, шипение
   else if (k === 'gulp') { tone(190, 0.1, 'sine', 0.18, 85); noise(0.08, 0.12, 'lowpass', 500, 200); }
@@ -3113,6 +3119,7 @@ function pop(txt, cls) {
 }
 function addPoints(n, cls, label) {
   if (window.MP && MP.active) return;
+  if (n > 0 && dpT > 0) n *= 2;   // бонус Double Points
   points += n; updatePoints(); pop('+' + n + (label ? ' ' + label : ''), cls);
 }
 function spend(n) {
@@ -3513,8 +3520,235 @@ function useQuickRevive() {   // одиночная игра: смертельн
     if (!sk || sk === hooked || !sk.on) return;
     hooked = sk;
     sk.on('purchaseCommitted', d => { if (d && d.kind === 'quickRevive' && d.playerId === MP.selfId) applyQR(); });
+    sk.on('doublePoints', d => { if (d && d.duration) collectDoublePoints(d.duration); });   // онлайн: бонус действует на всю комнату
+    sk.on('leverToggled', d => { if (d) setLever(d.index, true, false); });   // Verrückt: рубильники
+    sk.on('upgradeStarted', d => { if (d) upgBegin(d.weapon, d.playerId === MP.selfId); });   // Verrückt: Улучшайзер (анимацию видят все, оружие улучшается у владельца)
+    sk.on('gameState', g => vkSync(g));
   }, 1000);
 })();
+
+// =====================================================================================
+//  VERRÜCKT: два рубильника на 2 этажах корпусов → в северо-восточном углу двора появляется УЛУЧШАЙЗЕР.
+//  За 5500 очков он улучшает оружие в руках: урон ×2, магазин и запас ×1,5, голубое свечение модели. Улучшение занимает ~4 секунды.
+//  Координаты рубильников и автомата, цена и время ДОЛЖНЫ совпадать с MAPS.verruckt.levers / upgrader в server-multiplayer.js.
+// =====================================================================================
+const VK_ON = MAP_ID === 'verruckt';
+const UPG_PRICE = 5500, UPG_TIME = 4.2;
+const UPG = { x: 30.9, z: -27.6, shown: false, appear: 0 };   // автомат стоит у восточной ограды, лицом к двору (-X)
+const LEVERS = [{ sg: -1, x: -16.3, z: 2.4, y: 4, on: false, t: 0, req: 0 }, { sg: 1, x: 16.3, z: 2.4, y: 4, on: false, t: 0, req: 0 }];   // торцевая стена коридора 2 этажа каждого корпуса
+const UM = { root: null, body: null, meshes: [], rings: [], sparks: [], light: null, shock: null, beam: null, portGlow: null, glowMats: [], gun: null, models: {}, col: null };
+const vkEase = k => k * k * (3 - 2 * k), vkClamp = (k, a, b) => Math.max(a, Math.min(b, k));
+function vkAnnounce(txt) { annEl.textContent = txt; annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go'); }
+
+// ---------- рубильники ----------
+function makeLever(L) {
+  const g = new THREE.Group(); g.position.set(L.x, L.y, L.z); g.rotation.y = -L.sg * Math.PI / 2; scene.add(g);   // локальный +Z смотрит в коридор
+  const iron = new THREE.MeshStandardMaterial({ color: 0x2a2e31, roughness: 0.55, metalness: 0.7 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x101214, roughness: 0.8, metalness: 0.3 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.35, metalness: 0.85 });
+  const put = (geo, mat, x, y, z, par = g) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); par.add(m); return m; };
+  put(new THREE.BoxGeometry(0.56, 0.78, 0.05), iron, 0, 1.35, 0.025);
+  put(new THREE.BoxGeometry(0.46, 0.68, 0.03), dark, 0, 1.35, 0.06);
+  put(new THREE.BoxGeometry(0.1, 0.46, 0.03), iron, 0, 1.3, 0.085);
+  for (const sx of [-0.23, 0.23]) for (const sy of [-0.32, 0.32]) put(new THREE.CylinderGeometry(0.018, 0.018, 0.02, 8).rotateX(Math.PI / 2), brass, sx, 1.35 + sy, 0.065);
+  L.lamp = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
+  put(new THREE.BoxGeometry(0.12, 0.07, 0.03), L.lamp, 0, 1.64, 0.085);
+  { const [c, t] = cv(256, 64); t.fillStyle = '#e6b93a'; t.fillRect(0, 0, 256, 64); t.fillStyle = '#111'; for (let k = -2; k < 12; k++) { t.beginPath(); t.moveTo(k * 28, 64); t.lineTo(k * 28 + 14, 64); t.lineTo(k * 28 + 42, 0); t.lineTo(k * 28 + 28, 0); t.fill(); }
+    t.fillStyle = '#111'; t.fillRect(34, 8, 188, 48); t.fillStyle = '#ffd24a'; t.font = 'bold 30px "Courier New"'; t.textAlign = 'center'; t.textBaseline = 'middle'; t.fillText('РУБИЛЬНИК', 128, 34);
+    put(new THREE.PlaneGeometry(0.62, 0.155), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: 0xdddddd }), 0, 1.89, 0.052); }
+  const pivot = new THREE.Group(); pivot.position.set(0, 1.28, 0.1); g.add(pivot);
+  put(new THREE.CylinderGeometry(0.016, 0.016, 0.42, 8).rotateX(Math.PI / 2), brass, 0, 0, 0.21, pivot);
+  put(new THREE.SphereGeometry(0.045, 10, 8), new THREE.MeshStandardMaterial({ color: 0xc0201a, roughness: 0.4 }), 0, 0, 0.43, pivot);
+  pivot.rotation.x = -0.9;   // выключен: рукоять поднята
+  L.pivot = pivot;
+}
+function setLever(i, on, silent) {
+  const L = LEVERS[i]; if (!VK_ON || !L || L.on === !!on) return;
+  L.on = !!on; L.lamp.color.setHex(L.on ? 0x37ff6a : 0xff2a1a);
+  const n = LEVERS.filter(l => l.on).length;
+  if (silent) L.t = L.on ? 1 : 0;
+  else if (L.on) { sfx('lever'); pop('РУБИЛЬНИК ' + n + '/2', 'head'); if (n < 2) vkAnnounce('ПИТАНИЕ ' + n + '/2'); }
+  if (n === 2) upgReveal(silent);
+}
+
+// ---------- автомат ----------
+function upgFaceTex() {
+  const [c, g] = cv(256, 320), gr = g.createLinearGradient(0, 0, 0, 320); gr.addColorStop(0, '#0e2a33'); gr.addColorStop(1, '#06141a');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 320); g.strokeStyle = '#35e6ff'; g.lineWidth = 6; g.strokeRect(6, 6, 244, 308);
+  g.fillStyle = 'rgba(53,230,255,.10)'; for (let k = 0; k < 9; k++) g.fillRect(14, 40 + k * 10, 228, 3);   // решётка над слотом
+  g.fillStyle = '#35e6ff'; for (let k = 0; k < 3; k++) { const y = 156 + k * 22; g.globalAlpha = 1 - k * 0.28; g.beginPath(); g.moveTo(128, y - 14); g.lineTo(166, y + 6); g.lineTo(150, y + 10); g.lineTo(128, y - 2); g.lineTo(106, y + 10); g.lineTo(90, y + 6); g.closePath(); g.fill(); } g.globalAlpha = 1;
+  g.fillStyle = '#bff8ff'; g.font = 'bold 21px "Courier New"'; g.textAlign = 'center'; g.fillText('УРОН ×2', 128, 238); g.fillText('ПАТРОНЫ +50%', 128, 262);
+  g.fillStyle = '#000'; g.fillRect(40, 272, 176, 40); g.fillStyle = '#ffd24a'; g.font = 'bold 30px "Courier New"'; g.fillText(String(UPG_PRICE), 128, 303);
+  return new THREE.CanvasTexture(c);
+}
+function upgSignTex() {
+  const [c, g] = cv(512, 170); g.fillStyle = '#04141a'; g.fillRect(0, 0, 512, 170); g.strokeStyle = '#35e6ff'; g.lineWidth = 8; g.strokeRect(5, 5, 502, 160);
+  g.fillStyle = '#8ff4ff'; g.font = 'bold 60px Georgia'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = '#35e6ff'; g.shadowBlur = 18; g.fillText('УЛУЧШАЙЗЕР', 256, 88);
+  return new THREE.CanvasTexture(c);
+}
+function buildUpgrader() {
+  const root = new THREE.Group(); root.position.set(UPG.x, 0, UPG.z); root.rotation.y = -Math.PI / 2; root.visible = false; scene.add(root);   // локальный +Z смотрит во двор (-X)
+  const body = new THREE.Group(); root.add(body);
+  const metal = new THREE.MeshStandardMaterial({ color: 0x1d2a31, roughness: 0.5, metalness: 0.75 }), trim = new THREE.MeshStandardMaterial({ color: 0x0c1317, roughness: 0.7, metalness: 0.5 });
+  const glow = new THREE.MeshBasicMaterial({ color: 0x35e6ff }); UM.glowMats.push(glow);
+  const B = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+  const put = (geo, mat, x, y, z, par = body) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); par.add(m); return m; };
+  UM.meshes = [put(B(1.64, 0.25, 1.24), trim, 0, 0.125, 0), put(B(1.4, 2.0, 1.0), metal, 0, 1.25, 0), put(B(1.64, 0.62, 1.14), trim, 0, 2.56, 0)];
+  for (const sx of [-0.72, 0.72]) for (const sz of [-0.5, 0.5]) put(B(0.05, 1.7, 0.05), glow, sx, 1.3, sz);
+  put(new THREE.PlaneGeometry(1.2, 1.5), new THREE.MeshBasicMaterial({ map: upgFaceTex(), color: 0xdddddd }), 0, 1.2, 0.506);
+  put(new THREE.PlaneGeometry(1.5, 0.5), new THREE.MeshBasicMaterial({ map: upgSignTex() }), 0, 2.56, 0.575);
+  // слот для оружия: тёмный проём, светящаяся рамка и «глубина» (оружие уходит за светящуюся плоскость)
+  put(B(1.0, 0.26, 0.06), new THREE.MeshBasicMaterial({ color: 0x02080a }), 0, 1.6, 0.53);
+  put(B(1.1, 0.03, 0.04), glow, 0, 1.76, 0.54); put(B(1.1, 0.03, 0.04), glow, 0, 1.44, 0.54); put(B(0.03, 0.35, 0.04), glow, -0.53, 1.6, 0.54); put(B(0.03, 0.35, 0.04), glow, 0.53, 1.6, 0.54);
+  UM.portGlow = put(B(0.94, 0.2, 0.01), new THREE.MeshBasicMaterial({ color: 0x06323a }), 0, 1.6, 0.562);
+  put(B(1.0, 0.05, 0.42), trim, 0, 1.34, 0.72); put(B(1.0, 0.02, 0.02), glow, 0, 1.37, 0.92);   // лоток
+  put(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8), trim, 0, 3.1, 0);
+  for (const [r, tilt, col] of [[0.42, 1.15, 0x35e6ff], [0.33, -1.15, 0xff5ad8]]) {
+    const pv = new THREE.Group(); pv.position.set(0, 3.3, 0); const m = new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 8, 28), new THREE.MeshBasicMaterial({ color: col })); m.rotation.x = tilt; pv.add(m); body.add(pv); UM.rings.push(pv);
+  }
+  put(new THREE.SphereGeometry(0.11, 12, 10), new THREE.MeshBasicMaterial({ color: 0xd8fbff }), 0, 3.3, 0);
+  UM.beam = put(new THREE.CylinderGeometry(0.5, 0.8, 7, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0x35e6ff, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 0, 3.8, 0, root);
+  UM.shock = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.55, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x35e6ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); UM.shock.position.y = 0.06; root.add(UM.shock);
+  const sparkTex = (() => { const [c, g] = cv(64, 64), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(120,240,255,.85)'); gr.addColorStop(1, 'rgba(0,200,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+  for (let k = 0; k < 28; k++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); s.visible = false; s.userData = { v: new THREE.Vector3(), life: 0 }; root.add(s); UM.sparks.push(s); }
+  UM.light = new THREE.PointLight(0x35e6ff, 0, 10, 2); UM.light.position.set(UPG.x - 1.3, 1.9, UPG.z); scene.add(UM.light);   // создаётся сразу (с нулевой яркостью), чтобы позже не пересобирались шейдеры
+  UM.root = root; UM.body = body;
+  UM.col = { x0: UPG.x - 0.9, x1: UPG.x + 0.62, y0: 0, y1: 3.3, z0: UPG.z - 0.82, z1: UPG.z + 0.82, prop: true };
+}
+function upgReveal(silent) {
+  if (!VK_ON || UPG.shown) return; UPG.shown = true;
+  UM.root.visible = true; colliders.push(UM.col); UM.meshes.forEach(m => worldMeshes.push(m));
+  if (silent) { UPG.appear = 1; UM.root.scale.set(1, 1, 1); }
+  else { UPG.appear = 0.0001; UM.root.scale.set(1, 0.02, 1); sfx('upgon'); vkAnnounce('УЛУЧШАЙЗЕР ПОЯВИЛСЯ В СЕВЕРО-ВОСТОЧНОМ УГЛУ'); pop('УЛУЧШАЙЗЕР!', 'head'); }
+}
+if (VK_ON) { LEVERS.forEach(makeLever); buildUpgrader(); }
+
+// ---------- улучшение оружия ----------
+function upgSkin(i) {   // голубое свечение модели в руках (материалы клонируются, чтобы не трогать остальные стволы)
+  const g = GROUPS[i]; if (!g) return;
+  g.traverse(o => {
+    if (!o.isMesh || o.userData.upgSkin) return; o.userData.upgSkin = true;
+    const f = m => { if (!m.emissive) return m; const q = m.clone(); q.emissive = new THREE.Color(0x0b6a78); q.emissiveIntensity = 0.85; q.color.lerp(new THREE.Color(0x58e8ff), 0.18); return q; };
+    o.material = Array.isArray(o.material) ? o.material.map(f) : f(o.material);
+  });
+}
+function applyUpgrade(i) {
+  const w = WEAPONS[i]; if (!w || w.up) return; w.up = true;
+  const mg = n => w.dual ? Math.max(2, Math.round(n / 2) * 2) : Math.max(1, Math.round(n));
+  w.body *= 2; w.head *= 2; w.magSize = mg(w.magSize * 1.5);
+  if (Number.isFinite(w.maxReserve)) w.maxReserve = Math.round(w.maxReserve * 1.5);
+  if (Number.isFinite(w.fullRes)) w.fullRes = Math.round(w.fullRes * 1.5);
+  w.mag = w.magSize; w.reserve = Math.max(w.fullRes || 0, (w.maxReserve || 0) - w.magSize);
+  w.name += ' ★'; upgSkin(i); updateHUD();
+}
+function upgClone(i) {   // копия модели оружия, летающая у автомата
+  if (UM.models[i]) return UM.models[i];
+  const wr = new THREE.Group(), md = new THREE.Group(); if (i === 8) buildDual(md); else buildModel(i, md);
+  md.position.sub(new THREE.Box3().setFromObject(md).getCenter(new THREE.Vector3())); wr.add(md);
+  md.traverse(o => { if (!o.isMesh) return; const f = m => { if (!m.emissive) return m; const q = m.clone(); q.emissive = new THREE.Color(0x0e7f8f); q.emissiveIntensity = 0.9; return q; }; o.material = Array.isArray(o.material) ? o.material.map(f) : f(o.material); });
+  wr.visible = false; UM.root.add(wr); UM.models[i] = wr; return wr;
+}
+const _vp = new THREE.Vector3(), _vq = new THREE.Quaternion(), _vr = new THREE.Quaternion();
+function upgHand(out) { _vp.set(0.19, -0.2, -0.5); camera.localToWorld(_vp); out.copy(_vp); UM.root.worldToLocal(out); return out; }
+function upgHandQ(out) { camera.getWorldQuaternion(_vq); UM.root.getWorldQuaternion(_vr); return out.copy(_vr.invert()).multiply(_vq); }
+function upgBegin(weapon, mine) {
+  if (!VK_ON || !UM.root || UP.on || !WEAPONS[weapon]) return;
+  UP.on = true; UP.t = 0; UP.weapon = weapon; UP.mine = mine; UP.pending = 0; UP.sparkAcc = 0;
+  UM.root.updateMatrixWorld(true);
+  UM.gun = upgClone(weapon); UM.gun.visible = true;
+  if (mine) { upgHand(UP.s0); upgHandQ(UP.q0); gun.visible = false; reloading = false; mouseDown = false; flashT = 0; } else { UP.s0.set(0, 1.5, 2.2); UP.q0.identity(); }
+  sfx('upg');
+}
+function upgFinish() {
+  UP.on = false; if (UM.gun) UM.gun.visible = false;
+  UM.body.position.set(0, 0, 0); UM.light.intensity = 0.9; UM.portGlow.material.color.setHex(0x06323a); UM.sparks.forEach(s => s.visible = false);
+  if (UP.mine) { applyUpgrade(UP.weapon); gun.visible = true; swapT = SWAP_TIME; sfx('upgdone'); vkAnnounce('ОРУЖИЕ УЛУЧШЕНО'); pop(WEAPONS[UP.weapon].name, 'head'); }
+}
+function upgRequest() {
+  const w = WEAPONS[cur];
+  if (UP.on || w.up || points < UPG_PRICE || UP.pending > performance.now() || dead || downed) return;
+  if (window.MP && MP.active && MP.socket) { UP.pending = performance.now() + 2500; MP.socket.emit('upgradeRequest', { weapon: cur }); return; }   // онлайн: очки списывает сервер
+  spend(UPG_PRICE); upgBegin(cur, true);
+}
+function vkSync(g) {   // онлайн: состояние рубильников и улучшений приходит в gameState (в т.ч. для зашедших позже)
+  if (!VK_ON || !g) return;
+  if (Array.isArray(g.levers)) g.levers.forEach((on, i) => { if (on) setLever(i, true, true); });
+  const me = g.players && g.players.find(p => p.id === MP.selfId);
+  if (me && me.upg && !UP.on && !(UP.pending > performance.now())) for (const k in me.upg) if (me.upg[k]) applyUpgrade(+k);
+}
+const _hp = new THREE.Vector3(), _hq = new THREE.Quaternion();
+function vkUpdate(dt) {
+  if (!VK_ON) return;
+  for (const L of LEVERS) { if (L.on && L.t < 1) L.t = Math.min(1, L.t + dt / 0.35); L.pivot.rotation.x = -0.9 + 1.8 * vkEase(L.t); }
+  if (!UPG.shown) return;
+  const r = UM.root;
+  if (UPG.appear < 1) {   // появление: вспышка, рост из земли, расходящаяся волна
+    UPG.appear = Math.min(1, UPG.appear + dt / 2.2); const a = UPG.appear;
+    r.scale.y = 0.02 + 0.98 * vkEase(vkClamp(a / 0.7, 0, 1)); r.visible = a > 0.35 || Math.floor(a * 28) % 2 === 0;
+    UM.shock.material.opacity = (1 - a) * 0.8; UM.shock.scale.setScalar(1 + a * 16);
+    UM.light.intensity = 5 * (1 - a) + 0.9 * a; UM.rings.forEach((p, k) => p.rotation.y += dt * (9 - 6 * a) * (k ? -1 : 1));
+    if (a >= 1) { r.visible = true; r.scale.set(1, 1, 1); UM.shock.material.opacity = 0; }
+    return;
+  }
+  const t = UP.t;
+  if (!UP.on) {   // ожидание
+    UM.rings.forEach((p, k) => p.rotation.y += dt * 1.3 * (k ? -1 : 1)); UM.light.intensity = 0.9 + 0.15 * Math.sin(performance.now() * 0.004);
+    UM.beam.material.opacity = 0.1 + 0.03 * Math.sin(performance.now() * 0.003); return;
+  }
+  UP.t += dt;
+  const I = t < 0.7 ? 0.6 : t < 2.0 ? 1 : t < 3.2 ? 1.8 : t < 3.5 ? 3 : 1;   // интенсивность: разгон, работа, кульминация, вспышка
+  const amp = t < 0.5 ? 0 : t < 2.0 ? 0.01 : t < 3.2 ? 0.03 : 0;
+  UM.body.position.set((Math.random() - 0.5) * 2 * amp, 0, (Math.random() - 0.5) * 2 * amp);
+  UM.rings.forEach((p, k) => p.rotation.y += dt * (4 + I * 6) * (k ? -1 : 1));
+  UM.light.intensity = 1 + I * 1.6; UM.beam.material.opacity = 0.12 + I * 0.08;
+  UM.portGlow.material.color.setRGB(0.03 + 0.2 * I, 0.2 + 0.5 * I, 0.23 + 0.55 * I);
+  if (t > 3.2 && t < 3.3) { UM.shock.material.opacity = 0.9; UM.shock.scale.setScalar(1); }
+  if (t >= 3.2) { const a = (t - 3.2) / 1.0; UM.shock.material.opacity = Math.max(0, 0.9 * (1 - a)); UM.shock.scale.setScalar(1 + a * 12); }
+  // искры из слота
+  if (t > 0.3 && t < 3.5) { UP.sparkAcc += dt * 45 * I; while (UP.sparkAcc >= 1) { UP.sparkAcc--; const s = UM.sparks.find(q => !q.visible); if (!s) break; const u = s.userData; s.visible = true; u.life = 0.5 + Math.random() * 0.4; s.position.set((Math.random() - 0.5) * 0.9, 1.6 + (Math.random() - 0.5) * 0.18, 0.6); u.v.set((Math.random() - 0.5) * 1.6, Math.random() * 1.6 + 0.3, 0.8 + Math.random() * 1.6); } }
+  for (const s of UM.sparks) { if (!s.visible) continue; const u = s.userData; u.life -= dt; if (u.life <= 0) { s.visible = false; continue; } u.v.y -= 4 * dt; s.position.addScaledVector(u.v, dt); const k = Math.min(1, u.life * 2) * 0.3; s.scale.set(k, k, 1); s.material.opacity = Math.min(1, u.life * 2.5); }
+  // полёт оружия: из рук → к слоту → внутрь → (кульминация) → лоток → обратно в руки
+  const g = UM.gun, ENT = new THREE.Vector3(0, 1.6, 1.35);
+  if (g) {
+    if (t < 0.5) { const k = vkEase(t / 0.5); g.visible = true; g.position.lerpVectors(UP.s0, ENT, k); g.quaternion.copy(UP.q0).slerp(_hq.identity(), k); g.scale.setScalar(0.7 + 0.25 * k); }
+    else if (t < 0.95) { const k = vkEase((t - 0.5) / 0.45); g.visible = true; g.position.set(0, 1.6, 1.35 - 1.0 * k); g.quaternion.identity(); g.scale.setScalar(0.95); }
+    else if (t < 3.2) g.visible = false;
+    else if (t < 3.7) { const k = vkEase((t - 3.2) / 0.5); g.visible = true; g.position.set(0, 1.6 + 0.04 * Math.sin(k * 3), 0.35 + 0.8 * k); g.quaternion.setFromAxisAngle(_hp.set(0, 1, 0), -0.5 * k); g.scale.setScalar(0.95 + 0.25 * k); }
+    else {
+      const k = vkEase(vkClamp((t - 3.7) / 0.5, 0, 1)), A = new THREE.Vector3(0, 1.64, 1.15), Q0 = new THREE.Quaternion().setFromAxisAngle(_hp.set(0, 1, 0), -0.5);
+      if (UP.mine) { g.position.lerpVectors(A, upgHand(_hp.clone()), k); g.quaternion.copy(Q0).slerp(upgHandQ(new THREE.Quaternion()), k); g.scale.setScalar(1.2 - 0.5 * k); }
+      else { g.position.copy(A); g.quaternion.copy(Q0); g.scale.setScalar(1.2 * (1 - k)); }
+      g.visible = k < 1;
+    }
+  }
+  if (UP.t >= UPG_TIME) upgFinish();
+}
+function vkInteract(holdE) {   // подсказки и действия у рубильников и Улучшайзера; true — подсказка показана
+  if (!VK_ON) return false;
+  for (let i = 0; i < LEVERS.length; i++) {
+    const L = LEVERS[i];
+    if (Math.abs(PF - L.y) < 1.5 && Math.hypot(pos.x - (L.x - L.sg * 0.9), pos.z - L.z) < 1.7) {
+      if (L.on) promptEl.innerHTML = '<span class="ok">Рубильник включён</span>';
+      else {
+        if (holdE && performance.now() - L.req > 900) { L.req = performance.now(); if (window.MP && MP.active && MP.socket) MP.socket.emit('leverRequest', { index: i }); else setLever(i, true, false); }
+        promptEl.innerHTML = `Нажмите ${KE()}: включить рубильник [${LEVERS.filter(l => l.on).length}/2]`;
+      }
+      return true;
+    }
+  }
+  if (UPG.shown && UPG.appear >= 0.8 && PF < 2 && Math.hypot(pos.x - (UPG.x - 1.5), pos.z - UPG.z) < 2.0) {
+    const w = WEAPONS[cur];
+    if (UP.on) promptEl.innerHTML = `<span class="ok">Улучшаю оружие…<br>${bar(Math.min(1, UP.t / UPG_TIME))}</span>`;
+    else if (w.up) promptEl.innerHTML = `<span class="ok">${w.name} — уже улучшено</span>`;
+    else {
+      const can = points >= UPG_PRICE;
+      if (holdE && can) upgRequest();
+      promptEl.innerHTML = `Нажмите ${KE()}: улучшить ${w.name} [${UPG_PRICE} очков]` + (can ? '' : ' <span class="no">— не хватает очков</span>');
+    }
+    return true;
+  }
+  return false;
+}
 
 function rebuildNav() {
   NODES.forEach(n => n.n.length = 0);
@@ -3615,8 +3849,8 @@ function requestMPBuy(kind, doorIndex) {
   MP.requestPurchase(kind, doorIndex);
   return true;
 }
-// ---------- MAX AMMO: красный бонус с зомби (шанс 3%), даёт максимум патронов всему оружию ----------
-const DROP_CHANCE = 0.03, DROP_LIFE = 30, DROP_R = 1.3, DROP_LIM = 13.6;
+// ---------- бонусы с зомби: MAX AMMO (красный, шанс 2%) — максимум патронов; DOUBLE POINTS (золотой, шанс 1%) — x2 очки на 25 с ----------
+const DROP_CHANCE = 0.02, DP_CHANCE = 0.01, DP_TIME = 25, DROP_LIFE = 30, DROP_R = 1.3, DROP_LIM = 13.6;
 const drops = []; let dropSeq = 0;
 const dropTex = (() => {
   const [c, g] = cv(128, 128), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
@@ -3627,7 +3861,7 @@ const dropLabelTex = (() => {
   const [c, g] = cv(256, 64); g.font = 'bold 40px Georgia'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 7; g.lineJoin = 'round';
   g.strokeStyle = '#3a0000'; g.strokeText('MAX AMMO', 128, 34); g.fillStyle = '#ff4a3a'; g.fillText('MAX AMMO', 128, 34); return new THREE.CanvasTexture(c);
 })();
-const DM = {
+const DM0 = {
   crystal: new THREE.MeshStandardMaterial({ color: 0xff1a1a, emissive: 0xd00000, emissiveIntensity: 1.3, roughness: 0.15, metalness: 0.35, transparent: true, opacity: 0.9 }),
   core: new THREE.MeshBasicMaterial({ color: 0xffd8b0 }),
   ring: new THREE.MeshBasicMaterial({ color: 0xff3a30, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
@@ -3636,9 +3870,28 @@ const DM = {
   halo: new THREE.SpriteMaterial({ map: dropTex, color: 0xff3020, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
   label: new THREE.SpriteMaterial({ map: dropLabelTex, transparent: true, depthWrite: false })
 };
+const dropTexD = (() => {
+  const [c, g] = cv(128, 128), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,240,150,1)'); gr.addColorStop(0.3, 'rgba(255,190,30,.5)'); gr.addColorStop(1, 'rgba(255,160,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
+})();
+const dropLabelTexD = (() => {
+  const [c, g] = cv(256, 64); g.font = 'bold 32px Georgia'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 7; g.lineJoin = 'round';
+  g.strokeStyle = '#3a2400'; g.strokeText('DOUBLE POINTS', 128, 34); g.fillStyle = '#ffd24a'; g.fillText('DOUBLE POINTS', 128, 34); return new THREE.CanvasTexture(c);
+})();
+const DMD = {
+  crystal: new THREE.MeshStandardMaterial({ color: 0xffc21a, emissive: 0xc08000, emissiveIntensity: 1.3, roughness: 0.15, metalness: 0.35, transparent: true, opacity: 0.9 }),
+  core: new THREE.MeshBasicMaterial({ color: 0xfff2c0 }),
+  ring: new THREE.MeshBasicMaterial({ color: 0xffc030, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+  disc: new THREE.MeshBasicMaterial({ color: 0xffb010, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  beam: new THREE.MeshBasicMaterial({ color: 0xffb81a, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  halo: new THREE.SpriteMaterial({ map: dropTexD, color: 0xffc020, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
+  label: new THREE.SpriteMaterial({ map: dropLabelTexD, transparent: true, depthWrite: false })
+};
 const DG = { crystal: new THREE.OctahedronGeometry(0.26, 0), core: new THREE.OctahedronGeometry(0.12, 0), ring: new THREE.TorusGeometry(0.46, 0.014, 6, 28),
   disc: new THREE.CircleGeometry(0.8, 28), beam: new THREE.CylinderGeometry(0.34, 0.52, 2.4, 14, 1, true) };
-function makeDropModel() {
+function makeDropModel(kind) {
+  const DM = kind === 'double' ? DMD : DM0;
   const root = new THREE.Group(), fl = new THREE.Group(); fl.position.y = 0.95; root.add(fl);
   const cr = new THREE.Mesh(DG.crystal, DM.crystal); cr.scale.y = 1.55; fl.add(cr);
   const co = new THREE.Mesh(DG.core, DM.core); co.scale.y = 1.55; fl.add(co);
@@ -3651,24 +3904,42 @@ function makeDropModel() {
   root.userData = { fl, p1, p2, halo };
   return root;
 }
-function spawnDrop(info) {   // info: { id, x, y, z } — и для одиночной игры, и из сети
+function spawnDrop(info) {   // info: { id, kind ('ammo' | 'double'), x, y, z } — и для одиночной игры, и из сети
   if (!info || drops.some(d => d.id === info.id)) return;
   const x = Math.max(-DROP_LIM, Math.min(DROP_LIM, info.x)), z = Math.max(-DROP_LIM, Math.min(DROP_LIM, info.z));
   let y = Number.isFinite(info.y) ? info.y : 0; try { y = floorAt(x, z, y + 0.6); } catch (e) {}
-  const m = makeDropModel(); m.position.set(x, y, z); scene.add(m);
-  drops.push({ id: info.id, m, x, y, z, t: 0, req: -1 });
+  const kind = info.kind === 'double' ? 'double' : 'ammo';
+  const m = makeDropModel(kind); m.position.set(x, y, z); scene.add(m);
+  drops.push({ id: info.id, kind, m, x, y, z, t: 0, req: -1 });
 }
-function removeDropById(id) { const i = drops.findIndex(d => d.id === id); if (i >= 0) { scene.remove(drops[i].m); drops.splice(i, 1); } }
+let lastRemoved = null;   // какой бонус только что убран (в сети подбор приходит событием сервера)
+function removeDropById(id) { const i = drops.findIndex(d => d.id === id); if (i >= 0) { lastRemoved = { kind: drops[i].kind, t: performance.now() }; scene.remove(drops[i].m); drops.splice(i, 1); } }
 function maybeDropMaxAmmo(z) {   // одиночная игра: бросок кубика при убийстве
-  if (z.menu || Math.random() >= DROP_CHANCE) return;
-  const p = z.g.position; spawnDrop({ id: 'sp' + (++dropSeq), x: p.x, y: p.y, z: p.z });
+  if (z.menu) return;
+  const r = Math.random(), kind = r < DROP_CHANCE ? 'ammo' : (r < DROP_CHANCE + DP_CHANCE ? 'double' : null);
+  if (!kind) return;
+  const p = z.g.position; spawnDrop({ id: 'sp' + (++dropSeq), kind, x: p.x, y: p.y, z: p.z });
+}
+let dpT = 0, dpShown = -1;   // секунд осталось до конца двойных очков
+const dpEl = document.createElement('div');
+dpEl.style.cssText = 'position:fixed;left:28px;bottom:196px;z-index:2;pointer-events:none;display:none;font:700 22px/1 "Courier New",monospace;color:#ffd24a;letter-spacing:.06em;text-shadow:0 0 10px #8a5a00,2px 2px 0 #000';
+document.body.appendChild(dpEl);
+function collectDoublePoints(dur = DP_TIME) {   // x2 очки за убийства и попадания; повторный подбор просто обновляет таймер
+  const fresh = dpT < dur - 1.5; dpT = dur; dpShown = -1;
+  if (fresh) { sfx('dpoints'); pop('DOUBLE POINTS', 'head'); annEl.textContent = 'DOUBLE POINTS'; annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go'); }
 }
 function collectMaxAmmo() {   // всё оружие в инвентаре — полный магазин и максимум запаса
+  if (lastRemoved && lastRemoved.kind === 'double' && performance.now() - lastRemoved.t < 1500) { lastRemoved = null; collectDoublePoints(); return; }   // сетевой подбор золотого бонуса
   for (const i of slots) { if (i < 0) continue; const w = WEAPONS[i]; w.mag = w.magSize; w.reserve = Math.max(w.fullRes, (w.maxReserve || 0) - w.magSize); }
   reloading = false; updateHUD(); sfx('maxammo'); pop('MAX AMMO', 'head');
   annEl.textContent = 'MAX AMMO'; annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
 }
 function dropsUpdate(dt) {
+  if (dpT > 0) {
+    dpT -= dt;
+    if (dpT <= 0) { dpT = 0; dpEl.style.display = 'none'; }
+    else { const sec = Math.ceil(dpT); dpEl.style.display = 'block'; if (sec !== dpShown) { dpShown = sec; dpEl.textContent = '2X ОЧКИ ' + sec; } dpEl.style.opacity = sec <= 5 && Math.floor(dpT * 4) % 2 ? 0.35 : 1; }
+  }
   for (let i = drops.length - 1; i >= 0; i--) {
     const d = drops[i], u = d.m.userData; d.t += dt;
     u.fl.rotation.y += dt * 2.2; u.fl.position.y = 0.95 + Math.sin(d.t * 2.6) * 0.12;
@@ -3679,14 +3950,14 @@ function dropsUpdate(dt) {
     if (left <= 0) { scene.remove(d.m); drops.splice(i, 1); continue; }
     if (!dead && Math.hypot(pos.x - d.x, pos.z - d.z) < DROP_R && Math.abs(PF - d.y) < 1.6) {
       if (window.MP && MP.active) { if (d.t - d.req > 0.6) { d.req = d.t; if (MP.requestDropPickup) MP.requestDropPickup(d.id); } }   // в сети решает сервер
-      else { scene.remove(d.m); drops.splice(i, 1); collectMaxAmmo(); }
+      else { scene.remove(d.m); drops.splice(i, 1); if (d.kind === 'double') collectDoublePoints(); else collectMaxAmmo(); }
     }
   }
 }
 function updateInteract(dt) {
   const T = WEAPONS[1], holdE = !!keys.KeyE, holdR = !!(keys.KeyF || keys.KeyE);
   if (!holdE) buyLock = false;
-  boxUpdate(dt); dropsUpdate(dt);
+  boxUpdate(dt); dropsUpdate(dt); vkUpdate(dt);
   if (window.MP && MP.active && MP.inMultiplayerGame) {   // поднять повалённого союзника: зажать E на 3 секунды рядом с ним
     const ally = MP.players.find(p => p.id !== MP.selfId && p.downed && p.active && Math.hypot(p.x - pos.x, p.z - pos.z) < 2.2 && Math.abs(p.y - pos.y) < 1.6);
     if (ally) {
@@ -3727,6 +3998,7 @@ function updateInteract(dt) {
     }
     repT = 0; buyT = 0; return;
   }
+  if (!dead && vkInteract(holdE)) { repT = 0; buyT = 0; return; }
   if (PF > 3.5 && Math.hypot(pos.x - JUGG.x, pos.z - JUGG.z) < 2.1) {
     if (juggernog) promptEl.innerHTML = '<span class="ok">Джагер Фанта — куплено</span>';
     else {
