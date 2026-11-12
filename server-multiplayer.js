@@ -29,7 +29,7 @@ const WEAPONS = [
   { body: 60, head: 120, interval: 850, pellets: 8 },
   { body: 150, head: 300, interval: 550, pellets: 1 },
   { body: 250, head: 500, interval: 280, pellets: 1 },
-  { body: 865, head: 865, interval: 420, pellets: 24 },
+  { body: 746, head: 746, interval: 650, pellets: 24 },   // Ray Gun (ослаблен в 1.8: было 865 / 420 мс)
   { body: 110, head: 220, interval: 100, pellets: 1 },
   { body: 95, head: 190, interval: 90, pellets: 1 },   // M16A1 (только Mystery Box)
   { body: 55, head: 110, interval: 140, pellets: 2 },  // двойные пистолеты (только Mystery Box): 2 пули за выстрел
@@ -148,8 +148,8 @@ function gamePayload(room) {
     windowBoards: game.windowBoards,
     // Keep the network snapshot gameplay-only. Animation and model variation
     // are generated independently by each client.
-    zombies: game.zombies.map(({ id, x, y, z, vx, vy, vz, speed, yaw, moving, attacking, attackKind, hp, state }) => ({
-      id, x, y, z, vx, vy, vz, speed, yaw, moving, attacking, attackKind, hp, state,
+    zombies: game.zombies.map(({ id, x, y, z, vx, vy, vz, speed, yaw, moving, attacking, attackKind, hp, state, boss }) => ({
+      id, x, y, z, vx, vy, vz, speed, yaw, moving, attacking, attackKind, hp, state, boss,
     })),
     revision: game.revision,
     players: Object.values(room.players).map(p => ({
@@ -294,6 +294,18 @@ io.on('connection', socket => {
     });
   });
 
+  socket.on('bossSpit', ({ zid, x, y, z, vx, vy, vz } = {}) => {   // плевок босса: хост → остальные
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || ctx.room.hostId !== socket.id || !ctx.room.game.started || ![x, y, z, vx, vy, vz].every(Number.isFinite)) return;
+    const now = Date.now();
+    if (now - (ctx.room.lastSpitAt || 0) < 150) return;
+    ctx.room.lastSpitAt = now;
+    socket.to(ctx.room.code).emit('bossSpit', {
+      zid: typeof zid === 'string' ? zid.slice(0, 80) : '',
+      x: clamp(x, -120, 120), y: clamp(y, -20, 40), z: clamp(z, -120, 120),
+      vx: clamp(vx, -40, 40), vy: clamp(vy, -40, 40), vz: clamp(vz, -40, 40),
+    });
+  });
   socket.on('grenadeThrow', ({ nid, x, y, z, vx, vy, vz } = {}) => {
     const ctx = roomAndPlayer(socket);
     if (!ctx || !ctx.room.game.started || !ctx.player.active || ctx.player.downed || typeof nid !== 'string') return;
@@ -327,7 +339,7 @@ io.on('connection', socket => {
     zombie.hp = Math.max(0, zombie.hp - damage);
     const killed = zombie.hp <= 0;
     if (killed) zombie.state = 'dying';
-    const reward = (killed ? (shot.weapon === -1 ? 120 : (head ? 100 : 60)) : 10) * ((room.game.dpUntil || 0) > Date.now() ? 2 : 1);   // Double Points действует на всю комнату
+    const reward = ((killed ? (shot.weapon === -1 ? 120 : (head ? 100 : 60)) : 10) + (killed && zombie.boss ? 500 : 0)) * ((room.game.dpUntil || 0) > Date.now() ? 2 : 1);   // босс «Плевака»: +500 за убийство   // Double Points действует на всю комнату
     player.points += reward;
     let drop = null;
     if (killed) {
@@ -372,10 +384,10 @@ io.on('connection', socket => {
     if (!target || !target.active || target.downed || !zombie || zombie.state === 'dying') return;
     const now = Date.now();
     if (now - (zombie.lastAttackAt || 0) < 450 ||
-        Math.hypot(target.x - zombie.x, target.z - zombie.z) > 1.8 ||
+        Math.hypot(target.x - zombie.x, target.z - zombie.z) > (zombie.boss ? 2.3 : 1.8) ||
         Math.abs((target.y - 1.7) - zombie.y) > 1.8) return;
     zombie.lastAttackAt = now;
-    io.to(playerId).emit('playerHurt', { playerId, zombieId, damage: 25 });
+    io.to(playerId).emit('playerHurt', { playerId, zombieId, damage: zombie.boss ? 45 : 25 });
   });
 
   // ---- повален / поднятие союзником (3 с) ----
@@ -606,7 +618,7 @@ io.on('connection', socket => {
         attackKind: Number.isInteger(z.attackKind) && z.attackKind >= 0 && z.attackKind <= 3
           ? z.attackKind : (previous ? previous.attackKind : 0),
         speed: clamp(finite(z.speed, previous ? previous.speed : 1), 0, 10),
-        hp: clamp(z.hp, 0, 100000), state: z.state,
+        hp: clamp(z.hp, 0, 5000000), state: z.state, boss: z.boss === true,
         updatedAt: now,
         lastAttackAt: previous ? previous.lastAttackAt || 0 : 0,
       };
