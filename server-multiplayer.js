@@ -383,7 +383,7 @@ io.on('connection', socket => {
     if (!target || !target.active || target.downed || !zombie || zombie.state === 'dying') return;
     const now = Date.now();
     if (now - (zombie.lastAttackAt || 0) < 450 ||
-        Math.hypot(target.x - zombie.x, target.z - zombie.z) > (zombie.boss ? 2.3 : 1.8) ||
+        Math.hypot(target.x - zombie.x, target.z - zombie.z) > (zombie.boss ? 2.3 : 1.8) + (room.map === 'verruckt' && Math.hypot(target.x, target.z) < 3.0 ? 1.9 : 0) ||   // в фонтане зомби тянутся через бортик
         Math.abs((target.y - 1.7) - zombie.y) > 1.8) return;
     zombie.lastAttackAt = now;
     io.to(playerId).emit('playerHurt', { playerId, zombieId, damage: zombie.boss ? 45 : 25 });
