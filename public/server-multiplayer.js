@@ -9,6 +9,14 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 4;
+const BAR_MAX = 4000, BAR_BUILD = 1500, BAR_REPAIR = 2000, BAR_CD_MS = 30000;   // баррикады у главных дверей домов (Verrückt), как на клиенте
+// Окна корпусов Verrückt (1 этаж) с металлическими прутьями. Порядок и координаты как VK_WINS на клиенте.
+const VKW_HP = 500, VKW_PRICE = 250, VKW_CD_MS = 30000;
+const VK_WINS = [];
+for (const sg of [-1, 1]) {
+  for (const cz of [-4.2, 4.2]) VK_WINS.push({ x: sg * 6, z: cz });
+  for (const z of [-9, 9]) for (const dx of [-4.3, 0, 4.3]) VK_WINS.push({ x: sg * 13 + dx, z });
+}
 const UPG_PRICE = 5500, UPG_MS = 4200;   // Улучшайзер (Verrückt): цена и время анимации — как на клиенте
 const DROP_CHANCE = 0.02, DP_CHANCE = 0.01, DROP_LIFE_MS = 32000, DP_MS = 25000;   // бонусы при убийстве зомби: MAX AMMO (2%) и DOUBLE POINTS (1%, x2 очки на 25 с)
 const rooms = Object.create(null);
@@ -45,6 +53,7 @@ const MAPS = {
     ],
     wall: { thompson: { x: -14.7, z: 10 }, shotgun: { x: -14.7, z: -11.5 } },
     box: { x: 0.3, z: -13.25, available: dr => !!(dr[0] || dr[2] || dr[4]) },
+    qr: { x: 14.22, z: 8, minY: -1, maxY: 3.2 },
     perks: {
       cola: { x: -14.25, z: 7, minY: -1, maxY: 3.2 },
       doubleTap: { x: -12, z: -14.25, minY: 3.2, maxY: 7.5 },
@@ -58,8 +67,18 @@ const MAPS = {
       { x: -6, z: 0, price: 1000 }, { x: 6, z: 0, price: 1000 },           // главные двери левого/правого дома
     ],   // платный вход на 2 этаж: левый и правый корпус (порядок как в VK_DOORS на клиенте)
     windows: [],
-    wall: { thompson: { x: 31.85, z: 0 }, shotgun: { x: 0, z: 31.85 } },
-    box: { x: 0, z: -9.3, available: () => true },
+    wall: { thompson: { x: -19.8, z: 2.75 }, shotgun: { x: 19.8, z: -2.75 } },   // как WALLBUY / WB2 на клиенте
+    box: { x: 13, z: -21.35, available: dr => !!dr[2] },   // Mystery Box в сарае (VK_SHED.cx, boxZ + d/2); доступен после открытия сарая (дверь 2)
+    // Ящики по индексу «места» (как BOX_SITES на клиенте): 0 — сарай, 1 — левый корпус 2 эт., 2 — правый корпус 2 эт. (после покупки входа на 2 этаж)
+    boxes: [
+      { x: 13, z: -21.35, minY: -1, maxY: 3.2, available: dr => !!dr[2] },
+      { x: -13, z: -5.8, minY: 3.2, maxY: 7.5, available: dr => !!dr[0] },
+      { x: 13, z: -5.8, minY: 3.2, maxY: 7.5, available: dr => !!dr[1] },
+    ],
+    // Баррикады: индекс = doorIndex - 3 (главные двери домов); x — центр баррикады на клиенте
+    barricades: [{ x: -5.35, z: 0, door: 3 }, { x: 5.35, z: 0, door: 4 }],
+    vwindows: VK_WINS,
+    qr: { x: -5.35, z: -4.6, minY: -1, maxY: 3.2 },
     levers: [{ x: -16.3, z: 2.4 }, { x: 16.3, z: 2.4 }],   // рубильники на 2 этаже корпусов (как LEVERS на клиенте)
     upgrader: { x: 30.9, z: -27.6 },   // Улучшайзер в северо-восточном углу двора (как UPG на клиенте)
     perks: {
@@ -103,7 +122,8 @@ function makeRoom(code, hostId, map) {
     game: {
       started: false, round: 0, roundActive: false, toSpawn: 0, nextRoundIn: 0,
       doors: cfg.doors.map(() => false),
-      levers: [false, false], upgBusyUntil: 0,
+      levers: [false, false], upgBusyUntil: 0, barricades: (cfg.barricades || []).map(() => 0), barRepairAt: (cfg.barricades || []).map(() => 0),
+      vwindows: (cfg.vwindows || []).map(() => VKW_HP), vwRepairAt: (cfg.vwindows || []).map(() => 0),
       windowBoards: cfg.windows.map(() => ({ boards: 4, pending: 0 })), zombies: [],
       revision: 0, boxBusyUntil: 0, drops: [], dropSeq: 0,
     },
@@ -120,6 +140,8 @@ function gamePayload(room) {
     nextRoundIn: game.nextRoundIn,
     doors: game.doors.slice(),
     levers: (game.levers || []).slice(),
+    barricades: (game.barricades || []).slice(),
+    vwindows: (game.vwindows || []).slice(),
     windowBoards: game.windowBoards,
     // Keep the network snapshot gameplay-only. Animation and model variation
     // are generated independently by each client.
@@ -398,6 +420,30 @@ io.on('connection', socket => {
       if (!near(player, pk.x, pk.z, 2.8, pk.minY, pk.maxY)) return failPurchase(socket, 'Подойдите к автомату Джагер Фанта');
       if (player.perks.juggernog) return failPurchase(socket, 'Джагер Фанта уже куплено');
       price = 2000;
+    } else if (kind === 'barricade') {
+      const bi = Number(doorIndex) - 3, bc = cfg.barricades && cfg.barricades[bi];
+      if (!bc) return failPurchase(socket, 'Здесь нельзя построить баррикаду');
+      if (!room.game.doors[bc.door]) return failPurchase(socket, 'Сначала откройте дверь');
+      if (!(room.game.round > 6 || (room.game.round === 6 && !room.game.roundActive))) return failPurchase(socket, 'Баррикады доступны после 6 раунда');
+      if (!near(player, bc.x, bc.z, 3.4, -1, 3.2)) return failPurchase(socket, 'Подойдите к баррикаде');
+      const hp = room.game.barricades[bi];
+      if (hp >= BAR_MAX) return failPurchase(socket, 'Баррикада цела');
+      if (hp > 0 && room.game.barRepairAt[bi] > Date.now()) return failPurchase(socket, `Починка доступна через ${Math.ceil((room.game.barRepairAt[bi] - Date.now()) / 1000)} с`);
+      price = hp <= 0 ? BAR_BUILD : BAR_REPAIR;
+      doorIndex = bi + 3;
+    } else if (kind === 'vwindow') {
+      const wi = Number(doorIndex), wc = cfg.vwindows && cfg.vwindows[wi];
+      if (!wc) return failPurchase(socket, 'Здесь нет окна');
+      if (!near(player, wc.x, wc.z, 3.2, -1, 3.2)) return failPurchase(socket, 'Подойдите к окну');
+      const hp = room.game.vwindows[wi];
+      if (hp >= VKW_HP) return failPurchase(socket, 'Окно заварено');
+      if (hp > 0 && room.game.vwRepairAt[wi] > Date.now()) return failPurchase(socket, `Починка окна через ${Math.ceil((room.game.vwRepairAt[wi] - Date.now()) / 1000)} с`);   // целое окно — не чаще раза в 30 с; сломанное — сразу
+      price = VKW_PRICE;
+      doorIndex = wi;
+    } else if (kind === 'quickRevive') {
+      const pk = cfg.qr;
+      if (!pk || !near(player, pk.x, pk.z, 2.8, pk.minY, pk.maxY)) return failPurchase(socket, 'Подойдите к автомату Быстрого возрождения');
+      price = 1500;   // QR_PRICE_ONLINE на клиенте
     } else if (kind === 'thompson' || kind === 'shotgun') {
       const shotgun = kind === 'shotgun';
       const owned = shotgun ? player.owned.shotgun : player.owned.thompson;
@@ -407,9 +453,9 @@ io.on('connection', socket => {
       weaponIndex = shotgun ? 2 : 1;
     } else if (kind === 'box') {
       // в стартовой комнате ящика нет: он появляется в центральном зале после открытия двери (как на клиенте)
-      const boxPos = cfg.box;
+      const boxPos = (cfg.boxes && cfg.boxes[Number(doorIndex) || 0]) || cfg.box;
       if (!boxPos.available(room.game.doors)) return failPurchase(socket, 'Mystery Box пока недоступен');
-      if (!near(player, boxPos.x, boxPos.z, 3.5, -1, 3.2)) return failPurchase(socket, 'Подойдите к Mystery Box');
+      if (!near(player, boxPos.x, boxPos.z, 3.5, boxPos.minY === undefined ? -1 : boxPos.minY, boxPos.maxY === undefined ? 3.2 : boxPos.maxY)) return failPurchase(socket, 'Подойдите к Mystery Box');
       if (room.game.boxBusyUntil > Date.now()) return failPurchase(socket, 'Mystery Box уже используется');
       price = 950;
       boxResult = 1 + Math.floor(Math.random() * 10);
@@ -418,6 +464,8 @@ io.on('connection', socket => {
     player.points -= price;
     if (kind === 'box') room.game.boxBusyUntil = Date.now() + 3800;
     if (kind === 'door') room.game.doors[doorIndex] = true;
+    if (kind === 'vwindow') { room.game.vwindows[doorIndex] = VKW_HP; room.game.vwRepairAt[doorIndex] = Date.now() + VKW_CD_MS; }
+    if (kind === 'barricade') { if (room.game.barricades[doorIndex - 3] > 0) room.game.barRepairAt[doorIndex - 3] = Date.now() + BAR_CD_MS; room.game.barricades[doorIndex - 3] = BAR_MAX; }
     if (kind === 'cola') player.perks.cola = true;
     if (kind === 'doubleTap') player.perks.doubleTap = true;
     if (kind === 'juggernog') player.perks.juggernog = true;
@@ -431,6 +479,27 @@ io.on('connection', socket => {
       playerId: socket.id, kind, doorIndex, price, weaponIndex, boxResult,
     });
     sendGame(room);
+  });
+
+  // Зомби ломают баррикаду: урон присылает только ведущий клиент (он ведёт ИИ зомби), пачками
+  socket.on('barricadeHit', ({ index, dmg } = {}) => {
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || ctx.room.hostId !== socket.id || !ctx.room.game.started) return;
+    index = Number(index); dmg = Math.min(200, Math.max(0, Number(dmg) || 0));
+    const arr = ctx.room.game.barricades;
+    if (!arr || !(index >= 0 && index < arr.length) || arr[index] <= 0) return;
+    arr[index] = Math.max(0, arr[index] - dmg);
+    sendGame(ctx.room);
+  });
+
+  socket.on('vwindowHit', ({ index, dmg } = {}) => {
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || ctx.room.hostId !== socket.id || !ctx.room.game.started) return;
+    index = Number(index); dmg = Math.min(200, Math.max(0, Number(dmg) || 0));
+    const arr = ctx.room.game.vwindows;
+    if (!arr || !(index >= 0 && index < arr.length) || arr[index] <= 0) return;
+    arr[index] = Math.max(0, arr[index] - dmg);
+    sendGame(ctx.room);
   });
 
   // ---------- Verrückt: рубильники и Улучшайзер ----------
