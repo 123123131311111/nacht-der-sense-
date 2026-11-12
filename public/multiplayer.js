@@ -129,7 +129,8 @@
     });
     socket.on('playerShot', shot => {
       if (!shot || shot.id === selfId) return;
-      if (typeof shotSnd === 'function') shotSnd(shot.weapon);
+      if (shot.weapon === -2) { if (typeof playSfxAt === 'function' && Number.isFinite(shot.x) && Number.isFinite(shot.z)) playSfxAt('nboom', shot.x, shot.z, 70, 1, 0, 1); }   // взрыв чужой гранаты
+      else if (typeof shotSnd === 'function') shotSnd(shot.weapon);
       const player = remote[shot.id];
       if (player && player.muzzleLight) {
         player.muzzleLight.color.setHex(shot.weapon === 5 ? 0x45ff64 : 0xffa030);
