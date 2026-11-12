@@ -29,13 +29,14 @@ const WEAPONS = [
   { body: 60, head: 120, interval: 850, pellets: 8 },
   { body: 150, head: 300, interval: 550, pellets: 1 },
   { body: 250, head: 500, interval: 280, pellets: 1 },
-  { body: 746, head: 746, interval: 650, pellets: 24 },   // Ray Gun (ослаблен в 1.8: было 865 / 420 мс)
+  { body: 555, head: 555, interval: 850, pellets: 24 },   // Ray Gun (1.14: 555 / 850 мс; 1.8: 746 / 650; изначально 865 / 420)
   { body: 110, head: 220, interval: 100, pellets: 1 },
   { body: 95, head: 190, interval: 90, pellets: 1 },   // M16A1 (только Mystery Box)
   { body: 55, head: 110, interval: 140, pellets: 2 },  // двойные пистолеты (только Mystery Box): 2 пули за выстрел
   { body: 85, head: 170, interval: 100, pellets: 1 },  // MP40 (только Mystery Box)
   { body: 105, head: 210, interval: 85, pellets: 1 },  // STG-44 (только Mystery Box)
   { body: 70, head: 140, interval: 60, pellets: 1 },   // MP5SD (только Mystery Box)
+  { body: 72, head: 144, interval: 320, pellets: 8 },  // SPAS-12 (только Mystery Box): полуавтомат, 8 дробин
 ];
 // Всё, что привязано к карте. Порядок дверей и окон ОБЯЗАН совпадать с клиентом (index.html).
 // windows: [x, z, y] — центр окна на стене и высота глаз игрока на этом этаже.
@@ -324,11 +325,11 @@ io.on('connection', socket => {
     const { room, player } = ctx;
     const shot = player.shots[shotId];
     if (!shot || Date.now() - shot.at > 3000 || shot.hits >= shot.maxHits ||
-        (shot.weapon !== 2 && shot.weapon !== 8 && shot.hitIds.has(zombieId))) return;
+        (shot.weapon !== 2 && shot.weapon !== 8 && shot.weapon !== 12 && shot.hitIds.has(zombieId))) return;
     const zombie = room.game.zombies.find(z => z.id === zombieId);
     if (!zombie || zombie.state === 'dying' || !(shot.weapon === -1 || shot.weapon === -2 || WEAPONS[shot.weapon])) return;
     shot.hits++;
-    if (shot.weapon !== 2 && shot.weapon !== 8) shot.hitIds.add(zombieId);
+    if (shot.weapon !== 2 && shot.weapon !== 8 && shot.weapon !== 12) shot.hitIds.add(zombieId);
     const weapon = shot.weapon === -2 ? { body: 800 * Math.max(0.35, Math.min(1, Number(scale) || 0.35)), head: 800 * Math.max(0.35, Math.min(1, Number(scale) || 0.35)) }   // граната: урон 800 в центре, не меньше 35% на краю
       : shot.weapon === -1
       ? (room.game.round <= 3 ? { body: 100000, head: 100000 } : { body: Math.max(10, 150 * Math.pow(0.8, room.game.round - 3)), head: Math.max(10, 150 * Math.pow(0.8, room.game.round - 3)) })   // нож: до 3 раунда с 1 удара, дальше слабее
@@ -506,7 +507,7 @@ io.on('connection', socket => {
       if (!near(player, boxPos.x, boxPos.z, 3.5, boxPos.minY === undefined ? -1 : boxPos.minY, boxPos.maxY === undefined ? 3.2 : boxPos.maxY)) return failPurchase(socket, 'Подойдите к Mystery Box');
       if (room.game.boxBusyUntil > Date.now()) return failPurchase(socket, 'Mystery Box уже используется');
       price = 950;
-      boxResult = 1 + Math.floor(Math.random() * 11);
+      boxResult = 1 + Math.floor(Math.random() * 12);
     } else return failPurchase(socket, 'Неизвестная покупка');
     if (player.points < price) return failPurchase(socket, 'Не хватает очков');
     player.points -= price;
