@@ -133,7 +133,7 @@
       const player = remote[shot.id];
       if (player && player.muzzleLight) {
         player.muzzleLight.color.setHex(shot.weapon === 5 ? 0x45ff64 : 0xffa030);
-        player.muzzleLight.intensity = 2.5;
+        player.muzzleLight.intensity = 2.5; player.kick = 1;
         setTimeout(() => { if (player.muzzleLight) player.muzzleLight.intensity = 0; }, 90);
       }
       showShotTrace(shot);
@@ -145,7 +145,7 @@
       }
       const r = remote[d.id]; if (!r) return;
       if (!r.active) { r.active = true; r.group.position.set(d.x, d.y - EYE_HEIGHT, d.z); }   // первое появление — без «пролёта»
-      r.target = { x: d.x, y: d.y, z: d.z, yaw: d.yaw };
+      r.target = { x: d.x, y: d.y, z: d.z, yaw: d.yaw, pitch: Number.isFinite(d.pitch) ? d.pitch : 0 };
     });
   }
 
@@ -184,6 +184,7 @@
       started = true;
       const previousRound = round;
       round = state.round || round;
+      if (round !== previousRound && typeof nades !== 'undefined') nades = NADE_PER_ROUND;   // новый раунд — снова 2 гранаты
       roundActive = !!state.roundActive;
       toSpawn = state.toSpawn || 0;
       roundEl.textContent = round ? 'ROUND ' + round : '';
@@ -364,9 +365,9 @@
     return true;
   }
 
-  function requestHit(zombie, head, shotId) {
+  function requestHit(zombie, head, shotId, scale) {
     if (!socket || !socket.connected || !roomCode || !zombie || !zombie.mpId || !shotId) return;
-    socket.emit('zombieHit', { zombieId: zombie.mpId, head: !!head, shotId });
+    socket.emit('zombieHit', { zombieId: zombie.mpId, head: !!head, shotId, scale: Number.isFinite(scale) ? scale : undefined });
   }
 
   function requestPlayerHit(playerId, zombieId) {
@@ -494,19 +495,68 @@
     spr.scale.set(1.6, 0.4, 1); spr.position.y = 1.95; spr.renderOrder = 10;
     return spr;
   }
+  // Солдат из простых форм: ботинки, штаны, жилет в цвете игрока, каска, лицо, руки с винтовкой. Начало координат — ступни, «вперёд» = -Z.
   function createAvatar(p) {
-    const group = new THREE.Group();                  // начало координат = ступни
-    const mat = new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.8 });
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.2, 12), mat); body.position.y = 0.8; group.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), mat); head.position.y = 1.55; group.add(head);
-    const gun = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.6), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-    gun.position.set(0.25, 1.25, -0.4); group.add(gun);
-    const muzzleLight = new THREE.PointLight(0xffa030, 0, 2);
-    muzzleLight.position.set(0.25, 1.25, -0.76); group.add(muzzleLight);
+    const group = new THREE.Group();
+    const team = new THREE.Color(p.color);
+    const std = (c, r = 0.85, mt = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: mt });
+    const mSkin = std(0xc8a07c, 0.75), mCloth = std(0x3d4030), mClothD = std(0x2c2e22), mVest = std(team.clone().multiplyScalar(0.62), 0.7),
+          mBoot = std(0x141210, 0.9), mHelm = std(0x4a5232, 0.6), mBand = new THREE.MeshStandardMaterial({ color: team, roughness: 0.5, emissive: team.clone().multiplyScalar(0.35) }),
+          mGun = std(0x1d1d1f, 0.45, 0.6), mWood = std(0x5a3c24, 0.8), mPack = std(0x2f3322), mEye = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
+    const box = (w, h, d, mat, x, y, z, par) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); o.position.set(x, y, z); (par || group).add(o); return o; };
+    const cyl = (r0, r1, h, mat, x, y, z, par, seg = 8) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, h, seg), mat); o.position.set(x, y, z); (par || group).add(o); return o; };
+
+    // ноги: шарнир в бедре (y = 0.92), качаются при ходьбе
+    const legs = [-1, 1].map(sd => {
+      const leg = new THREE.Group(); leg.position.set(sd * 0.13, 0.92, 0); group.add(leg);
+      cyl(0.085, 0.07, 0.46, mCloth, 0, -0.24, 0, leg);              // бедро
+      cyl(0.07, 0.065, 0.4, mClothD, 0, -0.64, 0, leg);              // голень
+      box(0.13, 0.1, 0.27, mBoot, 0, -0.86, -0.04, leg);             // ботинок
+      return leg;
+    });
+    // торс
+    const torso = new THREE.Group(); torso.position.y = 0.92; group.add(torso);
+    box(0.44, 0.1, 0.25, mClothD, 0, 0.04, 0, torso);                // ремень
+    box(0.46, 0.5, 0.27, mCloth, 0, 0.32, 0, torso);                 // куртка
+    box(0.47, 0.36, 0.29, mVest, 0, 0.4, -0.005, torso);             // жилет в цвете игрока
+    box(0.1, 0.1, 0.05, mClothD, -0.12, 0.2, -0.16, torso); box(0.1, 0.1, 0.05, mClothD, 0.12, 0.2, -0.16, torso);   // подсумки
+    box(0.34, 0.4, 0.14, mPack, 0, 0.34, 0.21, torso);               // рюкзак
+    box(0.38, 0.1, 0.16, mPack, 0, 0.58, 0.2, torso);                // скатка
+    // верх тела (голова, руки, оружие) — наклоняется по взгляду вокруг плеч
+    const aim = new THREE.Group(); aim.position.set(0, 0.92 + 0.5, 0); group.add(aim);
+    cyl(0.055, 0.06, 0.08, mSkin, 0, 0.06, 0, aim);                  // шея
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 14, 12), mSkin); head.scale.set(0.92, 1.05, 1); head.position.set(0, 0.2, 0); aim.add(head);
+    box(0.034, 0.022, 0.012, mEye, -0.045, 0.21, -0.108, aim); box(0.034, 0.022, 0.012, mEye, 0.045, 0.21, -0.108, aim);   // глаза
+    const helm = new THREE.Mesh(new THREE.SphereGeometry(0.135, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), mHelm); helm.position.set(0, 0.22, 0.005); helm.scale.set(1.05, 1, 1.1); aim.add(helm);
+    cyl(0.152, 0.152, 0.018, mHelm, 0, 0.215, 0, aim, 16).scale.set(1, 1, 1.12);   // поля каски
+    box(0.2, 0.026, 0.02, mBand, 0, 0.255, -0.14, aim);              // повязка в цвете игрока на каске
+    // руки: плечо → кисть у оружия
+    const arm = (sd, hand) => {
+      const sh = new THREE.Vector3(sd * 0.26, -0.04, 0), d = new THREE.Vector3().subVectors(hand, sh), L = d.length();
+      const o = cyl(0.058, 0.048, L, mCloth, 0, 0, 0, aim, 7); o.position.copy(sh).addScaledVector(d, 0.5);
+      o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
+      const hnd = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), mSkin); hnd.position.copy(hand); aim.add(hnd);
+    };
+    // оружие — отдельная группа (для отдачи), центр у правой кисти
+    const gun = new THREE.Group(); gun.position.set(0.1, -0.22, -0.28); aim.add(gun);
+    box(0.06, 0.11, 0.34, mGun, 0, 0, -0.02, gun);                   // ствольная коробка
+    cyl(0.017, 0.017, 0.4, mGun, 0, 0.025, -0.4, gun, 6).rotation.x = Math.PI / 2;   // ствол
+    box(0.05, 0.07, 0.3, mWood, 0, -0.01, 0.3, gun);                 // приклад
+    box(0.045, 0.16, 0.06, mGun, 0, -0.12, -0.04, gun);              // магазин
+    box(0.04, 0.09, 0.05, mWood, 0, -0.08, 0.1, gun);                // рукоять
+    arm(1, new THREE.Vector3(0.1, -0.24, -0.2));                     // правая — на рукояти
+    arm(-1, new THREE.Vector3(0.08, -0.2, -0.46));                   // левая — под цевьём
+    const muzzleLight = new THREE.PointLight(0xffa030, 0, 3);
+    muzzleLight.position.set(0.1, -0.2, -0.95); aim.add(muzzleLight);
+    const flash = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffc060, transparent: true, opacity: 0, depthWrite: false }));
+    flash.position.set(0.1, -0.2, -0.95); aim.add(flash);
+    // кольцо под ногами в цвете игрока — видно издалека
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.38, 0.46, 24), new THREE.MeshBasicMaterial({ color: team, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; group.add(ring);
     group.add(makeLabel(p.name));
     group.visible = false;                            // покажем, когда игрок реально войдёт в игру
     scene.add(group);
-    remote[p.id] = { group, muzzleLight, active: false, target: { x: 0, y: EYE_HEIGHT, z: 0, yaw: 0 } };
+    remote[p.id] = { group, muzzleLight, flash, legs, torso, aim, gun, kick: 0, phase: 0, active: false, target: { x: 0, y: EYE_HEIGHT, z: 0, yaw: 0, pitch: 0 } };
   }
   function removeAvatar(id) {
     const r = remote[id]; if (!r) return;
@@ -516,17 +566,32 @@
   }
   function clearRemote() { Object.keys(remote).forEach(removeAvatar); }
 
-  // Плавное движение чужих аватаров.
+  // Плавное движение чужих аватаров + походка (по реальной скорости), наклон по взгляду, отдача при выстреле.
   (function smooth() {
     requestAnimationFrame(smooth);
     for (const id in remote) {
       const r = remote[id], t = r.target, g = r.group;
       if (!r.active) continue;
+      const px = g.position.x, pz = g.position.z;
       g.position.x += (t.x - g.position.x) * 0.25;
       g.position.y += ((t.y - EYE_HEIGHT) - g.position.y) * 0.25;
       g.position.z += (t.z - g.position.z) * 0.25;
       let dy = t.yaw - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * 0.25;
       g.visible = !menuOn;
+      if (!r.legs) continue;
+      const sp = Math.hypot(g.position.x - px, g.position.z - pz) * 60;          // м/с при ~60 кадрах/с
+      const k = Math.min(1, sp / 4);
+      r.phase += Math.min(sp, 9) * 0.045 + 0.0;
+      const sw = Math.sin(r.phase) * 0.75 * k;
+      r.legs[0].rotation.x = sw; r.legs[1].rotation.x = -sw;
+      r.torso.position.y = 0.92 + Math.abs(Math.sin(r.phase)) * 0.025 * k;
+      r.aim.position.y = r.torso.position.y + 0.5;
+      const pitch = Math.max(-0.9, Math.min(0.9, t.pitch || 0));
+      r.aim.rotation.x += (pitch - r.aim.rotation.x) * 0.3;
+      r.aim.rotation.z = Math.sin(r.phase) * 0.03 * k;
+      if (r.kick > 0) r.kick = Math.max(0, r.kick - 0.12);
+      r.gun.position.z = -0.28 + r.kick * 0.06; r.gun.rotation.x = r.kick * 0.1;
+      r.flash.material.opacity = r.kick > 0.6 ? 0.9 : 0;
     }
   })();
 

@@ -126,7 +126,7 @@ body.playing::after{content:"";position:fixed;inset:0;pointer-events:none;z-inde
 #perks b{border-radius:3px;font-size:12px;background:rgba(10,60,22,.8)}
 #inter{font-size:18px;color:#a99}
 /* ===== главное меню ===== */
-body.menu #cross,body.menu #knife,body.menu #ammo,body.menu #round,body.menu #points,body.menu #hpbar,body.menu #prompt,body.menu #perks,body.menu #pops,body.menu #rring{display:none}
+body.menu #cross,body.menu #knife,body.menu #nade,body.menu #ammo,body.menu #round,body.menu #points,body.menu #hpbar,body.menu #prompt,body.menu #perks,body.menu #pops,body.menu #rring{display:none}
 #info{align-items:stretch;justify-content:flex-start;text-align:left;cursor:default;padding:0;color:#cfc8c0;background:linear-gradient(90deg,rgba(0,0,0,.9) 0%,rgba(0,0,0,.66) 36%,rgba(0,0,0,.04) 72%),radial-gradient(ellipse at 68% 50%,transparent 40%,rgba(0,0,0,.7) 100%)}
 #info.pause{background:rgba(0,0,0,.8)}
 #info:after{display:none}
@@ -156,6 +156,10 @@ body.menu #cross,body.menu #knife,body.menu #ammo,body.menu #round,body.menu #po
 #knife{position:fixed;left:50%;bottom:46px;transform:translateX(-50%);z-index:2;pointer-events:none;font:700 14px "Courier New",monospace;letter-spacing:.12em;color:#ddd;text-shadow:1px 1px 0 #000;padding:3px 10px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);white-space:nowrap}
 #knife.cd{color:#e55}#knife .kb{display:inline-block;width:70px;height:6px;background:#300;margin-left:8px;vertical-align:middle}#knife .kb i{display:block;height:100%;background:#7dff6a}
 body.touch #knife{bottom:32px}
+#nade{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:2;pointer-events:none;font:700 14px "Courier New",monospace;letter-spacing:.12em;color:#c9e08a;text-shadow:1px 1px 0 #000;padding:3px 10px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);white-space:nowrap}
+#nade.cd,#nade.empty{color:#e55}
+body.touch #nade{bottom:64px}
+#tNade{right:calc(env(safe-area-inset-right) + var(--u)*214px);bottom:calc(env(safe-area-inset-bottom) + var(--u)*112px);width:calc(var(--u)*52px);height:calc(var(--u)*52px);font-size:calc(var(--u)*11px)}
 #tKnife{right:calc(env(safe-area-inset-right) + var(--u)*214px);bottom:calc(env(safe-area-inset-bottom) + var(--u)*48px);width:calc(var(--u)*56px);height:calc(var(--u)*56px);font-size:calc(var(--u)*12px)}
 /* ===== мультиплеер: выбор режима и лобби ===== */
 #menu[data-view=mode] #mainBtns,#menu[data-view=maps] #mainBtns,#menu[data-view=mp] #mainBtns,#menu[data-view=lobby] #mainBtns{display:none}
@@ -234,20 +238,58 @@ body.touch #menuFoot{display:none}
 .pcard>b{font:700 16px Georgia,serif;letter-spacing:.1em;color:var(--c);margin-right:10px}
 .pcard p{margin:6px 0 0;padding:0;border:0}
 @media (max-height:480px){.hbody{max-height:calc(100vh - 150px)}.mimg{display:none}#menuFoot{display:none}}
+
+/* ===== меню v2: стеклянная панель, градиентный логотип, скошенные кнопки, угольки ===== */
+#embers{display:none;position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+body.menu #embers{display:block}
+#menu{position:relative;z-index:1}
+@media (min-width:700px){#menu::before{content:"";position:absolute;left:clamp(10px,3.4vw,56px);top:6%;bottom:6%;width:2px;background:linear-gradient(transparent,#b01515 30%,#b01515 70%,transparent);opacity:.55}}
+#info h1.logo{background:linear-gradient(180deg,#ff6a45 0%,#d11c1c 42%,#5e0808 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;text-shadow:none;filter:drop-shadow(0 0 20px rgba(210,25,10,.5)) drop-shadow(3px 3px 0 #000);letter-spacing:.05em}
+#info h1.logo small{-webkit-text-fill-color:#9a948c;background:none;filter:none}
+.mb{position:relative;overflow:hidden;clip-path:polygon(0 0,100% 0,calc(100% - 16px) 100%,0 100%);background:linear-gradient(90deg,rgba(30,12,12,.82),rgba(14,8,8,.6));border-color:#3a1a1a;transition:padding .18s,background .18s,color .18s,border-color .18s,transform .12s}
+.mb::before{content:"";position:absolute;top:0;bottom:0;left:-60%;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.14),transparent);transform:skewX(-20deg);transition:left .5s}
+.mb:hover::before,.mb:focus-visible::before{left:130%}
+.mb::after{content:"›";position:absolute;right:26px;top:50%;transform:translate(-8px,-52%);font-size:1.3em;opacity:0;color:#fff;transition:.18s}
+.mb:hover::after,.mb:focus-visible::after{opacity:.85;transform:translate(0,-52%)}
+.mb:active{transform:scale(.985)}
+.mb.big{background:linear-gradient(90deg,rgba(150,14,14,.92),rgba(92,8,8,.8));animation:bigGlow 2.6s ease-in-out infinite}
+@keyframes bigGlow{50%{filter:brightness(1.3)}}
+.mb.back{background:rgba(12,8,8,.55);color:#a8a29a}
+#mainBtns .mb{animation-name:mbIn;animation-duration:.45s;animation-fill-mode:both}
+#mainBtns .mb.big{animation:mbIn .45s both,bigGlow 2.6s ease-in-out .5s infinite}
+#mainBtns .mb:nth-child(2){animation-delay:.08s}#mainBtns .mb:nth-child(3){animation-delay:.16s}#mainBtns .mb:nth-child(4){animation-delay:.24s}
+@keyframes mbIn{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+#menu .panel{padding:18px 20px 16px;background:linear-gradient(180deg,rgba(18,8,8,.72),rgba(8,4,4,.6));-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);border:1px solid #2e1515;border-top:2px solid #9a1818;box-shadow:0 12px 40px rgba(0,0,0,.55)}
+#menu h2{display:flex;align-items:center;gap:10px}
+#menu h2::before{content:"";width:9px;height:9px;background:#d22;transform:rotate(45deg);box-shadow:0 0 10px #d22;flex:none}
+#menu input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:20px}
+#menu input[type=range]::-webkit-slider-runnable-track{height:4px;background:linear-gradient(90deg,#8a1616,#3a1a1a);border-radius:2px}
+#menu input[type=range]::-moz-range-track{height:4px;background:linear-gradient(90deg,#8a1616,#3a1a1a);border-radius:2px}
+#menu input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;margin-top:-6px;border-radius:50%;background:#e33;border:2px solid #fff;box-shadow:0 0 10px rgba(240,40,40,.8)}
+#menu input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:#e33;border:2px solid #fff}
+#menuFoot{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:24px}
+#menuFoot .kb{display:inline-block;min-width:18px;padding:1px 6px;margin-right:5px;text-align:center;font:700 11px "Courier New",monospace;color:#e8e0d4;background:#1a0f0f;border:1px solid #4a2222;border-bottom-width:2px;border-radius:3px}
+#menuFoot .ft{flex:0 0 100%;color:#5a554e;letter-spacing:.1em}
+.lp{background:linear-gradient(90deg,rgba(30,12,12,.8),rgba(14,8,8,.5));border:1px solid #2e1515;border-left:4px solid #8a1616}
+.lp i{box-shadow:0 0 10px currentColor,0 0 0 2px rgba(255,255,255,.25)}
+.pcard{background:linear-gradient(90deg,rgba(30,12,12,.7),rgba(12,6,6,.5))}
+.tabs button.on{box-shadow:0 0 14px rgba(220,30,30,.35)}
+@media (max-height:480px){.mb{clip-path:none}.mb::after{display:none}#menuFoot{display:none}}
+@media (prefers-reduced-motion:reduce){.mb.big,#mainBtns .mb,#mainBtns .mb.big{animation:none}}
 </style>
 </head>
 <body class="menu">
 <div id="cross"><span class="sr"></span><b class="u"></b><b class="d"></b><b class="l"></b><b class="r"></b><i></i><span class="hx p"></span><span class="hx q"></span></div>
 <svg id="rring" viewBox="0 0 56 56"><circle class="trk" cx="28" cy="28" r="24"/><circle class="prg" cx="28" cy="28" r="24" transform="rotate(-90 28 28)" stroke-dasharray="150.8" stroke-dashoffset="150.8"/></svg>
-<div id="ammo"></div><div id="knife"></div>
+<div id="ammo"></div><div id="knife"></div><div id="nade"></div>
 <div id="round"></div><div id="points"></div><div id="pops"></div><div id="prompt"></div><div id="hpbar"><div></div></div><div id="hurt"></div><div id="announce"></div><div id="inter"></div><div id="perks"></div>
 <div id="over"></div>
-<div id="info"><div id="menu" data-view="main">
+<div id="info"><canvas id="embers"></canvas><div id="menu" data-view="main">
 <h1 class="logo"><small>ЗОМБИ · ВЫЖИВАНИЕ</small>NACHT<br>DER BUNKER</h1>
 <p id="infoMsg">Продержись как можно дольше</p>
 <div id="mapBadge">КАРТА: <b id="mapBadgeName"></b></div>
 <div id="mainBtns"><button class="mb big" id="bPlay">▶ ИГРАТЬ</button><button class="mb" id="bSet">⚙ НАСТРОЙКА</button><button class="mb" id="bHelp">? ПОМОЩЬ</button><button class="mb" id="bExit">✕ ВЫЙТИ В МЕНЮ</button></div>
-<div id="menuFoot">E — купить / открыть · V — нож · Esc — пауза<br>Слабый ПК? Уменьшите яркость и контраст в настройках.</div>
+<div id="menuFoot"><span><span class="kb">E</span>купить / открыть</span><span><span class="kb">R</span>перезарядка</span><span><span class="kb">V</span>нож</span><span><span class="kb">G</span>граната</span><span><span class="kb">Esc</span>пауза</span><span class="ft">Слабый ПК? Уменьшите яркость и контраст в настройках.</span></div>
 <div class="panel" id="pSet"><h2>НАСТРОЙКА</h2>
 <div class="sec">УПРАВЛЕНИЕ</div>
 <div class="row"><span>Устройство</span><div id="devs"><button id="devPc">🖥 ПК</button><button id="devTouch">📱 ТЕЛЕФОН</button></div></div>
@@ -281,7 +323,7 @@ body.touch #menuFoot{display:none}
 <div class="panel" id="pHelp"><h2>ПОМОЩЬ</h2>
 <div class="tabs" id="helpTabs"><button class="on" data-t="ctl">УПРАВЛЕНИЕ</button><button data-t="nacht">NACHT</button><button data-t="vk">VERRÜCKT</button><button data-t="perk">ПЕРКИ</button></div>
 <div class="hbody">
-<div class="ht on" id="ht-ctl"><div id="helpPc"><p><b>WASD</b> — движение · <b>Shift</b> — бег · <b>Space</b> — прыжок · <b>ЛКМ</b> — стрельба · <b>R</b> — перезарядка · <b>V</b> — нож (перезарядка 2 с, убивает всех перед вами) · <b>Esc</b> — пауза</p><p>Инвентарь: 2 слота. 1 / 2 / колёсико мыши — смена оружия. Новое оружие при полном инвентаре заменяет то, что в руках.</p><p><b>E</b> (удерживать) — купить, открыть дверь, починить. <b>F</b> / <b>E</b> у окна на Nacht — чинить доски. Зажать <b>E</b> рядом с лежащим союзником на 3 секунды — поднять его.</p><p>Бонусы с зомби: красный <b>MAX AMMO</b> — полный боезапас, золотой <b>DOUBLE POINTS</b> — очки ×2 на 25 секунд. Цельтесь в голову!</p></div><div id="helpTouch"><p>Левый палец — стик движения (выведите палец за круг — бег) · правый палец — поворот камеры</p><p>ОГОНЬ — стрельба (держите кнопку и ведите пальцем — камера поворачивается) · ПРЫЖОК · ПЕРЕЗАР. · СМЕНА — смена оружия · ⏸ — пауза · НОЖ — удар ножом (раз в 2 с, убивает всех перед вами)</p><p>КУПИТЬ (удерживать) у Mystery Box, стен с оружием и автоматов. На Nacht также можно открывать двери и чинить окна.</p><p>Цельтесь в голову; на Verrückt зомби входят через два прохода в ограде.</p></div></div>
+<div class="ht on" id="ht-ctl"><div id="helpPc"><p><b>WASD</b> — движение · <b>Shift</b> — бег · <b>Space</b> — прыжок · <b>ЛКМ</b> — стрельба · <b>R</b> — перезарядка · <b>V</b> — нож (перезарядка 0,5 с, убивает всех перед вами) · <b>G</b> — осколочная граната (2 за раунд) · <b>Esc</b> — пауза</p><p>Инвентарь: 2 слота. 1 / 2 / колёсико мыши — смена оружия. Новое оружие при полном инвентаре заменяет то, что в руках.</p><p><b>E</b> (удерживать) — купить, открыть дверь, починить. <b>F</b> / <b>E</b> у окна на Nacht — чинить доски. Зажать <b>E</b> рядом с лежащим союзником на 3 секунды — поднять его.</p><p>Бонусы с зомби: красный <b>MAX AMMO</b> — полный боезапас, золотой <b>DOUBLE POINTS</b> — очки ×2 на 25 секунд. Цельтесь в голову!</p></div><div id="helpTouch"><p>Левый палец — стик движения (выведите палец за круг — бег) · правый палец — поворот камеры</p><p>ОГОНЬ — стрельба (держите кнопку и ведите пальцем — камера поворачивается) · ПРЫЖОК · ПЕРЕЗАР. · СМЕНА — смена оружия · ⏸ — пауза · НОЖ — удар ножом (раз в 2 с, убивает всех перед вами)</p><p>КУПИТЬ (удерживать) у Mystery Box, стен с оружием и автоматов. На Nacht также можно открывать двери и чинить окна.</p><p>Цельтесь в голову; на Verrückt зомби входят через два прохода в ограде.</p></div></div>
 <div class="ht" id="ht-nacht">
 <div class="mimg"><img src="maps/nacht.jpg" alt=""><b>NACHT DER UNTOTEN</b></div>
 <p class="lead">Бункер в два этажа с круговой лестницей в центре. Зомби лезут через окна — доски на них нужно чинить.</p>
@@ -367,6 +409,31 @@ body.touch #menuFoot{display:none}
 })();
 </script>
 <script>
+// ---------- угольки на фоне главного меню (рисуются только пока открыто меню) ----------
+(function () {
+  const cv = document.getElementById('embers'); if (!cv) return;
+  const g = cv.getContext('2d'); let W = 0, H = 0, P = [];
+  const rs = () => { W = cv.width = innerWidth; H = cv.height = innerHeight; };
+  rs(); addEventListener('resize', rs);
+  const mkP = (init) => ({ x: Math.random() * W, y: init ? Math.random() * H : H + 10, r: 0.8 + Math.random() * 2.2, vy: 18 + Math.random() * 40, ph: Math.random() * 6.28, sw: 10 + Math.random() * 26, a: 0.35 + Math.random() * 0.6 });
+  for (let i = 0; i < 48; i++) P.push(mkP(true));
+  let last = performance.now();
+  (function loop(t) {
+    requestAnimationFrame(loop);
+    const dt = Math.min(0.05, (t - last) / 1000); last = t;
+    if (!document.body.classList.contains('menu') || document.hidden) return;
+    g.clearRect(0, 0, W, H); g.globalCompositeOperation = 'lighter';
+    for (const p of P) {
+      p.y -= p.vy * dt; p.ph += dt * 1.4; p.x += Math.sin(p.ph) * p.sw * dt;
+      if (p.y < -10) Object.assign(p, mkP(false));
+      const k = Math.max(0, Math.min(1, p.y / H)), a = p.a * (0.25 + 0.75 * k);
+      const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 5);
+      gr.addColorStop(0, `rgba(255,${150 + (k * 90) | 0},60,${a})`); gr.addColorStop(1, 'rgba(255,60,10,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, p.r * 5, 0, 6.283); g.fill();
+    }
+  })(performance.now());
+})();
+
 // ---------- сцена ----------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0c0b0a);   // тёмный нейтральный фон (без синего)
@@ -642,20 +709,20 @@ function vkGrassTex() {
   if (VK_GRASS_TEX) return VK_GRASS_TEX;
   const S = 512, mk = () => { const c = document.createElement('canvas'); c.width = c.height = S; return c; };
   const c = mk(), g = c.getContext('2d'), hc = mk(), hg = hc.getContext('2d'), R = Math.random;
-  g.fillStyle = '#3f7d2a'; g.fillRect(0, 0, S, S); hg.fillStyle = '#808080'; hg.fillRect(0, 0, S, S);
+  g.fillStyle = '#1d3a15'; g.fillRect(0, 0, S, S); hg.fillStyle = '#808080'; hg.fillRect(0, 0, S, S);
   const wrap = (x, y, r, fn) => { for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) { if (x + dx > -r && x + dx < S + r && y + dy > -r && y + dy < S + r) fn(x + dx, y + dy); } };
   for (let i = 0; i < 90; i++) {   // крупные пятна — разные оттенки, чтобы газон не был однотонным
-    const x = R() * S, y = R() * S, r = 30 + R() * 70, l = 28 + R() * 20, h = 92 + R() * 22;
-    wrap(x, y, r, (X, Y) => { const gr = g.createRadialGradient(X, Y, 0, X, Y, r); gr.addColorStop(0, `hsla(${h},52%,${l}%,0.5)`); gr.addColorStop(1, `hsla(${h},52%,${l}%,0)`); g.fillStyle = gr; g.fillRect(X - r, Y - r, r * 2, r * 2); });
+    const x = R() * S, y = R() * S, r = 30 + R() * 70, l = 16 + R() * 12, h = 98 + R() * 20;
+    wrap(x, y, r, (X, Y) => { const gr = g.createRadialGradient(X, Y, 0, X, Y, r); gr.addColorStop(0, `hsla(${h},42%,${l}%,0.5)`); gr.addColorStop(1, `hsla(${h},42%,${l}%,0)`); g.fillStyle = gr; g.fillRect(X - r, Y - r, r * 2, r * 2); });
   }
   for (let i = 0; i < 9000; i++) {   // стебельки
-    const x = R() * S, y = R() * S, len = 4 + R() * 9, a = -Math.PI / 2 + (R() - 0.5) * 0.9, l = 22 + R() * 38, h = 85 + R() * 35;
+    const x = R() * S, y = R() * S, len = 4 + R() * 9, a = -Math.PI / 2 + (R() - 0.5) * 0.9, l = 11 + R() * 22, h = 92 + R() * 30;
     const ex = Math.cos(a) * len, ey = Math.sin(a) * len;
-    wrap(x, y, 14, (X, Y) => { g.strokeStyle = `hsl(${h},58%,${l}%)`; g.lineWidth = 1 + R() * 1.1; g.beginPath(); g.moveTo(X, Y); g.lineTo(X + ex, Y + ey); g.stroke();
-      hg.strokeStyle = `rgba(${l > 40 ? 235 : 40},${l > 40 ? 235 : 40},${l > 40 ? 235 : 40},0.5)`; hg.lineWidth = 1.2; hg.beginPath(); hg.moveTo(X, Y); hg.lineTo(X + ex, Y + ey); hg.stroke(); });
+    wrap(x, y, 14, (X, Y) => { g.strokeStyle = `hsl(${h},46%,${l}%)`; g.lineWidth = 1 + R() * 1.1; g.beginPath(); g.moveTo(X, Y); g.lineTo(X + ex, Y + ey); g.stroke();
+      hg.strokeStyle = `rgba(${l > 24 ? 235 : 40},${l > 24 ? 235 : 40},${l > 24 ? 235 : 40},0.5)`; hg.lineWidth = 1.2; hg.beginPath(); hg.moveTo(X, Y); hg.lineTo(X + ex, Y + ey); hg.stroke(); });
   }
   for (let i = 0; i < 26; i++) {   // мелкие цветки: белые и жёлтые
-    const x = R() * S, y = R() * S, col = R() < 0.6 ? '#f4f1dc' : '#f0d24a';
+    const x = R() * S, y = R() * S, col = R() < 0.6 ? '#9a9884' : '#9a8630';
     wrap(x, y, 4, (X, Y) => { g.fillStyle = col; g.beginPath(); g.arc(X, Y, 1.6, 0, 6.3); g.fill(); });
   }
   const map = new THREE.CanvasTexture(c), bump = new THREE.CanvasTexture(hc);
@@ -666,7 +733,7 @@ function vkGrassTex() {
 function vkGrass(x0, x1, z0, z1) {   // кусок газона; addBox уже даёт UV 1 единица = 3 м, текстура растянута до тайла в 4 м
   const t = vkGrassTex();
   t.map.repeat.set(0.75, 0.75); t.bump.repeat.set(0.75, 0.75);
-  if (!VK_GRASS_TEX.mat) VK_GRASS_TEX.mat = new THREE.MeshStandardMaterial({ map: t.map, bumpMap: t.bump, bumpScale: 1.5, color: 0xffffff, roughness: 1, metalness: 0 });
+  if (!VK_GRASS_TEX.mat) VK_GRASS_TEX.mat = new THREE.MeshStandardMaterial({ map: t.map, bumpMap: t.bump, bumpScale: 1.5, color: 0xcfd8c8, roughness: 1, metalness: 0 });
   return addBox(x0, x1, -0.5, 0, z0, z1, VK_GRASS_TEX.mat);
 }
 function vkFloors() {
@@ -1240,7 +1307,7 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
       wood: PM(0x5a3d26, 0.8, 0), woodL: PM(0x8b6a44, 0.8, 0), white: PM(0xd8d6cc, 0.45, 0.1), steel: PM(0x8d949a, 0.4, 0.6),
       dark: PM(0x1d1d20, 0.7, 0.2), cab: PM(0x6f7466, 0.7, 0.1), sofa: PM(0x6e2b2b, 1, 0), sofa2: PM(0x3f5a4c, 1, 0), olive: M2.olive,
       bed: PM(0x3a3d44, 0.6, 0.4), sheet: PM(0xcfc8b8, 1, 0), blanket: PM(0x4b6a8a, 1, 0), water: PM(0x31535a, 0.2, 0.2),
-      mirror: PM(0x9db4bd, 0.1, 0.8), crate: mats.crate, pot: PM(0x6a3f2a, 0.9, 0), leaf: PM(0x2f5a2a, 1, 0), iron: PM(0x1d2022, 0.6, 0.7),
+      mirror: PM(0x9db4bd, 0.1, 0.8), crate: mats.crate, pot: PM(0x6a3f2a, 0.9, 0), leaf: PM(0x1f3f1b, 1, 0), iron: PM(0x1d2022, 0.6, 0.7),
       rug1: PM(0x5a1f1f, 1, 0), rug2: PM(0x2d3f5a, 1, 0), rug3: PM(0x4a4030, 1, 0)
     };
     const FL = { wood: PM(0x5a432d, 0.9, 0), wood2: PM(0x453526, 0.9, 0), carp: PM(0x3b3a36, 1, 0) };
@@ -1555,26 +1622,34 @@ cot(-14.6, -6.2, 'x', 4, M2.blue); cot(-14.6, -4.9, 'x', 4);
       im.frustumCulled = false; scene.add(im);
     }
 
-    // ---------- деревья: живые, тёмно-зелёные (один InstancedMesh на все стволы и кроны) ----------
+    // ---------- деревья: обгорелые — чёрные обугленные стволы с обломанными сучьями, без листвы ----------
     const treeList = [];
     const plant = (x, z, s = 1, solid = false) => treeList.push({ x, z, s, ry: SR() * 6.28, solid });
     function buildTrees() {
       const n = treeList.length; if (!n) return;
-      const BL = [[0, 1.4, 0, 1.9], [0.9, 0.5, 0.3, 1.4], [-0.8, 0.7, -0.4, 1.5], [0.2, 2.4, -0.1, 1.2]], GR = [0x2c4a22, 0x35592a, 0x263f1f, 0x3b5e2c, 0x2a4a2a];
-      const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.3, 1, 8), new THREE.MeshStandardMaterial({ color: 0x3d2d1f, roughness: 1 }), n);
-      const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x070d06 }), n * BL.length);
-      const C = new THREE.Color();
+      const BR = 5;   // сучьев на дерево
+      const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.3, 1, 7), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x050200 }), n * 2);
+      const limb = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.02, 0.085, 1, 5), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x040200 }), n * BR);
+      const C = new THREE.Color(), UPV = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3(), q2 = new THREE.Quaternion();
       treeList.forEach((t, i) => {
-        const h = 3.0 * t.s; QQ.setFromEuler(EU.set(0, t.ry, 0));
-        MX.compose(V3.set(t.x, h / 2, t.z), QQ, SC.set(t.s, h, t.s)); trunk.setMatrixAt(i, MX);
-        BL.forEach((b, k) => {
-          const lp = new THREE.Vector3(b[0] * t.s, 0, b[2] * t.s).applyQuaternion(QQ), r = b[3] * t.s;
-          MX.compose(V3.set(t.x + lp.x, h + b[1] * t.s, t.z + lp.z), QQ, SC.set(r, r * 0.85, r)); crown.setMatrixAt(i * BL.length + k, MX);
-          crown.setColorAt(i * BL.length + k, C.setHex(GR[(i + k) % GR.length]));
-        });
+        const h = (3.6 + SR() * 1.6) * t.s, lean = (SR() - 0.5) * 0.14;   // высота и лёгкий наклон
+        const tilt = new THREE.Quaternion().setFromEuler(EU.set(lean, t.ry, lean * 0.6));
+        // основной ствол (нижние 70%) и обломанная верхушка (сломана под углом)
+        const h1 = h * 0.72; MX.compose(V3.set(t.x, h1 / 2, t.z), tilt, SC.set(t.s, h1, t.s)); trunk.setMatrixAt(i * 2, MX);
+        trunk.setColorAt(i * 2, C.setHex([0x0d0a08, 0x120d0a, 0x0a0807, 0x15100c][i % 4]));
+        const topQ = new THREE.Quaternion().setFromEuler(EU.set(0.5 + SR() * 0.4, t.ry + SR() * 6, 0.2)), h2 = h * 0.38;
+        dir.copy(UPV).applyQuaternion(topQ);
+        MX.compose(V3.set(t.x + dir.x * h2 / 2, h1 + dir.y * h2 / 2 - 0.05, t.z + dir.z * h2 / 2), topQ, SC.set(t.s * 0.55, h2, t.s * 0.55)); trunk.setMatrixAt(i * 2 + 1, MX);
+        trunk.setColorAt(i * 2 + 1, C.setHex(0x090706));
+        for (let k = 0; k < BR; k++) {   // голые обугленные сучья
+          const a = SR() * 6.283, ph = 0.6 + SR() * 0.7, L = (0.9 + SR() * 1.5) * t.s, hy = h * (0.35 + SR() * 0.55);
+          dir.set(Math.cos(a) * Math.sin(ph), Math.cos(ph), Math.sin(a) * Math.sin(ph)); q2.setFromUnitVectors(UPV, dir);
+          MX.compose(V3.set(t.x + dir.x * L / 2, hy + dir.y * L / 2, t.z + dir.z * L / 2), q2, SC.set(t.s, L, t.s)); limb.setMatrixAt(i * BR + k, MX);
+          limb.setColorAt(i * BR + k, C.setHex([0x0b0907, 0x100c09, 0x080605][k % 3]));
+        }
         if (t.solid) { const c = addBox(t.x - 0.36 * t.s, t.x + 0.36 * t.s, 0, 3.6, t.z - 0.36 * t.s, t.z + 0.36 * t.s, INVM); if (c.userData.col) c.userData.col.prop = true; }   // ствол держит игрока и пули
       });
-      trunk.frustumCulled = false; crown.frustumCulled = false; scene.add(trunk); scene.add(crown);
+      trunk.frustumCulled = false; limb.frustumCulled = false; scene.add(trunk); scene.add(limb);
     }
     // во дворе (стволы — коллизия): углы и края, вдали от проходов зомби (|x| < 4 у ворот) и от парковок
     [[-28.5, -6.5, 1.1], [-28.5, 6.5, 1.0], [28.5, -6.5, 1.0], [28.5, 6.5, 1.1],
@@ -1665,6 +1740,33 @@ function animFires(t) {
     if (o.f) { const p = o.f.userData.p; o.f.scale.set(1 + 0.18 * Math.sin(t * 9 + p), 1 + 0.3 * Math.sin(t * 6.3 + p * 2), 1 + 0.18 * Math.cos(t * 8 + p)); }
     else if (o.gl) o.gl.material.opacity = 0.7 + 0.25 * Math.sin(t * 7.1) * Math.sin(t * 3.3);
     else { const fr = (t * 0.12 + o.p) % 1; o.s.position.set(Math.sin(fr * 5 + o.p * 9) * 1.5, 5 + fr * 12, 0); o.s.scale.setScalar(4 + fr * 9); o.s.material.opacity = 0.55 * (1 - fr); }
+  }
+}
+
+// ---------- Verrückt: густой туман (экспоненциальный туман сцены + дрейфующие клубы у земли) ----------
+const mistSprites = [];
+if (MAP_ID === 'verruckt') {
+  const FOGC = 0x23201f;
+  scene.fog = new THREE.FogExp2(FOGC, 0.06);
+  scene.background = new THREE.Color(FOGC);
+  const [mc, mg] = cv(128, 128), mr = mg.createRadialGradient(64, 64, 0, 64, 64, 64);
+  mr.addColorStop(0, 'rgba(150,146,140,0.55)'); mr.addColorStop(0.5, 'rgba(120,116,112,0.25)'); mr.addColorStop(1, 'rgba(100,96,92,0)');
+  mg.fillStyle = mr; mg.fillRect(0, 0, 128, 128);
+  const mistTex = new THREE.CanvasTexture(mc);
+  for (let i = 0; i < 34; i++) {
+    const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: mistTex, transparent: true, depthWrite: false, opacity: 0.1 + Math.random() * 0.12, color: 0x9a948c }));
+    const w = RR(9, 18); m.scale.set(w, RR(2.2, 4), 1);
+    m.position.set(RR(-34, 34), RR(0.5, 2.0), RR(-34, 34));
+    m.userData = { vx: RR(-0.5, 0.5), vz: RR(-0.5, 0.5), ph: Math.random() * 6.28, y0: m.position.y };
+    scene.add(m); mistSprites.push(m);
+  }
+}
+function animFog(t) {
+  for (const m of mistSprites) {
+    const u = m.userData; m.position.x += u.vx * 0.016; m.position.z += u.vz * 0.016;
+    if (m.position.x > 36) m.position.x = -36; else if (m.position.x < -36) m.position.x = 36;
+    if (m.position.z > 36) m.position.z = -36; else if (m.position.z < -36) m.position.z = 36;
+    m.position.y = u.y0 + Math.sin(t * 0.3 + u.ph) * 0.25;
   }
 }
 
@@ -1783,7 +1885,7 @@ controls.addEventListener('unlock', () => {
 const tui = document.createElement('div'); tui.id = 'tui';
 tui.innerHTML = '<div id="stickHint"></div><div id="stick"><i></i></div>' +
   '<div class="tb" id="tFire">ОГОНЬ</div><div class="tb" id="tJump">ПРЫЖОК</div><div class="tb" id="tReload">ПЕРЕ-<br>ЗАР.</div>' +
-  '<div class="tb dim" id="tBuy">КУПИТЬ</div><div class="tb dim" id="tRepair">ЧИНИТЬ</div><div class="tb" id="tSwap">СМЕНА</div><div class="tb" id="tKnife">НОЖ</div><div class="tb" id="tPause">⏸</div><div class="tb" id="tExit">ВЫЙТИ</div>';
+  '<div class="tb dim" id="tBuy">КУПИТЬ</div><div class="tb dim" id="tRepair">ЧИНИТЬ</div><div class="tb" id="tSwap">СМЕНА</div><div class="tb" id="tKnife">НОЖ</div><div class="tb" id="tNade">ГРАНАТА</div><div class="tb" id="tPause">⏸</div><div class="tb" id="tExit">ВЫЙТИ</div>';
 document.body.appendChild(tui);
 const stickEl = document.getElementById('stick'), knobEl = stickEl.firstChild, STICK_R = 60;
 function sizeTouchUi() { tui.style.setProperty('--u', Math.max(0.75, Math.min(1.3, innerHeight / 360))); }
@@ -1832,6 +1934,7 @@ bindHold('tBuy', () => { keys.KeyE = true; }, () => { keys.KeyE = false; });    
 bindHold('tRepair', () => { keys.KeyF = true; }, () => { keys.KeyF = false; });    // удерживать у окна: ставить доски
 bindHold('tSwap', () => cycleWeapon());
 bindHold('tKnife', () => knifeAttack());
+bindHold('tNade', () => throwGrenade());
 bindHold('tPause', () => controls.unlock());
 bindHold('tExit', () => requestExit(exitUi()));   // кнопка «ВЫЙТИ» во время игры (телефон); на ПК — Esc → «ВЫЙТИ В МЕНЮ»
 // кнопки КУПИТЬ / ЧИНИТЬ подсвечиваются, когда игра показывает соответствующую подсказку
@@ -2680,6 +2783,7 @@ addEventListener('keydown', e => {
   if (e.code === 'Digit1') switchSlot(0);
   if (e.code === 'Digit2') switchSlot(1);
   if (e.code === 'KeyV') knifeAttack();
+  if (e.code === 'KeyG' && !e.repeat) throwGrenade();
 });
 addEventListener('wheel', e => { if (controls.isLocked && e.deltaY) cycleWeapon(); }, { passive: true });
 
@@ -2856,10 +2960,10 @@ function updateWeapon(dt, t) {
   }
 }
 
-// ---------- НОЖ: удар по области, кулдаун 2 с, убивает с одного удара ----------
+// ---------- НОЖ: удар по области, кулдаун 0,5 с, убивает с одного удара ----------
 // нож: до 3 раунда убивает с одного удара, дальше урон падает (а у зомби хп растёт); за убийство 120 очков
 const knifeDmg = () => round <= 3 ? 1e9 : Math.max(10, 150 * Math.pow(0.8, round - 3));
-const KNIFE_CD = 2, KNIFE_RANGE = 2.5, KNIFE_ARC = 0.35, KNIFE_T = 0.38;
+const KNIFE_CD = 0.5, KNIFE_RANGE = 2.5, KNIFE_ARC = 0.35, KNIFE_T = 0.38;
 let knifeCd = 0, knifeT = 0, knifeHit = false, knifeTxt = '';
 const knifeG = new THREE.Group(); knifeG.visible = false; knifeG.rotation.order = 'YXZ'; weaponScene.add(knifeG);
 {
@@ -2873,7 +2977,7 @@ const knifeEl = document.getElementById('knife');
 function knifeAttack() {
   if (PD.on || UP.on) return;
   if (!controls.isLocked || dead || downed || knifeCd > 0 || knifeT > 0) return;
-  knifeCd = KNIFE_CD; knifeT = 0.0001; knifeHit = false; mouseDown = false; sfx('swish');
+  knifeCd = KNIFE_CD; knifeT = 0.0001; knifeHit = false; mouseDown = false; sfx('kswing');
 }
 function knifeStrike() {
   camera.getWorldDirection(_d); _d.y = 0; _d.normalize();
@@ -2886,7 +2990,7 @@ function knifeStrike() {
     if (d > 0.9 && (dx * _d.x + dz * _d.z) / d < KNIFE_ARC) continue;   // зона удара: полукруг перед игроком (~140°)
     hitZombie(z, false, knifeDmg(), { stagger: 0, shotId, knife: true }); bloodHit(new THREE.Vector3(c.x, c.y + 1.2, c.z), _d, false, false); n++;
   }
-  CF.kickV -= 1.2; sfx(n ? 'thud' : 'knock');
+  CF.kickV -= 1.2; if (n) sfx('khit');   // попал по зомби — звук удара (промах — только взмах)
 }
 function updateKnife(dt) {
   if (knifeCd > 0) knifeCd = Math.max(0, knifeCd - dt);
@@ -2904,6 +3008,96 @@ function updateKnife(dt) {
     knifeTxt = txt;
     knifeEl.className = knifeCd > 0 ? 'cd' : '';
     knifeEl.innerHTML = knifeCd > 0 ? `НОЖ ${knifeCd.toFixed(1)}с<span class="kb"><i style="width:${(1 - knifeCd / KNIFE_CD) * 100}%"></i></span>` : (touchMode ? 'НОЖ ГОТОВ' : 'НОЖ [V] ГОТОВ');
+  }
+}
+
+// ---------- ОСКОЛОЧНЫЕ ГРАНАТЫ: G, по 2 штуки выдаётся в начале каждого раунда ----------
+// Взрыв через 2,3 с, радиус 6,5 м, урон 800 в центре (спадает до 35% на краю), стены закрывают от осколков. В онлайне урон считает сервер (оружие -2).
+const NADE_PER_ROUND = 2, NADE_FUSE = 2.3, NADE_R = 6.5, NADE_DMG = 800, NADE_CD = 0.8;
+let nades = NADE_PER_ROUND, nadeCd = 0, nadeTxt = '';
+const nadeList = [], boomFx = [];
+const nadeEl = document.getElementById('nade');
+const nadeMatBody = new THREE.MeshStandardMaterial({ color: 0x3c4a28, roughness: 0.55, metalness: 0.35 }), nadeMatTop = new THREE.MeshStandardMaterial({ color: 0x8a8a84, roughness: 0.4, metalness: 0.8 });
+const nadeGeoBody = new THREE.SphereGeometry(0.06, 10, 8), nadeGeoTop = new THREE.CylinderGeometry(0.02, 0.02, 0.04, 8), nadeGeoLever = new THREE.BoxGeometry(0.012, 0.07, 0.02);
+function nadeBlocked(x, y, z) {
+  for (const b of colliders) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && y > b.y0 && y < b.y1) return true;
+  return false;
+}
+function throwGrenade() {
+  if (PD.on || UP.on || !controls.isLocked || dead || downed || nadeCd > 0) return;
+  if (nades <= 0) { nadeCd = 0.4; pop('НЕТ ГРАНАТ', 'neg'); return; }
+  nades--; nadeCd = NADE_CD;
+  camera.getWorldDirection(_d);
+  const m = new THREE.Group();
+  m.add(new THREE.Mesh(nadeGeoBody, nadeMatBody)); m.children[0].scale.y = 1.25;
+  const top = new THREE.Mesh(nadeGeoTop, nadeMatTop); top.position.y = 0.085; m.add(top);
+  const lv = new THREE.Mesh(nadeGeoLever, nadeMatTop); lv.position.set(0.025, 0.07, 0); m.add(lv);
+  const p0 = pos.clone().addScaledVector(_d, 0.5); p0.y -= 0.12;
+  if (nadeBlocked(p0.x, p0.y, p0.z)) p0.copy(pos);
+  m.position.copy(p0); scene.add(m);
+  nadeList.push({ m, p: p0, v: new THREE.Vector3(_d.x * 14, _d.y * 14 + 2.8, _d.z * 14), t: 0, spin: new THREE.Vector3(RR(-9, 9), RR(-9, 9), RR(-9, 9)) });
+  sfx('kswing'); CF.kickV -= 0.7;
+}
+function explodeGrenade(n) {
+  const c = n.p;
+  scene.remove(n.m);
+  const shotId = window.MP && MP.active ? MP.registerShot(-2) : null;
+  let kills = 0;
+  for (const z of zombies) {
+    if (z.state === 'dying' || z.menu) continue;
+    const zp = z.g.position, dx = zp.x - c.x, dy = zp.y + 0.9 - c.y, dz = zp.z - c.z, d = Math.hypot(dx, dy, dz);
+    if (d > NADE_R) continue;
+    let los = true;   // стены и перекрытия между гранатой и зомби гасят осколки
+    for (let k = 1; k <= 6 && los; k++) { const f = k / 7; if (nadeBlocked(c.x + dx * f, c.y + 0.25 + (dy - 0.25) * f, c.z + dz * f)) los = false; }
+    if (!los) continue;
+    const scale = 1 - 0.65 * (d / NADE_R);
+    hitZombie(z, false, NADE_DMG * scale / (doubleTap ? 2 : 1), { stagger: 0.9, shotId, scale, grenade: true });
+    bloodHit(new THREE.Vector3(zp.x, zp.y + 1.1, zp.z), new THREE.Vector3(dx, 0.3, dz).normalize(), false, false);
+  }
+  // эффекты: вспышка, огненный шар, дым, искры
+  const mk = (map, add, sz, op, y = 0) => { const sp = spr2(map, add); sp.position.set(c.x, c.y + y, c.z); sp.scale.setScalar(sz); sp.material.opacity = op; scene.add(sp); return sp; };
+  boomFx.push({ s: mk(GL, true, 2, 1, 0.4), t: 0, life: 0.5, s0: 2, s1: 11, o: 1, kind: 'fire' });
+  boomFx.push({ s: mk(GL, true, 1, 1, 0.3), t: 0, life: 0.18, s0: 1, s1: 16, o: 1, kind: 'fire' });
+  for (let i = 0; i < 5; i++) boomFx.push({ s: mk(SMK, false, 2, 0.7, RR(0.3, 1.2)), t: 0, life: RR(1.6, 2.6), s0: 2, s1: RR(7, 11), o: 0.7, kind: 'smoke', vx: RR(-1.2, 1.2), vy: RR(0.8, 2), vz: RR(-1.2, 1.2) });
+  for (let i = 0; i < 14; i++) boomFx.push({ s: mk(GL, true, RR(0.25, 0.5), 1, 0.2), t: 0, life: RR(0.5, 0.9), s0: 0.4, s1: 0.1, o: 1, kind: 'spark', vx: RR(-9, 9), vy: RR(2, 9), vz: RR(-9, 9) });
+  sfx('boom');
+  const pd = Math.hypot(pos.x - c.x, pos.y - c.y, pos.z - c.z);
+  CF.kickV -= Math.max(0, 4.5 - pd * 0.4); CF.hrV += (Math.random() - 0.5) * Math.max(0, 5 - pd * 0.5);
+}
+function updateGrenades(dt) {
+  if (nadeCd > 0) nadeCd = Math.max(0, nadeCd - dt);
+  for (let i = nadeList.length - 1; i >= 0; i--) {
+    const n = nadeList[i]; n.t += dt;
+    const steps = Math.max(1, Math.ceil(dt / 0.02)), sub = dt / steps;
+    for (let k = 0; k < steps; k++) {
+      n.v.y -= 18 * sub;
+      for (const ax of ['x', 'y', 'z']) {
+        const q = n.p[ax] + n.v[ax] * sub, tx = ax === 'x' ? q : n.p.x, ty = ax === 'y' ? q : n.p.y, tz = ax === 'z' ? q : n.p.z;
+        if (nadeBlocked(tx, ty, tz)) {
+          n.v[ax] *= -0.35;
+          if (ax === 'y') { n.v.x *= 0.75; n.v.z *= 0.75; if (Math.abs(n.v.y) < 1.2) n.v.y = 0; }
+        } else n.p[ax] = q;
+      }
+      if (n.p.y < 0.07) { n.p.y = 0.07; if (n.v.y < 0) { n.v.y *= -0.35; n.v.x *= 0.7; n.v.z *= 0.7; if (Math.abs(n.v.y) < 1.2) n.v.y = 0; } }
+    }
+    n.m.position.copy(n.p);
+    const sp = Math.min(1, Math.hypot(n.v.x, n.v.z) / 4);
+    n.m.rotation.x += n.spin.x * dt * sp; n.m.rotation.y += n.spin.y * dt * sp; n.m.rotation.z += n.spin.z * dt * sp;
+    if (n.t >= NADE_FUSE || n.p.y < -20) { nadeList.splice(i, 1); explodeGrenade(n); }
+  }
+  for (let i = boomFx.length - 1; i >= 0; i--) {
+    const f = boomFx[i]; f.t += dt; const u = Math.min(1, f.t / f.life);
+    if (f.kind === 'spark') { f.vy -= 16 * dt; f.s.position.x += f.vx * dt; f.s.position.y = Math.max(0.05, f.s.position.y + f.vy * dt); f.s.position.z += f.vz * dt; }
+    else if (f.kind === 'smoke') { f.s.position.x += f.vx * dt; f.s.position.y += f.vy * dt; f.s.position.z += f.vz * dt; }
+    f.s.scale.setScalar(f.s0 + (f.s1 - f.s0) * (f.kind === 'smoke' ? Math.sqrt(u) : u));
+    f.s.material.opacity = f.o * (f.kind === 'fire' ? (1 - u) * (1 - u) : 1 - u);
+    if (u >= 1) { scene.remove(f.s); f.s.material.dispose(); boomFx.splice(i, 1); }
+  }
+  const txt = nades + '|' + (nadeCd > 0 ? 1 : 0);
+  if (txt !== nadeTxt) {
+    nadeTxt = txt;
+    nadeEl.className = nades <= 0 ? 'empty' : (nadeCd > 0 ? 'cd' : '');
+    nadeEl.innerHTML = (touchMode ? 'ГРАНАТЫ ' : 'ГРАНАТЫ [G] ') + '<span style="letter-spacing:.2em">' + '●'.repeat(nades) + '<span style="opacity:.25">' + '●'.repeat(Math.max(0, NADE_PER_ROUND - nades)) + '</span></span>';
   }
 }
 
@@ -2997,7 +3191,10 @@ const SFX_FILES = { box: 'sounds/mystery-box-spin.mp3', round: 'sounds/round-sta
   zg1: 'sounds/zombie-growl-1.mp3', zg2: 'sounds/zombie-growl-2.mp3', zfar: 'sounds/zombie-far-scream.mp3',
   maxammo: 'sounds/max-ammo.mp3', door: 'sounds/door-open.mp3', tear: 'sounds/board-tear.mp3', popen: 'sounds/perk-open.mp3', pdrink: 'sounds/perk-drink.mp3', pthrow: 'sounds/perk-throw.mp3', dpoints: 'sounds/double-points.mp3', upg: 'sounds/upgrader.mp3' };   // покупка перка: открыть бутылку, глотки, бросок об пол   // рык рядом ×2, далёкий крик
 const SFX_GAIN = { box: 0.8, round: 0.8, shell: 0.55, maxammo: 0.85, door: 0.9, tear: 0.85, popen: 1, pdrink: 1, pthrow: 0.75, dpoints: 0.9, upg: 0.95, bh1: 0.9, bh2: 0.9, bh3: 0.9, bh4: 0.9, bh5: 0.9 }, SFX_SINGLE = { box: 1, round: 1, maxammo: 1, door: 1, popen: 1, pdrink: 1, pthrow: 1, dpoints: 1, upg: 1 };   // box/round — одновременно звучит только один экземпляр
-const sfxBufs = {}, sfxLive = {};
+// нож: 5 вариантов взмаха (sounds/knife-swing-N.wav) и 5 вариантов попадания по зомби (sounds/knife-hit-N.wav)
+for (let i = 1; i <= 5; i++) { SFX_FILES['ks' + i] = 'sounds/knife-swing-' + i + '.wav'; SFX_FILES['kh' + i] = 'sounds/knife-hit-' + i + '.wav'; SFX_GAIN['ks' + i] = 0.85; SFX_GAIN['kh' + i] = 1; }
+const sfxBufs = {}, sfxLive = {}, knifeLast = {};
+SFX_FILES.reload = 'sounds/reload-spin.mp3';   // единый звук перезарядки всех видов оружия: раскрутка (0–3,9 с) и «ловля» (4,15–4,85 с)
 
 // позиционный звук из буфера: громкость по расстоянию, панорама по направлению относительно камеры, опциональный ФНЧ (для далёких звуков)
 function playSfxAt(k, x, z, maxD, gain, lp, rate) {
@@ -3071,6 +3268,15 @@ function playSfxFile(k, at = 0) {
   if (SFX_SINGLE[k]) { const o = { s }; sfxLive[k] = o; s.onended = () => { if (sfxLive[k] === o) sfxLive[k] = null; }; }
   return true;
 }
+function playKnifeFile(pre) {   // pre: 'ks' — взмах, 'kh' — попадание; варианты не повторяются подряд, небольшой разброс высоты
+  const ok = []; for (let i = 1; i <= 5; i++) if (sfxBufs[pre + i]) ok.push(i);
+  if (!AC || !ok.length) return false;
+  let n = ok[Math.floor(Math.random() * ok.length)]; if (ok.length > 1 && n === knifeLast[pre]) n = ok[(ok.indexOf(n) + 1) % ok.length];
+  knifeLast[pre] = n;
+  const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = sfxBufs[pre + n]; s.playbackRate.value = 0.96 + Math.random() * 0.08;
+  g.gain.value = SFX_GAIN[pre + n] || 1; s.connect(g); g.connect(MASTER); s.start();
+  return true;
+}
 function playShotFile(i) {
   const arr = shotBufs[i]; if (!arr || !arr.length) return false;
   let n = 0;
@@ -3099,9 +3305,33 @@ function shotSnd(i) {
   else { tone(1500, 0.35, 'sawtooth', 0.22, 160); tone(750, 0.35, 'square', 0.12, 90); tone(60, 0.3, 'sine', 0.4, 30); noise(0.25, 0.15, 'bandpass', 4000, 800); }
 }
 function stepSnd() { ensureAC(); noise(0.07, 0.07, 'lowpass', 350 + Math.random() * 120, 150); tone(75, 0.06, 'sine', 0.05, 45); }
+// Единый звук перезарядки для всего оружия (sounds/reload-spin.mp3). Файл: нарастающий свист вращения (0–3,9 с) → тишина → «ловля» оружия (4,15–4,85 с).
+// Под длительность перезарядки (она разная у каждого оружия, а со Speed Cola вдвое короче) свист подстраивается скоростью воспроизведения,
+// а «ловля» всегда попадает ровно в момент, когда оружие возвращается в руку (dur * TW_B), как в анимации прокрута.
+const RL_SPIN_END = 3.9, RL_CATCH_A = 4.15, RL_CATCH_B = 4.85;
+let rlLive = [];
 function reloadSnd(dur, sp) {
   ensureAC(); if (!AC) return;
-  if (sp) {   // свист на каждом перевороте (в момент максимальной скорости) и глухой удар при «ловле»
+  const buf = sfxBufs.reload;
+  if (buf) {
+    for (const o of rlLive) { try { o.stop(); } catch (e) {} } rlLive = [];   // прерванная перезарядка (смена оружия) не должна дозвучивать
+    const t0 = AC.currentTime, span = Math.max(0.25, dur * TW_B);   // время до «ловли»
+    let rate = RL_SPIN_END / span, off = 0;
+    if (rate > 2.2) { rate = 2.2; off = RL_SPIN_END - span * rate; }          // очень быстрая перезарядка: берём самую яркую концовку свиста
+    else if (rate < 0.85) rate = 0.85;                                          // очень долгая: не растягиваем свист слишком сильно
+    const len = Math.min(RL_SPIN_END - off, span * rate), delay = Math.max(0, span - len / rate);
+    const mk = (offset, length, rt, at, gain) => {
+      const s = AC.createBufferSource(), g = AC.createGain();
+      s.buffer = buf; s.playbackRate.value = rt; g.gain.value = gain;
+      s.connect(g); g.connect(MASTER); s.start(t0 + at, offset, length);
+      rlLive.push(s); s.onended = () => { rlLive = rlLive.filter(x => x !== s); };
+    };
+    mk(off, len, rate, delay, 0.8);                                             // раскрутка
+    mk(RL_CATCH_A, RL_CATCH_B - RL_CATCH_A, 1, span - 0.08, 1);                // «ловля» оружия
+    return;
+  }
+  // запасной вариант, пока файл не загрузился: синтезированный звук
+  if (sp) {
     const n = Math.abs(sp.turns);
     for (let j = 0; j < n; j++) {
       const at = (TW_A + easeInv((j + 0.5) / n, sp.k) * (TW_B - TW_A)) * dur;
@@ -3109,9 +3339,9 @@ function reloadSnd(dur, sp) {
     }
     tone(120, 0.09, 'triangle', 0.22, 60, dur * TW_B);
   }
-  noise(0.05, 0.25, 'bandpass', 2500, 2000, 0, 3); tone(500, 0.04, 'square', 0.05, 300);                         // магазин вынут
-  noise(0.06, 0.3, 'bandpass', 1800, 1200, dur * 0.55, 3); tone(300, 0.05, 'square', 0.07, 200, dur * 0.55);    // магазин вставлен
-  noise(0.05, 0.35, 'bandpass', 3200, 2500, dur * 0.88, 3); tone(700, 0.04, 'square', 0.06, 400, dur * 0.88);   // затвор
+  noise(0.05, 0.25, 'bandpass', 2500, 2000, 0, 3); tone(500, 0.04, 'square', 0.05, 300);
+  noise(0.06, 0.3, 'bandpass', 1800, 1200, dur * 0.55, 3); tone(300, 0.05, 'square', 0.07, 200, dur * 0.55);
+  noise(0.05, 0.35, 'bandpass', 3200, 2500, dur * 0.88, 3); tone(700, 0.04, 'square', 0.06, 400, dur * 0.88);
 }
 function buySnd() { ensureAC(); tone(988, 0.12, 'square', 0.07); tone(1318, 0.28, 'square', 0.07, undefined, 0.09); noise(0.05, 0.08, 'highpass', 6000, 6000); }
 function sfx(k) {
@@ -3125,6 +3355,9 @@ function sfx(k) {
   else if (k === 'thud') { tone(85, 0.24, 'sine', 0.4, 36); noise(0.14, 0.35, 'lowpass', 1100, 180); tone(170, 0.09, 'square', 0.08, 70); }
   else if (k === 'nail') { noise(0.03, 0.22, 'highpass', 4500, 4500, 0, 2); tone(2400, 0.07, 'square', 0.045, 1700); tone(220, 0.05, 'square', 0.09, 100); }
   else if (k === 'swish') noise(0.28, 0.14, 'bandpass', 350, 1800, 0, 1.5);
+  else if (k === 'boom') { tone(70, 0.8, 'sine', 0.9, 20); noise(1.0, 0.75, 'lowpass', 1600, 80); tone(180, 0.35, 'sawtooth', 0.14, 40); noise(0.25, 0.4, 'highpass', 2500, 1200); }   // граната: взрыв
+  else if (k === 'kswing') { if (!playKnifeFile('ks')) noise(0.28, 0.14, 'bandpass', 350, 1800, 0, 1.5); }   // нож: взмах
+  else if (k === 'khit') { if (!playKnifeFile('kh')) { tone(85, 0.24, 'sine', 0.4, 36); noise(0.14, 0.35, 'lowpass', 1100, 180); tone(170, 0.09, 'square', 0.08, 70); } }   // нож: попадание по зомби
   else if (k === 'maxammo') { if (!playSfxFile('maxammo')) { buySnd(); tone(660, 0.5, 'triangle', 0.1, 990); } }
   else if (k === 'dpoints') { if (!playSfxFile('dpoints')) { buySnd(); tone(880, 0.45, 'triangle', 0.1, 1320); } }
   else if (k === 'upg') { if (!playSfxFile('upg')) { tone(70, 3.6, 'sawtooth', 0.1, 220); tone(140, 3.6, 'square', 0.04, 440); noise(3.4, 0.2, 'bandpass', 500, 3000); } }
@@ -4761,7 +4994,7 @@ let hsTO = 0;
 function hitZombie(z, head, dmg, fx) {
   if (z.state === 'dying') return;
   if (window.MP && MP.active && !z.menu) {
-    MP.requestHit(z, head, fx && fx.shotId);
+    MP.requestHit(z, head, fx && fx.shotId, fx && fx.scale);
     sfx('hit');
     crossEl.classList.add('hit'); setTimeout(() => crossEl.classList.remove('hit'), 110);
     if (head) { crossEl.classList.add('hs'); clearTimeout(hsTO); hsTO = setTimeout(() => crossEl.classList.remove('hs'), 50); }
@@ -5126,7 +5359,7 @@ function updateNetworkZombieVisual(z, dt) {
 
 // ---------- раунды ----------
 function startRound() {
-  round++; roundActive = true; toSpawn = Math.round(6 + 3 * (round - 1) + 0.2 * (round - 1) * (round - 1)); spawnTimer = 0;
+  round++; nades = NADE_PER_ROUND; roundActive = true; toSpawn = Math.round(6 + 3 * (round - 1) + 0.2 * (round - 1) * (round - 1)); spawnTimer = 0;
   roundEl.textContent = round; annEl.textContent = 'ROUND ' + round;
   annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
   sfx('round');
@@ -5338,8 +5571,10 @@ function loop() {
     o.l.intensity = o.base * f;
   });
   animFires(t);
+  animFog(t);
   camFxUpdate(dt, t);
   updateKnife(dt);
+  updateGrenades(dt);
   updateWeapon(dt, t);
   const now = performance.now();
   while (marks.length && now - marks[0].t > 15000) removeMark(marks.shift());
