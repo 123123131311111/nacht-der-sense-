@@ -114,6 +114,7 @@ function makePlayer(id, name, slot) {
     id, name: cleanName(name, id), color: ['#e04040', '#3a8ee6', '#46c46a', '#e6c83a'][slot], slot,
     x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0, active: false, downed: false, reviving: null,
     points: 500, hp: 100, perks: { cola: false, doubleTap: false, juggernog: false, builder: false },
+    stats: { kills: 0, heads: 0, downs: 0, revives: 0, earned: 0 }, weapon: 0, reloading: false, sprint: false,   // 1.27: таблица по TAB и оружие в руках у аватара
     owned: { thompson: false, shotgun: false, mp40: false }, upg: Object.create(null), shots: Object.create(null), lastShotAt: -Infinity,
   };
 }
@@ -156,6 +157,7 @@ function gamePayload(room) {
       yaw: p.yaw, pitch: p.pitch, active: p.active, points: p.points, hp: p.hp, downed: !!p.downed,
       perks: { ...p.perks },
       upg: { ...p.upg },
+      slot: p.slot, color: p.color, stats: { ...p.stats }, weapon: p.weapon,
     })),
   };
 }
@@ -249,8 +251,11 @@ io.on('connection', socket => {
     player.pitch = finite(data.pitch, player.pitch);
     if (!player.active) player.downed = false;
     player.active = true;
+    if (Number.isInteger(data.w) && data.w >= 0 && data.w < 20) player.weapon = data.w;
+    player.reloading = data.rl === 1; player.sprint = data.sp === 1;
     socket.to(room.code).volatile.emit('playerMoved', {
       id: player.id, x: player.x, y: player.y, z: player.z, yaw: player.yaw, pitch: player.pitch,
+      w: player.weapon, rl: player.reloading ? 1 : 0, sp: player.sprint ? 1 : 0,
     });
   });
 
@@ -356,7 +361,8 @@ io.on('connection', socket => {
     const killed = zombie.hp <= 0;
     if (killed) zombie.state = 'dying';
     const reward = ((killed ? (shot.weapon === -1 ? 90 : (head ? 75 : 45)) : 5) + (killed && zombie.boss ? 500 : 0) + (killed && zombie.kind === 'necro' ? 1500 : 0) + (killed && zombie.kind === 'brute' ? 3000 : 0)) * ((room.game.dpUntil || 0) > Date.now() ? 2 : 1);   // босс «Плевака»: +500 за убийство   // Double Points действует на всю комнату
-    player.points += reward;
+    player.points += reward; player.stats.earned += reward;
+    if (killed) { player.stats.kills++; if (head) player.stats.heads++; }
     let drop = null;
     if (killed) {
       const now = Date.now();
@@ -414,7 +420,7 @@ io.on('connection', socket => {
   socket.on('playerDowned', () => {
     const ctx = roomAndPlayer(socket);
     if (!ctx || !ctx.room.game.started || !ctx.player.active || ctx.player.downed) return;
-    ctx.player.downed = true; ctx.player.reviving = null;
+    ctx.player.downed = true; ctx.player.reviving = null; ctx.player.stats.downs++;
     io.to(ctx.room.code).emit('playerDowned', { id: socket.id });
     checkWipe(ctx.room);
   });
@@ -429,7 +435,7 @@ io.on('connection', socket => {
     const { room, player } = ctx, target = room.players[targetId], rv = player.reviving;
     if (!target || !target.downed || !rv || rv.targetId !== targetId || Date.now() - rv.at < 1500) return;   // клиент поднимает 3 с (с Quick Revive ≈1,9 с), поэтому порог мягче
     if (Math.hypot(player.x - target.x, player.z - target.z) > 2.8 || Math.abs(player.y - target.y) > 1.8) return;
-    player.reviving = null; target.downed = false;
+    player.reviving = null; target.downed = false; player.stats.revives++;
     io.to(room.code).emit('playerRevived', { id: targetId, by: socket.id });
   });
 
@@ -445,7 +451,7 @@ io.on('connection', socket => {
     if (!windowState || windowState.boards + windowState.pending >= 4) return;
     ctx.player.lastBoardRepair = now;
     windowState.pending++;
-    ctx.player.points += 10;
+    ctx.player.points += 10; ctx.player.stats.earned += 10;
     io.to(ctx.room.code).emit('windowBoardAction', { action, index, actorId: socket.id });
     sendGame(ctx.room);
   });
@@ -663,7 +669,7 @@ io.on('connection', socket => {
         pending: clamp(Math.floor(finite(w && w.pending)), 0, 4),
       }));
     }
-    sendGame(room);
+    io.to(room.code).volatile.emit('gameState', gamePayload(room));   // 1.28: снимок мира — volatile: если канал забит, старый кадр отбрасывается, а не копится (раньше из-за очереди росла задержка)
   });
 
   socket.on('disconnect', () => leaveRoom(socket));
