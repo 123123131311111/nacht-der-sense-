@@ -156,6 +156,15 @@
       spawnSpit(d);
       const z = zombies.find(item => item.mpId === d.zid); if (z && z.boss) z.spitT = 0.3;
     });
+    socket.on('necroEvt', d => {   // некромант: надгробия, попадания по ним, колдовство
+      if (!d || typeof d.t !== 'string' || typeof NGRAVES === 'undefined') return;
+      const gr = NGRAVES.find(g => g.id === d.id);
+      if (d.t === 'grave' && !window.MP.isAuthority && !gr && [d.x, d.z].every(Number.isFinite)) spawnGrave(d.x, d.z, null, d.id, Number(d.y) || 0);
+      else if (d.t === 'gone' && gr) destroyGrave(gr, true);
+      else if (d.t === 'hit' && gr && window.MP.isAuthority) graveHit(gr, 'm' + d.sid, Math.min(2, Math.max(1, Number(d.n) || 1)));
+      else if (d.t === 'brute' && typeof bruteRemote === 'function') bruteRemote(d);
+      else if (d.t === 'cast') { const z = zombies.find(item => item.mpId === d.zid); if (z && z.necro) { z.castT = 1.8; necroScream(z); } }
+    });
     socket.on('grenadeThrown', d => { if (d && d.id !== selfId && typeof spawnRemoteGrenade === 'function') spawnRemoteGrenade(d); });
     // повален / поднят / вся команда повалена
     socket.on('playerDowned', ({ id } = {}) => setDowned(id, true));
@@ -299,7 +308,7 @@
       received.add(data.id);
       let z = zombies.find(item => item.mpId === data.id);
       if (!z) {
-        z = spawnZombie({ x: data.x, y: data.y, z: data.z, yaw: data.yaw }, true, data.boss === true);
+        z = spawnZombie({ x: data.x, y: data.y, z: data.z, yaw: data.yaw }, true, data.boss === true, typeof data.kind === 'string' ? data.kind : null);
         if (!z) continue;
         z.mpId = data.id;
         z.g.position.set(data.x, data.y, data.z);
@@ -429,6 +438,10 @@
     socket.emit('zombieHit', { zombieId: zombie.mpId, head: !!head, shotId, scale: Number.isFinite(scale) ? scale : undefined });
   }
 
+  function necroEvt(d) {
+    if (!socket || !socket.connected || !roomCode) return;
+    socket.emit('necroEvt', d);
+  }
   function sendSpit(d) {
     if (!socket || !socket.connected || !roomCode || !window.MP.isAuthority) return;
     socket.emit('bossSpit', d);
@@ -540,7 +553,7 @@
         moving: z.moved > 0.0005 || z.state === 'vault',
         attacking: z.atkT > 0,
         attackKind: z.atkKind,
-        hp: z.hp, state: z.state, speed: z.speed, boss: !!z.boss,
+        hp: z.hp, state: z.state, speed: z.speed, boss: !!z.boss, kind: z.rot || '',
       })),
     });
   }, 1000 / SEND_RATE);
@@ -695,6 +708,7 @@
     requestHit,
     requestPlayerHit,
     sendSpit,
+    necroEvt,
     requestWindowRepair(index) {
       if (socket && socket.connected && roomCode) socket.emit('windowBoardAction', { action: 'repair', index });
     },

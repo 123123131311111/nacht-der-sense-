@@ -36,6 +36,15 @@ canvas{display:block}
 #prompt .no{color:#f66}#prompt .ok{color:#7dff6a}
 #hpbar{position:fixed;left:50%;bottom:24px;width:220px;height:10px;margin-left:-110px;border:1px solid #000;background:#200;z-index:2;pointer-events:none}
 #hpbar div{height:100%;width:100%;background:#a11}
+#bossbar{position:fixed;top:18px;left:50%;width:min(560px,60vw);transform:translate(-50%,-30px);opacity:0;transition:opacity .5s,transform .5s;z-index:3;pointer-events:none;text-align:center;font-family:Georgia,serif}
+#bossbar.on{opacity:1;transform:translate(-50%,0)}
+#bossbar .nm{color:#e6d6c0;font-size:17px;letter-spacing:6px;text-shadow:0 0 8px #000,0 0 3px #600;margin-bottom:5px}
+#bossbar .bar{position:relative;height:12px;background:rgba(10,4,4,.85);border:1px solid #3a2a20;box-shadow:0 0 0 1px #000,0 0 12px rgba(0,0,0,.8)}
+#bossbar .bar div{position:absolute;left:0;top:0;bottom:0;width:100%}
+#bossbar .tr{background:#d8c090;opacity:.55}
+#bossbar.necro .fl{background:linear-gradient(#9a40d0,#4a1070)}
+#bossbar.brute .fl{background:linear-gradient(#c02818,#5a0a06)}
+body.touch #bossbar{top:8px}
 #hurt{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:0;background:radial-gradient(ellipse at center,rgba(120,0,0,0) 35%,rgba(160,0,0,.9) 100%)}
 #announce{position:fixed;left:0;right:0;top:32%;text-align:center;z-index:2;pointer-events:none;font:700 clamp(40px,10vw,96px) Georgia,serif;letter-spacing:.15em;color:#c00;text-shadow:0 0 30px #800,4px 4px 0 #000;opacity:0}
 #announce.go{animation:ann 3s ease-out}
@@ -502,7 +511,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
-const AMB = new THREE.AmbientLight(0x4a4642, window.NB_GFX === 'toon' ? 0.6 : 0.48); scene.add(AMB);
+const AMB = new THREE.AmbientLight(0x4a4642, window.NB_GFX === 'toon' ? 0.54 : 0.43);   // 1.24: чуть темнее scene.add(AMB);
 if (window.NB_GFX !== 'toon') {   // ВЫСОКАЯ графика: тусклое тёплое окружение — даёт металлу блики, а теням мягкую подсветку
   try {
     const c = document.createElement('canvas'); c.width = 512; c.height = 256; const x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 0, 256);
@@ -523,10 +532,10 @@ const POST = (function () {
     const rt = new THREE.WebGLRenderTarget(Math.max(2, sz.x), Math.max(2, sz.y), { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat });
     rt.depthTexture = new THREE.DepthTexture(rt.width, rt.height); rt.depthTexture.type = THREE.UnsignedIntType; rt.depthTexture.minFilter = rt.depthTexture.magFilter = THREE.NearestFilter;
     const mat = new THREE.ShaderMaterial({
-      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, px: { value: new THREE.Vector2(1 / rt.width, 1 / rt.height) }, near: { value: 0.1 }, far: { value: 80 }, thick: { value: 1 }, edge: { value: window.NB_GFX === 'toon' ? 1 : 0 } },
+      uniforms: { tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, px: { value: new THREE.Vector2(1 / rt.width, 1 / rt.height) }, near: { value: 0.1 }, far: { value: 80 }, thick: { value: 1 }, glow: { value: 1 }, edge: { value: window.NB_GFX === 'toon' ? 1 : 0 } },
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
       fragmentShader: `
-        uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 px; uniform float near; uniform float far; uniform float thick; uniform float edge;
+        uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 px; uniform float near; uniform float far; uniform float thick; uniform float edge; uniform float glow;
         varying vec2 vUv;
         float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
         vec3 T(vec2 uv) { return texture2D(tColor, uv).rgb; }
@@ -557,8 +566,27 @@ const POST = (function () {
           float rel = lap / (max(z0, max(max(zl, zr), max(zu, zd))) + 1e-5);
           float e = smoothstep(0.07, 0.16, rel) * smoothstep(0.0004, 0.0012, lap);
           col = mix(col, vec3(0.03, 0.026, 0.022), clamp(e, 0.0, 1.0) * 0.8 * edge);
-          // цвет: насыщенность и контраст
-          float l = luma(col); col = mix(vec3(l), col, 0.95);
+          // объёмное затенение (лёгкий SSAO): соседи ближе к камере, чем точка, — значит это щель/угол
+          vec2 ao = px * 7.0 * thick; float zc = max(z0, 1e-5), occ = 0.0;
+          occ += max(0.0, iz(uv + vec2(ao.x, ao.y)) - zc); occ += max(0.0, iz(uv + vec2(-ao.x, ao.y)) - zc);
+          occ += max(0.0, iz(uv + vec2(ao.x, -ao.y)) - zc); occ += max(0.0, iz(uv - ao) - zc);
+          col *= 1.0 - clamp(occ / zc * 2.2, 0.0, 0.38) * edge;
+          // мягкое свечение ярких мест (лампы, вспышки, глаза зомби): два кольца выборок
+          vec3 bl = vec3(0.0); float bw = 0.0;
+          for (int k = 0; k < 8; k++) { float a = float(k) * 0.785398; vec2 d = vec2(cos(a), sin(a)) * px * thick;
+            vec3 s1 = T(uv + d * 5.0), s2 = T(uv + d * 13.0);
+            bl += s1 * smoothstep(0.55, 1.0, luma(s1)) * 0.6 + s2 * smoothstep(0.55, 1.0, luma(s2)) * 0.4; bw += 1.0; }
+          col += bl / bw * 0.55 * glow;
+          // лёгкая хроматическая аберрация по краям кадра
+          vec2 cc = uv - 0.5; float r2 = dot(cc, cc);
+          col.r = mix(col.r, T(uv + cc * 0.006).r, clamp(r2 * 3.0, 0.0, 1.0) * glow);
+          col.b = mix(col.b, T(uv - cc * 0.006).b, clamp(r2 * 3.0, 0.0, 1.0) * glow);
+          // плёночная тон-кривая и грейдинг: тёплые света, холодно-зелёные тени, глубокий чёрный
+          col = clamp(col, 0.0, 1.0); col = mix(col, col * col * (3.0 - 2.0 * col), 0.35) * 1.04;   // S-кривая: глубже тени, сочнее света
+          float l = luma(col);
+          col = mix(col * vec3(0.93, 1.0, 1.05), col * vec3(1.07, 1.0, 0.9), smoothstep(0.15, 0.6, l));
+          col = mix(vec3(l), col, 0.92);
+          col *= (1.0 - r2 * 0.55) * 0.93;   // виньетка; вся картинка немного темнее (1.24)
           gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
         }`,
       depthTest: false, depthWrite: false
@@ -568,7 +596,17 @@ const POST = (function () {
     return { rt, mat, sc, cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
   } catch (err) { console.warn('cel post disabled', err); return null; }
 })();
+// динамическое разрешение: держим ~60 кадров — при просадке рендерим чуть меньшим разрешением, при запасе возвращаем полное
+const DRES = { avg: 16, t: 0, pr: Math.min(devicePixelRatio, 2), max: Math.min(devicePixelRatio, 2), min: Math.max(0.6, Math.min(devicePixelRatio, 2) * 0.55), last: performance.now() };
+function dynRes() {
+  const now = performance.now(), ft = Math.min(100, now - DRES.last); DRES.last = now; DRES.avg += (ft - DRES.avg) * 0.05; DRES.t += ft;
+  if (DRES.t < 1500 || menuOn) return; DRES.t = 0;
+  let pr = DRES.pr;
+  if (DRES.avg > 19) pr = Math.max(DRES.min, pr * 0.85); else if (DRES.avg < 13.5) pr = Math.min(DRES.max, pr * 1.1);
+  if (Math.abs(pr - DRES.pr) > 0.02) { DRES.pr = pr; renderer.setPixelRatio(pr); }
+}
 function renderWorld() {   // мир -> RT с глубиной -> экран с контурами; без поддержки глубины — прямой рендер
+  try { dynRes(); } catch (e) {}
   if (!POST) { renderer.render(scene, camera); return; }
   const sz = renderer.getDrawingBufferSize(new THREE.Vector2());
   if (sz.x !== POST.rt.width || sz.y !== POST.rt.height) { POST.rt.setSize(sz.x, sz.y); POST.mat.uniforms.px.value.set(1 / sz.x, 1 / sz.y); }
@@ -581,7 +619,7 @@ function renderWorld() {   // мир -> RT с глубиной -> экран с 
 // Все поля шума периодические, всё, что рисуется на холсте, дублируется через край — поэтому у стен нет «швов» между тайлами.
 // На телефоне разрешение вдвое меньше (память GPU). Текстуры создаются лениво при первом обращении и кэшируются.
 const cv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; };
-const TEX_ANISO = (() => { try { return Math.min(8, renderer.capabilities.getMaxAnisotropy()); } catch (e) { return 4; } })();
+const TEX_ANISO = (() => { try { return Math.min(16, renderer.capabilities.getMaxAnisotropy()); } catch (e) { return 4; } })();   // 1.24: до 16 — пол и стены под углом чёткие
 const mkT = c => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = TEX_ANISO; return t; };
 const RR = (a, b) => a + Math.random() * (b - a);
 function speck(g, S, n, a, sz) { for (let i = 0; i < n; i++) { const v = Math.random() < 0.5 ? 0 : 255; g.fillStyle = `rgba(${v},${v},${v},${Math.random() * a})`; g.fillRect(Math.random() * S, Math.random() * S, sz || 2, sz || 2); } }
@@ -1636,8 +1674,17 @@ const SHAFT_TEX = (() => { const c = document.createElement('canvas'); c.width =
 const radialTex = (a0, a1) => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
   g.addColorStop(0, `rgba(255,255,255,${a0})`); g.addColorStop(0.4, `rgba(255,255,255,${a1})`); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); };
 const GLOW_TEX = radialTex(1, 0.25), POOL_TEX = radialTex(0.8, 0.35), POOL_G = new THREE.PlaneGeometry(3.4, 3.4).rotateX(-Math.PI / 2);
+// оптимизация света (1.24): лампы больше не держат каждая свой источник — 8 настоящих источников переезжают к ближайшим лампам.
+// Каждый источник света удорожает КАЖДЫЙ пиксель, а у ламп дальше 9 м вклад всё равно нулевой — картинка та же, кадр в разы дешевле.
+const LPOOL = []; for (let i = 0; i < (TEX_Q < 1 ? 5 : 8); i++) { const l = new THREE.PointLight(0xfff0d8, 0, 9, 2); l.position.set(0, -50, 0); scene.add(l); LPOOL.push(l); }
+function updateLightPool() {
+  const cp = camera.position, cand = [];
+  for (const o of bulbs) { if (!o.l.real || o.l.intensity <= 0.01) continue; const d = o.l.position.distanceToSquared(cp); if (d < 400) cand.push([d, o.l]); }
+  cand.sort((a, b) => a[0] - b[0]);
+  for (let i = 0; i < LPOOL.length; i++) { const L = LPOOL[i], c = cand[i]; if (c) { L.position.copy(c[1].position); L.intensity = c[1].intensity; } else L.intensity = 0; }
+}
 function lamp(x, y, z, intensity = 1.3, real = true) {
-  const l = new THREE.PointLight(0xfff0d8, real ? intensity : 0, 9, 2); l.position.set(x, y, z); if (real) scene.add(l);
+  const l = { position: new THREE.Vector3(x, y, z), intensity: real ? intensity : 0, real };   // «виртуальная» лампа
   const b = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 10), new THREE.MeshBasicMaterial({ color: 0xffffff })); b.position.copy(l.position); scene.add(b);
   const halo = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff1cc, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); halo.position.copy(l.position); scene.add(halo);
   const sh = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.15, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0x2a2d30, roughness: 0.5, metalness: 0.6, side: THREE.DoubleSide })); sh.position.set(x, y + 0.1, z); scene.add(sh);
@@ -2955,6 +3002,25 @@ document.getElementById('bHelp').addEventListener('click', () => { showHelp(selD
 menuEl.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => view('main')));
 // ---------- журнал изменений: новые записи добавляются В НАЧАЛО массива ----------
 const CHANGELOG = [
+  { v: '1.26', d: '13 ноября 2026', groups: [
+    ['Баланс под число игроков', ['Здоровье обычных зомби: в соло ×0,8, вдвоём ×1, втроём ×1,2, вчетвером ×1,4.', 'Зомби за волну: вдвоём ×1,4, втроём ×1,75, вчетвером ×2,1; одновременно на карте — на 3 больше за каждого игрока сверх одного.', 'Плевака: ×0,85 / ×1,2 / ×1,6 / ×2 по здоровью.', 'Джаггернаут: в соло ~73 тыс. HP на 20 волне (было 364 тыс.), вдвоём ~146 тыс., втроём ~234 тыс., вчетвером ~365 тыс. — как раньше.', 'Некромант: в соло ~14 тыс. на 10 волне (было 28 тыс.), вдвоём ~27 тыс., втроём ~44 тыс., вчетвером ~69 тыс.', 'Скелеты — как обычные зомби (×0,8…×1,4). Число игроков считается в момент появления зомби: если кто-то зашёл или вышел, следующие уже по-новому.']],
+  ]},
+  { v: '1.25', d: '13 ноября 2026', groups: [
+    ['Босс «Джаггернаут» (обе карты)', ['Приходит на 20 волне, потом каждые 10 волн: огромный жирный мясник — бледная кожа в крови и растяжках, распахнутая чёрная безрукавка, рваные штаны, кованые наручи с шипами, лысая голова, пасть раскрыта в крике.', 'Медленный, но здоровья втрое больше, чем у Некроманта. Рукой бьёт на 50.', 'Удар кулаками по земле: поднимает обе руки, приседает и бьёт — ударная волна, пыль, обломки, тряска экрана, урон всем рядом (до 40).', 'Иногда подбирает камень и швыряет по дуге — попадание снимает половину здоровья.', 'Когда здоровья мало, хватает ближайшего зомби, тащит ко рту и сжирает (+4% здоровья).', 'Иногда выпускает зелёную «вонючку»: все зомби в радиусе 10 м на 8 с быстрее (+40%), подлечиваются на 15% и светятся зелёным.', 'За убийство 3000 очков.']],
+    ['Полоса здоровья босса', ['Сверху экрана появляется полоса с именем — у Джаггернаута (красная) и Некроманта (фиолетовая); светлый «след» показывает только что снятый урон.']],
+    ['Автоматы с перками', ['Новые потёртые текстуры: выцветшая краска, сколы до металла, ржавые потёки, царапины, трещины на стекле таблички, грязь, заклёпки и швы на корпусе. Табличка больше не «мультяшно» плоская — освещается сценой и лишь слегка светится.']],
+  ]},
+  { v: '1.24', d: '13 ноября 2026', groups: [
+    ['Босс «Некромант» (Verrückt)', ['Приходит на 10 волне, потом каждые 5 волн: высокий скелет-колдун в рваном балахоне с горящими зелёными рунами, в капюшоне, с костяными шипами на плечах и посохом с черепом и светящейся сферой; парит над зелёной дымкой', 'Здоровья втрое больше, чем у «Плеваки»; за убийство +1500', 'Поднимает посох и кричит — с грохотом и тряской из земли вырастают надгробия (до 3), вокруг светятся руны', 'Из надгробия сразу вылезает скелет, дальше — редко (раз в 15–24 с, не больше двух на могилу)', 'Надгробие разрушается за 5 выстрелов из любого оружия (дробь одного выстрела — один выстрел), граната — сразу 2; разлетается на куски, +100 очков', 'Погиб некромант — его надгробия рассыпаются']],
+    ['Скелеты', ['Новые враги: старые пожелтевшие кости с трещинами и грязью, рёбра, позвоночник, таз, зелёные горящие глаза, у части — каска и обрывки кителя; быстрые, но хлипкие']],
+    ['Граната', ['Новый взрыв: белая вспышка, огненный шар из языков пламени, ударная волна по земле, раскалённые осколки по дуге, обломки, клубы чёрного дыма и пыли, выжженное пятно на полу и яркий тёплый свет на всю комнату']],
+    ['Графика и скорость', ['Картинка чуть темнее', 'Свет: вместо отдельного источника у каждой лампы — 8 источников, которые следуют за ближайшими к игроку лампами (на Verrückt было больше 30) — освещение то же, кадр заметно дешевле', 'Зомби: детали каждого склеиваются в несколько объектов — в 4 раза меньше вызовов отрисовки', 'Чёткость текстур под углом (анизотропия до 16)']],
+  ] },
+  { v: '1.23', d: '13 ноября 2026', groups: [
+    ['Баланс', ['Ray Gun ослаблен: урон 564 (с одного выстрела только до 7 волны, было до 10), радиус взрыва 2,8 м (было 3,6), запас патронов 60 (было 80)']],
+    ['Графика', ['Мягкое объёмное затенение в углах, щелях и под предметами', 'Свечение ярких мест: лампы, вспышки, глаза зомби мягко светятся', 'Контрастная тон-кривая и цветокоррекция: тёплые света, холодные тени, глубокий чёрный; виньетка и лёгкая хроматическая аберрация по краям', 'Динамическое разрешение: при просадке FPS картинка рендерится чуть меньшим разрешением, при запасе — возвращается полное']],
+    ['Оружие', ['Текстуры металла и дерева в 1024 px: следы фрезы, воронение с синевой, масляные пятна, вдвое больше царапин; дерево с волокнами вокруг сучков, светлыми «лучами» и затёртыми руками местами; ромбовидная насечка на пластиковых рукоятях']],
+  ] },
   { v: '1.22', d: '13 ноября 2026', groups: [
     ['Игрок', ['Выносливость: под полоской здоровья — шкала бега. Полной шкалы хватает примерно на 11 секунд бега подряд', 'Прыжок тратит часть шкалы (как ~1,3 с бега); на пустой шкале прыгнуть нельзя', 'Шкала кончилась — одышка: бег и прыжки недоступны, пока шкала не наберёт треть, шкала краснеет, слышно тяжёлое дыхание', 'Восстанавливается через секунду отдыха, полностью — примерно за 4,5 с; полная шкала прячется']],
   ] },
@@ -3534,15 +3600,16 @@ function woodTex() {
 const mkM = o => { if (ENV) { o.envMap = ENV; o.envMapIntensity = 1.1; } else if (o.metalness) o.metalness *= 0.5; return new THREE.MeshStandardMaterial(o); };
 // ===== ТЕКСТУРЫ ОРУЖИЯ v2: потёртое воронение, сталь со шлифовкой, дерево с порами и лаком, бакелит, латунь, краска со сколами =====
 // Каждая текстура: цвет (почти белый — оттенок задаёт материал) + карта нормалей + карта шероховатости (царапины глаже, грязь грубее).
-const WTX = (() => {
-  const S = TEX_Q < 1 ? 256 : 512;   // степень двойки (маски в texGen/nrmTex)
-  const vn = (n, seed) => {   // бесшовный value-noise с n ячейками
-    const g = new Float32Array(n * n); let s = seed * 9301 + 49297; for (let i = 0; i < g.length; i++) { s = (s * 9301 + 49297) % 233280; g[i] = s / 233280; }
-    return (x, y) => { const fx = x / S * n, fy = y / S * n, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+const WTX = (() => {   // v3 (1.23): металл и дерево 1024 px на ПК, следы обработки, воронение с синевой, дерево с перекрученными волокнами, насечка на рукоятях
+  let S = 512;
+  const vn = (n, seed) => {   // бесшовный value-noise с n ячейками (S берётся на момент создания)
+    const SS = S, g = new Float32Array(n * n); let s = seed * 9301 + 49297; for (let i = 0; i < g.length; i++) { s = (s * 9301 + 49297) % 233280; g[i] = s / 233280; }
+    return (x, y) => { const fx = x / SS * n, fy = y / SS * n, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
       const a = g[((y0 % n) * n) + (x0 % n)], b = g[((y0 % n) * n) + ((x0 + 1) % n)], c = g[(((y0 + 1) % n) * n) + (x0 % n)], d = g[(((y0 + 1) % n) * n) + ((x0 + 1) % n)];
       return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy; };
   };
   const make = (kind, seed) => {
+    S = (kind === 'metal' || kind === 'wood') && TEX_Q >= 1 ? 1024 : TEX_Q < 1 ? 256 : 512;
     const n1 = vn(4, seed), n2 = vn(16, seed + 1), n3 = vn(64, seed + 2), nb = vn(256, seed + 3), rowN = new Float32Array(S); for (let y = 0; y < S; y++) rowN[y] = Math.random();
     const R = new Float32Array(S * S);   // шероховатость 0..1
     const t = texGen(S, (x, y, i, o) => {
@@ -3550,25 +3617,29 @@ const WTX = (() => {
       let v = 1, h = 0.5, r = 0.75;
       if (kind === 'metal') {   // воронение/сталь: шлифовка вдоль оси, пятна потёртости, мелкие раковины
         const brush = rowN[y] * 0.5 + rowN[(y + 1) % S] * 0.5;
-        v = 0.78 + brush * 0.08 + mid * 0.08 - (big > 0.72 ? (big - 0.72) * 0.6 : 0); h = brush * 0.25 + fine * 0.15; r = 0.62 + mid * 0.3 - brush * 0.1;
+        const tool = 0.5 + 0.5 * Math.sin(x / S * 900 + mid * 14);   // следы фрезы — тонкие параллельные риски
+        v = 0.76 + brush * 0.07 + mid * 0.08 + tool * 0.03 - (big > 0.72 ? (big - 0.72) * 0.7 : 0); h = brush * 0.25 + fine * 0.15 + tool * 0.08; r = 0.6 + mid * 0.3 - brush * 0.1 - tool * 0.05;
+        if (big > 0.55 && mid < 0.35) r -= 0.2;   // масляные пятна — глаже
         if (grain > 0.985) { v -= 0.22; h -= 0.4; r = 1; }   // раковины
         if (big < 0.25 && mid > 0.55) { v = Math.min(1, v + 0.15); r -= 0.25; }   // стёртое до блеска
       } else if (kind === 'wood') {   // орех: волокна по X, кольца, поры, тёмные затёртые места
-        const ring = Math.sin((y / S * 22 + big * 6 + mid * 1.5) * Math.PI * 2) * 0.5 + 0.5, fib = rowN[y];
-        v = 0.62 + ring * 0.22 + fib * 0.1 - (big > 0.7 ? 0.12 : 0); h = ring * 0.35 + fib * 0.25; r = 0.45 + fib * 0.2 + (1 - ring) * 0.2;
+        const warp = big * 7 + mid * 2.2 + fine * 0.3, ring = Math.pow(Math.sin((y / S * 26 + warp) * Math.PI * 2) * 0.5 + 0.5, 1.6), fib = rowN[y] * 0.6 + rowN[(y + 2) % S] * 0.4;   // волокна изгибаются вокруг сучков
+        const fleck = nb((x * 3) % S, (y * 0.5) | 0) > 0.94 ? 0.12 : 0;   // светлые «лучи» древесины
+        v = 0.58 + ring * 0.28 + fib * 0.1 + fleck - (big > 0.68 ? (big - 0.68) * 0.6 : 0); h = ring * 0.4 + fib * 0.25 + fleck; r = 0.4 + fib * 0.2 + (1 - ring) * 0.25 - (big > 0.68 ? 0.15 : 0);   // затёртые руками места — темнее и глаже
         if (nb((x * 4) % S, y) > 0.93) { v -= 0.18; h -= 0.35; r = 0.95; }   // поры
       } else if (kind === 'poly') {   // бакелит/чёрный пластик: мелкая шагрень
-        v = 0.8 + fine * 0.12 + grain * 0.06; h = grain * 0.6 + fine * 0.3; r = 0.65 + grain * 0.25;
+        const kn = ((x + y) % 14 < 1.4 || (x - y + S * 4) % 14 < 1.4) ? 1 : 0;   // ромбовидная насечка рукоятей
+        v = 0.8 + fine * 0.12 + grain * 0.06 - kn * 0.1; h = grain * 0.5 + fine * 0.3 - kn * 0.45; r = 0.65 + grain * 0.25;
       } else if (kind === 'brass') {
         v = 0.8 + mid * 0.15 - (big > 0.6 ? (big - 0.6) * 0.8 : 0); h = fine * 0.2; r = 0.35 + big * 0.4;
       } else {   // краска (Ray Gun): глянец, сколы до металла
         const chip = mid > 0.74 && fine > 0.45; v = chip ? 0.5 + fine * 0.15 : 0.92 + fine * 0.06; h = chip ? 0.15 : 0.55 + grain * 0.05; r = chip ? 0.45 : 0.3 + fine * 0.15;
       }
-      const c = Math.max(0, Math.min(255, v * 255)); txC(o, c, c, c); o.h = h; R[i] = Math.max(0, Math.min(1, r));
+      const c = Math.max(0, Math.min(255, v * 255)); if (kind === 'metal') txC(o, c * 0.95, c * 0.97, Math.min(255, c * 1.04)); else txC(o, c, c, c); o.h = h; R[i] = Math.max(0, Math.min(1, r));   // воронение с лёгкой синевой
     });
     const g = t.g;
     if (kind === 'metal' || kind === 'brass' || kind === 'paint') {   // царапины: светлые штрихи и канавки на высоте
-      for (let k = 0; k < (kind === 'metal' ? 70 : 30); k++) {
+      for (let k = 0; k < (kind === 'metal' ? 140 : 40) * S / 512; k++) {
         const x0 = Math.random() * S, y0 = Math.random() * S, a = (Math.random() - 0.5) * 0.9 + (Math.random() < 0.5 ? 0 : Math.PI / 2), L = (8 + Math.random() * 60) * S / 512;
         g.strokeStyle = kind === 'paint' ? `rgba(90,90,85,${0.25 + Math.random() * 0.3})` : `rgba(255,255,255,${0.15 + Math.random() * 0.3})`; g.lineWidth = 0.6 + Math.random() * 0.8;
         g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + Math.cos(a) * L, y0 + Math.sin(a) * L); g.stroke();
@@ -3580,7 +3651,7 @@ const WTX = (() => {
     const map = new THREE.CanvasTexture(t.c), nrm = new THREE.CanvasTexture(nrmTex(t.H, S, kind === 'poly' ? 2.2 : kind === 'wood' ? 2.6 : 1.6));
     const [rc, rg] = cv(S, S), ri = rg.createImageData(S, S); for (let i = 0; i < R.length; i++) { const v = R[i] * 255; ri.data[i * 4] = ri.data[i * 4 + 1] = ri.data[i * 4 + 2] = v; ri.data[i * 4 + 3] = 255; } rg.putImageData(ri, 0, 0);
     const rough = new THREE.CanvasTexture(rc), rep = kind === 'wood' ? 6 : kind === 'poly' ? 5 : 3;
-    for (const tx of [map, nrm, rough]) { tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(rep, rep); tx.anisotropy = 4; }
+    for (const tx of [map, nrm, rough]) { tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(rep, rep); tx.anisotropy = 8; }
     return { map, normalMap: nrm, roughnessMap: rough };
   };
   try { return { metal: make('metal', 11), wood: make('wood', 23), poly: make('poly', 37), brass: make('brass', 41), paint: make('paint', 53) }; }
@@ -4069,7 +4140,12 @@ const flashLocal = new THREE.PointLight(0xffa030, 5, 3.5); flashLocal.position.s
 const flashWorld = new THREE.PointLight(0xffa030, 0, 12, 2); scene.add(flashWorld); // подсвечивает комнату
 
 const ZHP = r => Math.round(125 * Math.pow(1.16, r) * 1.5 + 30);   // здоровье зомби по раундам (1.19: в 1,5 раза больше + 30 — на 1 волне 248 вместо 145)
-const RAY_DMG = Math.ceil(ZHP(10)) + 4;   // = 555: с одного выстрела до 10 раунда (1.8: 746 — до 12, раньше 865)
+// 1.26: баланс по числу игроков (1–4). Обычные зомби: HP ×PL_HP и количество за волну ×PL_COUNT; плевака ×PL_SPIT;
+// Некромант и Джаггернаут — своё соло-HP (×ZHP волны), умноженное на PL_BOSS: вчетвером Джаггернаут остаётся прежним (~364 тыс. на 20 волне), в соло ~73 тыс.
+const PL_HP = [0.8, 1, 1.2, 1.4], PL_COUNT = [1, 1.4, 1.75, 2.1], PL_SPIT = [0.85, 1.2, 1.6, 2], PL_BOSS = [1, 2, 3.2, 5];
+function plN() { const M = window.MP; if (!(M && M.active && M.inMultiplayerGame) || !Array.isArray(M.players)) return 1; return Math.max(1, Math.min(4, M.players.filter(p => p && p.active).length)); }
+const plk = t => t[plN() - 1];
+const RAY_DMG = Math.ceil(ZHP(7)) + 4;   // = 564: с одного выстрела только до 7 волны (1.19–1.22: 861 — до 10)
 // ---------- арсенал и инвентарь (2 слота) ----------
 const WEAPONS = [
   { name: 'M1911', own: true, mag: 8, magSize: 8, reserve: 80, fullRes: 80, interval: 150, body: 50, head: 100, auto: false, reload: 1.25, spin: { turns: 2, k: 0.1, pivot: [0, -0.025, 0.01], push: [-0.1, 0.1, -0.08] }, spread: 0, rk: 1,
@@ -4082,7 +4158,7 @@ const WEAPONS = [
     base: [0.19, -0.2, -0.4], flash: [0, 0.045, -0.84] },
   { name: 'GARAND', own: false, mag: 10, magSize: 10, reserve: 60, fullRes: 60, interval: 280, body: 250, head: 500, auto: false, reload: 2.4, spin: { turns: 1, k: 0.4, pivot: [0, 0.01, -0.19], push: [-0.17, 0.2, -0.95] }, spread: 0, rk: 1.3,
     base: [0.19, -0.2, -0.4], flash: [0, 0.045, -0.84] },
-  { name: 'RAY GUN', own: false, mag: 20, magSize: 20, reserve: 80, fullRes: 80, interval: 850, dmg: RAY_DMG, proj: true, auto: false, reload: 1.9, spin: { turns: -1, k: 0.2, pivot: [0, -0.01, -0.14], push: [-0.1, 0.12, -0.05] }, spread: 0, rk: 0.8,
+  { name: 'RAY GUN', own: false, mag: 20, magSize: 20, reserve: 60, fullRes: 60, interval: 850, dmg: RAY_DMG, proj: true, auto: false, reload: 1.9, spin: { turns: -1, k: 0.2, pivot: [0, -0.01, -0.14], push: [-0.1, 0.12, -0.05] }, spread: 0, rk: 0.8,
     base: [0.2, -0.17, -0.4], flash: [0, 0.03, -0.38] },
   { name: 'LMG', own: false, mag: 100, magSize: 100, reserve: 200, fullRes: 200, maxReserve: 200, interval: 100, body: 110, head: 220, auto: true, reload: 4.5, spin: { turns: 1, k: 0.3, pivot: [0, 0, -0.2], push: [-0.17, 0.2, -0.4] }, spread: 0.02, rk: 0.6,
     base: [0.19, -0.2, -0.42], flash: [0, 0.04, -1.0] },
@@ -4187,7 +4263,7 @@ function launchBullet(w, from, aim, shotId) {
   const grp = new THREE.Group(), mat = trMat.clone();
   grp.add(new THREE.Mesh(trGeoA, mat), new THREE.Mesh(trGeoB, mat)); grp.visible = false; scene.add(grp);
   const core = new THREE.Mesh(coreGeo, coreMat); core.position.copy(from); scene.add(core);
-  bullets.push({ p: from.clone(), v, dir: v.clone().normalize(), grp, core, mat, dist: 0, tl: w.tl, width: w.pellets ? 0.03 : 0.05, dmgB: w.body, dmgH: w.head, pellet: !!w.pellets, shotId, dead: false, fade: 0 });
+  bullets.push({ p: from.clone(), v, dir: v.clone().normalize(), grp, core, mat, dist: 0, tl: w.tl, width: w.pellets ? 0.03 : 0.05, dmgB: w.body, dmgH: w.head, pellet: !!w.pellets, shotId, sid: SHOTN, dead: false, fade: 0 });
 }
 function updateBullets(dt) {
   for (let i = bullets.length - 1; i >= 0; i--) {
@@ -4205,7 +4281,10 @@ function updateBullets(dt) {
         if (ex * ex + ey * ey + ez * ez < 2.9) zms.push(...z.meshes);
       }
       const zh = zms.length ? bray.intersectObjects(zms, false)[0] : null;
-      if (zh && (!h || zh.distance < h.distance)) {
+      const gh = NGRAVE_MESHES.length ? bray.intersectObjects(NGRAVE_MESHES, false)[0] : null;
+      if (gh && (!h || gh.distance < h.distance) && (!zh || gh.distance < zh.distance)) {   // попадание в надгробие некроманта
+        b.p.copy(gh.point); b.dist += gh.distance; b.dead = true; graveHit(gh.object.userData.grave, b.sid);
+      } else if (zh && (!h || zh.distance < h.distance)) {
         b.p.copy(zh.point); b.dist += zh.distance; b.dead = true;
         const head = !!zh.object.userData.head;
         hitZombie(zh.object.userData.z, head, head ? b.dmgH : b.dmgB, { stagger: head ? 0.2 : 0.1, shotId: b.shotId });
@@ -4282,7 +4361,7 @@ function shoot() {
   const w = WEAPONS[cur], now = performance.now();
   if (!controls.isLocked || dead || downed || PD.on || UP.on || reloading || swapT > 0 || knifeT > 0 || now - lastShot < w.interval) return;
   if (w.mag <= 0) { if (w.reserve > 0) startReload(); else { lastShot = now; sfx('dry'); } return; }
-  lastShot = now; w.mag -= w.dual ? Math.min(2, w.mag) : 1; ANIM.t = 0; ANIM.ej = false; ANIM.clip = (cur === 4 && w.mag === 0); recoil = 1; flashT = FLASH_T; flashS = (w.fs || 1) * (0.85 + Math.random() * 0.4); updateHUD(); camShoot(w); weaponKick(w);
+  lastShot = now; SHOTN++; w.mag -= w.dual ? Math.min(2, w.mag) : 1; ANIM.t = 0; ANIM.ej = false; ANIM.clip = (cur === 4 && w.mag === 0); recoil = 1; flashT = FLASH_T; flashS = (w.fs || 1) * (0.85 + Math.random() * 0.4); updateHUD(); camShoot(w); weaponKick(w);
   const shotId = window.MP && MP.active ? MP.registerShot(cur) : null;
   flash.rotation.z = Math.random() * 6.28;
   shotSnd(cur);
@@ -4585,10 +4664,52 @@ function explodeGrenade(n) {
     hitZombie(z, false, NADE_DMG * scale / (doubleTap ? 2 : 1), { stagger: 0.9, shotId, scale, grenade: true });
     bloodHit(new THREE.Vector3(zp.x, zp.y + 1.1, zp.z), new THREE.Vector3(dx, 0.3, dz).normalize(), false, false);
   }
+  for (const gr of NGRAVES.slice()) if (Math.hypot(gr.x - c.x, gr.z - c.z) < NADE_R) graveHit(gr, 'n' + n.nid, 2);   // граната — 2 «выстрела» по надгробию
   grenadeFx(c);
 }
 // вспышка, огненный шар, дым, искры, звук взрыва и тряска камеры — общие для своей и чужой гранаты (в онлайне видят и слышат все)
+// ---- взрыв гранаты v2: белая вспышка, огненный шар из нескольких языков, ударная волна по земле, раскалённые осколки с дугой,
+// обломки, клубы чёрного дыма, пыль, выжженное пятно и яркий тёплый свет на всю комнату ----------
+const NFX = [];
+const NFX_RING_T = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 30, 64, 64, 64); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.7, 'rgba(255,220,170,0.9)'); g.addColorStop(1, 'rgba(255,200,150,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
+const SCORCH_T = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); for (let k = 0; k < 14; k++) { const px = 64 + (Math.random() - 0.5) * 50, py = 64 + (Math.random() - 0.5) * 50, r = 14 + Math.random() * 30, g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(10,8,6,0.85)'); g.addColorStop(1, 'rgba(10,8,6,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); }
+  for (let k = 0; k < 20; k++) { const a = Math.random() * 6.28; x.strokeStyle = 'rgba(12,10,8,0.6)'; x.lineWidth = 2; x.beginPath(); x.moveTo(64, 64); x.lineTo(64 + Math.cos(a) * 60, 64 + Math.sin(a) * 60); x.stroke(); } return new THREE.CanvasTexture(c); })();
+const nadeLight = new THREE.PointLight(0xffa040, 0, 16, 2); scene.add(nadeLight);
+function nfxSpr(map, add, c, sz, op, col) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map, color: col || 0xffffff, transparent: true, opacity: op, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending })); sp.position.copy(c); sp.scale.setScalar(sz); scene.add(sp); return sp; }
+function grenadeFx2(c) {
+  const gy = floorAt(c.x, c.z, c.y + 0.3), base = new THREE.Vector3(c.x, Math.max(gy + 0.4, c.y), c.z);
+  NFX.push({ o: nfxSpr(GLOW_TEX, true, base, 3, 1, 0xffffff), t: 0, life: 0.12, s0: 3, s1: 9, op: 1, k: 'flash' });   // белая вспышка
+  for (let i = 0; i < 6; i++) { const q = base.clone().add(new THREE.Vector3(RR(-0.6, 0.6), RR(0, 0.8), RR(-0.6, 0.6)));
+    NFX.push({ o: nfxSpr(GL, true, q, 1, 1, pick([0xffd080, 0xffa040, 0xff7020])), t: 0, life: RR(0.45, 0.8), s0: 1.2, s1: RR(4, 6.5), op: 1, k: 'fire', vy: RR(1, 3) }); }   // языки огня
+  const ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: NFX_RING_T, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ring.position.set(c.x, gy + 0.06, c.z); scene.add(ring); NFX.push({ o: ring, t: 0, life: 0.45, s0: 0.5, s1: 14, op: 0.9, k: 'ring' });   // ударная волна
+  for (let i = 0; i < 34; i++) { const v = new THREE.Vector3(RR(-1, 1), RR(0.2, 1.2), RR(-1, 1)).normalize().multiplyScalar(RR(6, 16));
+    NFX.push({ o: nfxSpr(GL, true, base, RR(0.12, 0.28), 1, 0xffc060), t: 0, life: RR(0.6, 1.4), s0: 0.25, s1: 0.05, op: 1, k: 'ember', v }); }   // раскалённые осколки
+  for (let i = 0; i < 8; i++) { const m = new THREE.Mesh(gbox(RR(0.04, 0.1), RR(0.03, 0.08), RR(0.04, 0.1)), new THREE.MeshStandardMaterial({ color: 0x2a2520, roughness: 1 })); m.position.copy(base);
+    NFX.push({ o: m, t: 0, life: RR(1.2, 2), k: 'debris', v: new THREE.Vector3(RR(-6, 6), RR(4, 9), RR(-6, 6)), gy }); scene.add(m); }   // обломки
+  for (let i = 0; i < 9; i++) { const q = base.clone().add(new THREE.Vector3(RR(-0.8, 0.8), RR(0.2, 1.2), RR(-0.8, 0.8)));
+    NFX.push({ o: nfxSpr(SMK, false, q, 1.5, 0, 0x1c1814), t: -RR(0.05, 0.25), life: RR(2.2, 3.6), s0: 1.5, s1: RR(5, 8), op: RR(0.6, 0.85), k: 'smoke', v: new THREE.Vector3(RR(-0.8, 0.8), RR(0.9, 2), RR(-0.8, 0.8)) }); }   // чёрный дым
+  for (let i = 0; i < 5; i++) NFX.push({ o: nfxSpr(SMK, false, new THREE.Vector3(c.x, gy + 0.3, c.z), 1, 0, 0x5a5048), t: 0, life: 1.6, s0: 1, s1: 6, op: 0.45, k: 'dust', v: new THREE.Vector3(RR(-4, 4), 0.3, RR(-4, 4)) });   // пыль по полу
+  const sc = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 3.2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: SCORCH_T, transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+  sc.position.set(c.x, gy + 0.02, c.z); sc.rotation.y = Math.random() * 6; scene.add(sc); NFX.push({ o: sc, t: 0, life: 25, op: 0.85, k: 'scorch' });   // выжженное пятно
+  nadeLight.position.set(c.x, gy + 1.2, c.z); nadeLight.intensity = 14;
+}
+function updateNadeFx(dt) {
+  if (nadeLight.intensity > 0) nadeLight.intensity = Math.max(0, nadeLight.intensity - dt * 24 * (nadeLight.intensity > 5 ? 1.5 : 0.6));
+  for (let i = NFX.length - 1; i >= 0; i--) {
+    const f = NFX[i]; f.t += dt; if (f.t < 0) continue; const u = Math.min(1, f.t / f.life), o = f.o;
+    if (f.k === 'flash' || f.k === 'fire') { o.scale.setScalar(f.s0 + (f.s1 - f.s0) * (1 - Math.pow(1 - u, 2))); o.material.opacity = f.op * (1 - u) * (f.k === 'fire' ? (u < 0.15 ? 1 : 1 - (u - 0.15)) : 1); if (f.vy) o.position.y += f.vy * dt; if (f.k === 'fire') o.material.color.lerp(_nfxC.setHex(0x802010), dt * 2.5); }
+    else if (f.k === 'ring') { o.scale.setScalar(f.s0 + (f.s1 - f.s0) * (1 - Math.pow(1 - u, 3))); o.material.opacity = f.op * (1 - u); }
+    else if (f.k === 'ember') { f.v.y -= 14 * dt; o.position.addScaledVector(f.v, dt); o.scale.setScalar(f.s0 * (1 - u) + 0.04); o.material.opacity = 1 - u * u; }
+    else if (f.k === 'debris') { f.v.y -= 18 * dt; o.position.addScaledVector(f.v, dt); o.rotation.x += dt * 8; o.rotation.z += dt * 6; if (o.position.y < f.gy + 0.03) { o.position.y = f.gy + 0.03; f.v.multiplyScalar(0.35); f.v.y = Math.abs(f.v.y); } }
+    else if (f.k === 'smoke' || f.k === 'dust') { o.position.addScaledVector(f.v, dt); f.v.multiplyScalar(1 - dt * 0.6); o.scale.setScalar(f.s0 + (f.s1 - f.s0) * Math.sqrt(u)); o.material.opacity = f.op * Math.min(1, f.t / 0.15) * (1 - u); }
+    else if (f.k === 'scorch') { o.material.opacity = f.op * Math.min(1, (f.life - f.t) / 4); }
+    if (f.t >= f.life) { scene.remove(o); if (o.material) o.material.dispose(); NFX.splice(i, 1); }
+  }
+}
+const _nfxC = new THREE.Color();
 function grenadeFx(c) {
+  try { grenadeFx2(c); } catch (e) {}
   const mk = (map, add, sz, op, y = 0) => { const sp = spr2(map, add); sp.position.set(c.x, c.y + y, c.z); sp.scale.setScalar(sz); sp.material.opacity = op; scene.add(sp); return sp; };
   boomFx.push({ s: mk(GL, true, 2, 1, 0.4), t: 0, life: 0.5, s0: 2, s1: 11, o: 1, kind: 'fire' });
   boomFx.push({ s: mk(GL, true, 1, 1, 0.3), t: 0, life: 0.18, s0: 1, s1: 16, o: 1, kind: 'fire' });
@@ -4656,7 +4777,7 @@ function updateGrenades(dt) {
 }
 
 // ---------- зомби, волны, здоровье ----------
-let bossLeft = 0, bossTotal = 0;
+let bossLeft = 0, bossTotal = 0, necroLeft = 0, bruteLeft = 0;
 let dead = false, started = false, gtime = 0, roundActive = false, nextRoundAt = 0, round = 0, toSpawn = 0, spawnTimer = 0;
 let hp = 100, maxHp = 100, lastHurt = -99, hurtFlash = 0, kills = 0;
 let downed = false, reviveT = 0, reviveTarget = null, downDrop = 0;   // мультиплеер: повален (лежит), ждёт поднятия союзником
@@ -4754,6 +4875,7 @@ const SFX_GAIN = { box: 0.8, round: 0.8, shell: 0.55, maxammo: 0.85, door: 0.9, 
 // нож: 5 вариантов взмаха (sounds/knife-swing-N.wav) и 5 вариантов попадания по зомби (sounds/knife-hit-N.wav)
 for (let i = 1; i <= 5; i++) { SFX_FILES['ks' + i] = 'sounds/knife-swing-' + i + '.wav'; SFX_FILES['kh' + i] = 'sounds/knife-hit-' + i + '.wav'; SFX_GAIN['ks' + i] = 0.85; SFX_GAIN['kh' + i] = 1; }
 const sfxBufs = {}, sfxLive = {}, knifeLast = {};
+SFX_FILES.nscream = 'sounds/necro-scream.wav'; SFX_GAIN.nscream = 1;   // крик некроманта (синтезирован)
 SFX_FILES.heart = 'sounds/heartbeat.mp3'; SFX_GAIN.heart = 0.6;   // сердцебиение при низком здоровье (зацикленный звук)
 SFX_FILES.amb = MAP_ID === 'verruckt' ? 'sounds/verruckt-ambient.mp3' : 'sounds/nacht-ambient.mp3';   // эмбиент текущей карты (грузится только он)
 SFX_FILES.npin = 'sounds/grenade-pin.mp3'; SFX_FILES.nboom = 'sounds/grenade-explosion.mp3'; SFX_GAIN.npin = 0.9; SFX_GAIN.nboom = 1;   // граната: выдёргивание чеки и взрыв
@@ -5463,7 +5585,7 @@ function fireProj(w, shotId) {
   camera.getWorldDirection(d); camera.getWorldPosition(o); o.addScaledVector(d, 0.3);
   m.position.copy(o); scene.add(m); projs.push({ m, d, life: 2, dmg: w.dmg, shotId });
 }
-const RAY_R = 3.6, booms = [];
+const RAY_R = 2.8, booms = [];   // радиус взрыва меньше (было 3,6 м)
 const boomLight = new THREE.PointLight(0x40ff60, 0, 12, 2); scene.add(boomLight);
 const boomGeo = new THREE.SphereGeometry(1, 16, 12);
 function rayBoom(pt, dmg, shotId) {   // взрыв: полный урон всем зомби в радиусе
@@ -5472,6 +5594,7 @@ function rayBoom(pt, dmg, shotId) {   // взрыв: полный урон вс�
     const c = zb.g.position, dx = c.x - pt.x, dz = c.z - pt.z, dy = c.y + 0.9 - pt.y;
     if (dx * dx + dz * dz + dy * dy < RAY_R * RAY_R) hitZombie(zb, false, dmg, { stagger: 0.2, shotId });
   }
+  { const sid = 'r' + (++SHOTN); for (const gr of NGRAVES.slice()) if (Math.hypot(gr.x - pt.x, gr.z - pt.z) < RAY_R) graveHit(gr, sid); }
   const m = new THREE.Mesh(boomGeo, new THREE.MeshBasicMaterial({ color: 0x40ff60, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
   m.position.copy(pt); m.scale.setScalar(0.3); scene.add(m); booms.push({ m, age: 0 });
   boomLight.position.set(pt.x, pt.y + 0.3, pt.z); boomLight.intensity = 6;
@@ -5494,13 +5617,73 @@ function updateProjs(dt) {
     pray.set(p.m.position, p.d); pray.far = step + 0.15;
     const h = pray.intersectObjects(worldMeshes, false)[0], zh = pray.intersectObjects(zms, false)[0];
     let kill = false;
-    if (zh && (!h || zh.distance < h.distance)) { rayBoom(zh.point, p.dmg, p.shotId); kill = true; }
+    const gh = NGRAVE_MESHES.length ? pray.intersectObjects(NGRAVE_MESHES, false)[0] : null;
+    if (gh && (!h || gh.distance < h.distance) && (!zh || gh.distance < zh.distance)) { rayBoom(gh.point, p.dmg, p.shotId); kill = true; }
+    else if (zh && (!h || zh.distance < h.distance)) { rayBoom(zh.point, p.dmg, p.shotId); kill = true; }
     else if (h) { rayBoom(h.point, p.dmg, p.shotId); kill = true; }
     else p.m.position.addScaledVector(p.d, step);
     if (kill || p.life <= 0) { scene.remove(p.m); projs.splice(i, 1); }
   }
 }
 
+// ---------- автоматы с перками: потёртый, битый вид (1.25) ----------
+// Табличка — та же картинка, но выцветшая, со сколами краски до металла, ржавыми потёками, царапинами, трещинами на стекле и грязью по краям;
+// светится не «плоско», а как старая подсвеченная вывеска (освещаемый материал + слабое свечение). Корпус — крашеный металл с заклёпками, швами, ржавчиной и вмятинами.
+function _chip(g, x, y, r, fill, edge) {   // скол краски неровной формы
+  g.beginPath(); const n = 9 + (Math.random() * 6 | 0);
+  for (let i = 0; i < n; i++) { const a = i / n * 6.283, rr = r * (0.45 + Math.random() * 0.75); i ? g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.8) : g.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.8); }
+  g.closePath(); g.fillStyle = fill; g.fill(); if (edge) { g.strokeStyle = edge; g.lineWidth = 1; g.stroke(); }
+}
+function _rust(g, x, y, L, w, a) {   // ржавый потёк вниз
+  const gr = g.createLinearGradient(0, y, 0, y + L); gr.addColorStop(0, `rgba(120,58,18,${a})`); gr.addColorStop(0.4, `rgba(95,45,15,${a * 0.6})`); gr.addColorStop(1, 'rgba(80,40,15,0)');
+  g.fillStyle = gr; g.beginPath(); g.moveTo(x - w / 2, y); g.quadraticCurveTo(x - w * 0.3 + (Math.random() - 0.5) * 6, y + L * 0.5, x - 1, y + L); g.lineTo(x + 1, y + L); g.quadraticCurveTo(x + w * 0.3, y + L * 0.5, x + w / 2, y); g.fill();
+}
+function _wear(g, W, H, k) {   // общий износ: выцветание, грязь, сколы, ржавчина, царапины
+  g.save();
+  g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgb(205,195,178)'; g.fillRect(0, 0, W, H);   // выцветание/желтизна
+  const vg = g.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.25, W / 2, H * 0.5, Math.max(W, H) * 0.75); vg.addColorStop(0, 'rgb(255,255,255)'); vg.addColorStop(1, 'rgb(105,92,78)');
+  g.fillStyle = vg; g.fillRect(0, 0, W, H);   // грязь к краям
+  const bg = g.createLinearGradient(0, H * 0.7, 0, H); bg.addColorStop(0, 'rgb(255,255,255)'); bg.addColorStop(1, 'rgb(90,78,64)'); g.fillStyle = bg; g.fillRect(0, H * 0.7, W, H * 0.3);   // низ закопчён
+  g.globalCompositeOperation = 'source-over';
+  for (let i = 0; i < 900 * k; i++) { g.fillStyle = Math.random() < 0.5 ? `rgba(30,24,18,${Math.random() * 0.25})` : `rgba(200,190,170,${Math.random() * 0.08})`; g.fillRect(Math.random() * W, Math.random() * H, 1 + Math.random() * 2, 1 + Math.random() * 2); }
+  for (let i = 0; i < 26 * k; i++) { const ed = Math.random() < 0.6, x = ed ? (Math.random() < 0.5 ? Math.random() * 18 : W - Math.random() * 18) : Math.random() * W, y = Math.random() * H;
+    _chip(g, x, y, 2 + Math.random() * (ed ? 9 : 5), ['#6d6860', '#57524b', '#7a746a'][Math.random() * 3 | 0], 'rgba(20,16,12,0.5)');   // сколы до металла (больше по краям)
+    if (Math.random() < 0.4) _rust(g, x, y, 15 + Math.random() * 45, 3 + Math.random() * 5, 0.55); }
+  for (let i = 0; i < 9 * k; i++) _rust(g, Math.random() * W, Math.random() < 0.5 ? Math.random() * 12 : Math.random() * H, 30 + Math.random() * 110, 3 + Math.random() * 8, 0.35 + Math.random() * 0.3);
+  g.lineCap = 'round';
+  for (let i = 0; i < 40 * k; i++) { const x = Math.random() * W, y = Math.random() * H, a = (Math.random() - 0.5) * 1.2 + (Math.random() < 0.5 ? 0 : 1.57), L = 6 + Math.random() * 40;
+    g.strokeStyle = Math.random() < 0.7 ? `rgba(215,205,185,${0.15 + Math.random() * 0.25})` : 'rgba(15,12,10,0.35)'; g.lineWidth = 0.6 + Math.random() * 0.8;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke(); }   // царапины
+  for (let i = 0; i < 4 * k; i++) zBlob(g, Math.random() * W, Math.random() * H, 8 + Math.random() * 22, 'rgba(40,32,22,0.3)');   // разводы грязи
+  g.restore();
+}
+function perkFaceMat(tex) {
+  const c = tex.image, g = c.getContext('2d'), W = c.width, H = c.height;
+  _wear(g, W, H, 1);
+  g.save(); g.strokeStyle = 'rgba(230,235,240,0.35)'; g.lineWidth = 0.8;   // трещины на стекле таблички
+  for (let n = 0; n < 2; n++) { const cx = 40 + Math.random() * (W - 80), cy = 60 + Math.random() * (H - 160);
+    for (let r = 0; r < 7; r++) { let x = cx, y = cy, a = Math.random() * 6.28; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 4; k++) { a += (Math.random() - 0.5) * 0.7; x += Math.cos(a) * (8 + Math.random() * 16); y += Math.sin(a) * (8 + Math.random() * 16); g.lineTo(x, y); } g.stroke(); } }
+  g.restore();
+  g.save(); g.strokeStyle = 'rgba(25,20,15,0.85)'; g.lineWidth = 8; g.strokeRect(4, 4, W - 8, H - 8);   // рамка
+  for (const [x, y] of [[9, 9], [W - 9, 9], [9, H - 9], [W - 9, H - 9], [W / 2, 9], [W / 2, H - 9]]) { const rg = g.createRadialGradient(x - 1, y - 1, 0, x, y, 4); rg.addColorStop(0, '#b8b0a0'); rg.addColorStop(1, '#3a342c'); g.fillStyle = rg; g.beginPath(); g.arc(x, y, 3.5, 0, 6.28); g.fill(); _rust(g, x, y + 3, 14 + Math.random() * 20, 3, 0.5); }
+  g.restore();
+  tex.needsUpdate = true; if (renderer.capabilities) tex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  return new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.42, bumpMap: tex, bumpScale: 0.004, roughness: 0.5, metalness: 0.15 });
+}
+function perkBodyMat(col, emi) {   // крашеный металл корпуса
+  const c = document.createElement('canvas'); c.width = 256; c.height = 512; const g = c.getContext('2d');
+  const base = new THREE.Color(col); g.fillStyle = '#' + base.getHexString(); g.fillRect(0, 0, 256, 512);
+  for (let i = 0; i < 30; i++) zBlob(g, Math.random() * 256, Math.random() * 512, 10 + Math.random() * 40, Math.random() < 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)');   // неровная покраска
+  for (const y of [96, 300, 470]) { g.strokeStyle = 'rgba(10,8,6,0.65)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke(); g.strokeStyle = 'rgba(255,250,240,0.12)'; g.beginPath(); g.moveTo(0, y + 2); g.lineTo(256, y + 2); g.stroke(); }   // швы панелей
+  for (const y of [8, 88, 104, 292, 308, 462, 478, 504]) for (let x = 12; x < 256; x += 29) { const rg = g.createRadialGradient(x - 1, y - 1, 0, x, y, 4); rg.addColorStop(0, 'rgba(230,220,200,0.6)'); rg.addColorStop(1, 'rgba(20,16,12,0.7)'); g.fillStyle = rg; g.beginPath(); g.arc(x, y, 3, 0, 6.28); g.fill(); if (Math.random() < 0.35) _rust(g, x, y + 3, 10 + Math.random() * 30, 3, 0.45); }   // заклёпки
+  for (let i = 0; i < 5; i++) { const x = 30 + Math.random() * 196, y = 120 + Math.random() * 300, r = 14 + Math.random() * 20, rg = g.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r);
+    rg.addColorStop(0, 'rgba(255,255,255,0.1)'); rg.addColorStop(0.6, 'rgba(0,0,0,0.12)'); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.beginPath(); g.arc(x, y, r, 0, 6.28); g.fill(); }   // вмятины
+  _wear(g, 256, 512, 1.4);
+  g.fillStyle = 'rgba(15,12,10,0.6)'; g.fillRect(0, 488, 256, 24);   // плинтус в грязи
+  const t = new THREE.CanvasTexture(c); if (renderer.capabilities) t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  const m = new THREE.MeshStandardMaterial({ map: t, bumpMap: t, bumpScale: 0.006, roughness: 0.62, metalness: 0.35, emissive: emi, emissiveIntensity: 0.6 }); m.userData.tx = 'unit';
+  return m;
+}
 // ---------- SPEED COLA ----------
 const COLA_PRICE = 4000, MACH = MAP_ID === 'nacht' ? { x: -14.25, z: 7, y: 0, f: 1 } : { x: -7.2, z: 3.2, y: 4, f: -1 };   // y — этаж; f — куда смотрит табличка по X (в Verrückt — в комнату, а не в стену)
 let speedCola = false, doubleTap = false, juggernog = false;
@@ -5519,8 +5702,8 @@ function makeColaTex() {
   g.fillStyle = '#7dff8a'; g.font = 'bold 30px "Courier New"'; g.fillText(String(COLA_PRICE), 128, 346);
   return new THREE.CanvasTexture(c);
 }
-addBox(MACH.x - 0.45, MACH.x + 0.45, MACH.y, MACH.y + 2.2, MACH.z - 0.7, MACH.z + 0.7, new THREE.MeshStandardMaterial({ color: 0x14702a, roughness: 0.6, emissive: 0x062a0e }));
-const colaFace = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), new THREE.MeshBasicMaterial({ map: makeColaTex(), color: 0xdddddd }));
+addBox(MACH.x - 0.45, MACH.x + 0.45, MACH.y, MACH.y + 2.2, MACH.z - 0.7, MACH.z + 0.7, perkBodyMat(0x14702a, 0x062a0e));
+const colaFace = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), perkFaceMat(makeColaTex()));
 colaFace.position.set(MACH.x + 0.46 * MACH.f, MACH.y + 1.1, MACH.z); colaFace.rotation.y = Math.PI / 2 * MACH.f; scene.add(colaFace);
 const colaLight = new THREE.PointLight(0x40ff60, 0.9, 7, 2); colaLight.position.set(MACH.x + 1.2 * MACH.f, MACH.y + 1.8, MACH.z); scene.add(colaLight);
 // иконки перков (HUD справа сверху): бутылка с молнией = Speed Cola, две пули = Double Tap
@@ -5623,8 +5806,8 @@ function makeDtapTex() {
   g.fillStyle = '#000'; g.fillRect(70, 310, 116, 50); g.fillStyle = '#ffd24a'; g.font = 'bold 30px "Courier New"'; g.fillText(String(DTAP_PRICE), 128, 346);
   return new THREE.CanvasTexture(c);
 }
-{ const hx = DTAP.f ? 0.45 : 0.7, hz = DTAP.f ? 0.7 : 0.45; addBox(DTAP.x - hx, DTAP.x + hx, DTAP.y, DTAP.y + 2.2, DTAP.z - hz, DTAP.z + hz, new THREE.MeshStandardMaterial({ color: 0x8a1a10, roughness: 0.6, emissive: 0x2a0804 })); }
-const dtapFace = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), new THREE.MeshBasicMaterial({ map: makeDtapTex(), color: 0xdddddd }));
+{ const hx = DTAP.f ? 0.45 : 0.7, hz = DTAP.f ? 0.7 : 0.45; addBox(DTAP.x - hx, DTAP.x + hx, DTAP.y, DTAP.y + 2.2, DTAP.z - hz, DTAP.z + hz, perkBodyMat(0x8a1a10, 0x2a0804)); }
+const dtapFace = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), perkFaceMat(makeDtapTex()));
 if (DTAP.f) { dtapFace.position.set(DTAP.x + 0.46 * DTAP.f, DTAP.y + 1.1, DTAP.z); dtapFace.rotation.y = Math.PI / 2 * DTAP.f; } else dtapFace.position.set(DTAP.x, DTAP.y + 1.1, DTAP.z + 0.46);
 scene.add(dtapFace);
 const dtapLight = new THREE.PointLight(0xff8a30, 0.9, 7, 2); if (DTAP.f) dtapLight.position.set(DTAP.x + 1.2 * DTAP.f, DTAP.y + 1.8, DTAP.z); else dtapLight.position.set(DTAP.x, DTAP.y + 1.8, DTAP.z + 1.2);
@@ -5641,8 +5824,8 @@ function makeJuggTex() {
   g.fillStyle = '#000'; g.fillRect(70, 310, 116, 50); g.fillStyle = '#ffd24a'; g.font = 'bold 30px "Courier New"'; g.fillText(String(JUGG_PRICE), 128, 346);
   return new THREE.CanvasTexture(c);
 }
-addBox(JUGG.x - 0.45, JUGG.x + 0.45, JUGG.y, JUGG.y + 2.2, JUGG.z - 0.7, JUGG.z + 0.7, new THREE.MeshStandardMaterial({ color: 0x8a1030, roughness: 0.6, emissive: 0x2a0410 }));
-const juggFace = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), new THREE.MeshBasicMaterial({ map: makeJuggTex(), color: 0xdddddd }));
+addBox(JUGG.x - 0.45, JUGG.x + 0.45, JUGG.y, JUGG.y + 2.2, JUGG.z - 0.7, JUGG.z + 0.7, perkBodyMat(0x8a1030, 0x2a0410));
+const juggFace = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), perkFaceMat(makeJuggTex()));
 juggFace.position.set(JUGG.x + 0.46, JUGG.y + 1.1, JUGG.z); juggFace.rotation.y = Math.PI / 2; scene.add(juggFace);
 const juggLight = new THREE.PointLight(0xff4a6a, 0.9, 7, 2); juggLight.position.set(JUGG.x + 1.2, JUGG.y + 1.8, JUGG.z); scene.add(juggLight);
 
@@ -5669,8 +5852,8 @@ function makeQRTex() {
   return new THREE.CanvasTexture(c);
 }
 { const hx = 0.45, hz = 0.7;
-  addBox(QR.x - hx, QR.x + hx, QR.y, QR.y + 2.2, QR.z - hz, QR.z + hz, new THREE.MeshStandardMaterial({ color: 0x1a5a8a, roughness: 0.6, emissive: 0x07243a }));
-  const qrFace = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), new THREE.MeshBasicMaterial({ map: makeQRTex(), color: 0xdddddd }));
+  addBox(QR.x - hx, QR.x + hx, QR.y, QR.y + 2.2, QR.z - hz, QR.z + hz, perkBodyMat(0x1a5a8a, 0x07243a));
+  const qrFace = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), perkFaceMat(makeQRTex()));
   qrFace.position.set(QR.x + 0.46 * QR.f, QR.y + 1.1, QR.z); qrFace.rotation.y = Math.PI / 2 * QR.f; scene.add(qrFace);
   const qrLight = new THREE.PointLight(0x4ab8ff, 0.9, 7, 2); qrLight.position.set(QR.x + 1.2 * QR.f, QR.y + 1.8, QR.z); scene.add(qrLight); }
 function applyQR() { if (quickRevive) return; quickRevive = true; drinkPerk('qr'); }
@@ -5694,8 +5877,8 @@ if (BLD_ON) {
   g.strokeStyle = '#e8e0d0'; g.lineWidth = 12; g.lineCap = 'round'; g.beginPath(); g.moveTo(70, 270); g.lineTo(186, 250); g.moveTo(70, 250); g.lineTo(186, 270); g.stroke();
   g.fillStyle = '#ffd24a'; g.font = 'bold 18px "Courier New"'; g.fillText('РЕМОНТ −75%', 128, 292);
   g.fillStyle = '#000'; g.fillRect(70, 310, 116, 50); g.fillStyle = '#ffd24a'; g.font = 'bold 30px "Courier New"'; g.fillText(String(BLD_PRICE), 128, 346);
-  addBox(BLD.x - 0.45, BLD.x + 0.45, BLD.y, BLD.y + 2.2, BLD.z - 0.7, BLD.z + 0.7, new THREE.MeshStandardMaterial({ color: 0x7a5a10, roughness: 0.6, emissive: 0x2a1c00 }));
-  const f = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: 0xdddddd }));
+  addBox(BLD.x - 0.45, BLD.x + 0.45, BLD.y, BLD.y + 2.2, BLD.z - 0.7, BLD.z + 0.7, perkBodyMat(0x7a5a10, 0x2a1c00));
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.0), perkFaceMat(new THREE.CanvasTexture(c)));
   f.position.set(BLD.x + 0.46 * BLD.f, BLD.y + 1.1, BLD.z); f.rotation.y = Math.PI / 2 * BLD.f; scene.add(f);
   const l = new THREE.PointLight(0xffb030, 0.9, 7, 2); l.position.set(BLD.x + 1.2 * BLD.f, BLD.y + 1.8, BLD.z); scene.add(l);
 }
@@ -6913,7 +7096,7 @@ function bossDecorate(z, add, body, skin, gore) {   // наросты, тяжи 
 }
 function bossSetup(z) {   // параметры босса после спавна
   z.run = false; z.gait = pick(['lurch', 'shamble']); z.armStyle = pick(['hang', 'claw']);
-  z.speed = BOSS_SPEED * (round >= 12 ? 1.2 : 1); z.hp = ZHP(round) * BOSS_HP_K; z.spitCd = rnd(0.8, 1.6); z.spitT = 0;
+  z.speed = BOSS_SPEED * (round >= 12 ? 1.2 : 1); z.hp = Math.round(ZHP(round) * BOSS_HP_K * plk(PL_SPIT)); z.spitCd = rnd(0.8, 1.6); z.spitT = 0;
 }
 function bossLos(z, t) { const p = z.g.position; return Math.abs(t.floor - p.y) < 1.6 && los(p.x, p.z, t.x, t.z, p.y); }
 // true — босс стоит и плюётся (обычное движение в этот кадр не выполняется)
@@ -7181,14 +7364,520 @@ function makeRotZombie(kind) {
   };
   z.lLeg = leg(-1); z.rLeg = leg(1);
   const h = rnd(0.95, 1.07); g.scale.set(rnd(0.94, 1.06), h, rnd(0.94, 1.06));
+  mergeZombieParts(z);
   return z;
 }
-function makeZombie(boss) {
+// =================== НЕКРОМАНТ (Verrückt, 10 волна, затем каждые 5 волн) ===================
+// Высокий скелет-колдун в рваном балахоне с горящими зелёными рунами, капюшон, посох с черепом и светящейся сферой.
+// Здоровье — втрое больше, чем у «Плеваки». Время от времени останавливается, поднимает посох и кричит: из земли с грохотом
+// вырастают надгробия, из них вылезают скелеты. Надгробие разрушается за 5 выстрелов из любого оружия (дробь одного выстрела = 1),
+// граната — 2. Первый скелет вылезает сразу, дальше — редко. Погиб некромант — его надгробия рассыпаются.
+const NECRO_HP_K = 16, NECRO_MELEE = 40, GRAVE_HP = 5, GRAVE_MAX = 3;
+function necroCount(r) { return MAP_ID === 'verruckt' && (r === 10 || (r > 10 && r % 5 === 0)) ? 1 : 0; }
+function robeTex() {   // чёрно-лиловое сукно, рваные полосы, грязь; руны — отдельной картой свечения
+  return ztex('robe', (x, S) => {
+    x.fillStyle = '#1b161d'; x.fillRect(0, 0, S, S);
+    for (let i = 0; i < S; i += 2) { x.fillStyle = `rgba(255,255,255,${0.015 + Math.random() * 0.02})`; x.fillRect(i, 0, 1, S); }
+    for (let i = 0; i < 40; i++) zBlob(x, Math.random() * S, Math.random() * S, 10 + Math.random() * 40, pick(['rgba(60,30,70,0.35)', 'rgba(0,0,0,0.4)', 'rgba(40,50,30,0.25)']));
+    for (let i = 0; i < 6; i++) { x.fillStyle = 'rgba(5,4,6,0.95)'; zPoly(x, Math.random() * S, Math.random() * S, 6 + Math.random() * 12, 10 + Math.random() * 20); x.fill(); }
+    const g = x.createLinearGradient(0, 0, 0, S); g.addColorStop(0, 'rgba(30,25,15,0.5)'); g.addColorStop(0.3, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, S, S);   // подол в грязи (низ текстуры = низ балахона)
+  }, 256);
+}
+const RUNE_T = (() => {   // светящиеся руны: полосы знаков по подолу и груди
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, 256, 256);
+  x.strokeStyle = '#fff'; x.lineWidth = 2.2; x.lineCap = 'round';
+  const glyph = (px, py, s) => { x.beginPath(); const n = 2 + (Math.random() * 3 | 0); for (let k = 0; k < n; k++) { const a = Math.random() * 6.28, b = Math.random() * 6.28; x.moveTo(px + Math.cos(a) * s, py + Math.sin(a) * s); x.lineTo(px + Math.cos(b) * s, py + Math.sin(b) * s); } x.stroke(); };
+  for (const yy of [30, 60, 205]) for (let px = 8; px < 256; px += 18) glyph(px, yy, 6);
+  x.lineWidth = 1.5; x.beginPath(); x.moveTo(0, 44); x.lineTo(256, 44); x.moveTo(0, 220); x.lineTo(256, 220); x.stroke();
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+})();
+function boneTex() {   // старая кость: желтоватая, трещины, грязь в порах, тёмные суставы
+  return ztex('bone', (x, S) => {
+    x.fillStyle = '#cdbf98'; x.fillRect(0, 0, S, S);
+    for (let i = 0; i < 40; i++) zBlob(x, Math.random() * S, Math.random() * S, 8 + Math.random() * 30, pick(['rgba(120,95,50,0.3)', 'rgba(240,230,200,0.25)', 'rgba(70,55,35,0.3)']));
+    noiseDots(x, S, 3000, 0.12); zVeins(x, S, 12, 'rgba(60,45,25,0.6)', 1.2);
+    x.fillStyle = 'rgba(40,30,15,0.6)'; for (let i = 0; i < 500; i++) x.fillRect(Math.random() * S, Math.random() * S, 1, 1);
+    for (let i = 0; i < 5; i++) zBlob(x, Math.random() * S, Math.random() * S, 10 + Math.random() * 15, 'rgba(80,15,10,0.35)');   // старая кровь
+  }, 256);
+}
+function tombTex() {   // надгробие: камень, мох, трещины, выбитый крест и даты
+  return ztex('tomb', (x, S) => {
+    x.fillStyle = '#6d6a64'; x.fillRect(0, 0, S, S); noiseDots(x, S, 5000, 0.14);
+    for (let i = 0; i < 30; i++) zBlob(x, Math.random() * S, Math.random() * S, 10 + Math.random() * 40, pick(['rgba(40,60,25,0.4)', 'rgba(30,28,25,0.3)', 'rgba(150,145,135,0.25)']));
+    zVeins(x, S, 6, 'rgba(25,22,20,0.8)', 1.6);
+    x.fillStyle = 'rgba(30,28,25,0.85)'; x.fillRect(S * 0.46, S * 0.12, S * 0.08, S * 0.4); x.fillRect(S * 0.34, S * 0.22, S * 0.32, S * 0.07);   // крест
+    x.font = `bold ${S * 0.09}px Georgia, serif`; x.textAlign = 'center'; x.fillText('1918 – 1944', S / 2, S * 0.66); x.font = `italic ${S * 0.07}px Georgia, serif`; x.fillText('Ruhe in Frieden', S / 2, S * 0.78);
+    const g = x.createLinearGradient(0, S * 0.6, 0, S); g.addColorStop(0, 'rgba(40,60,20,0)'); g.addColorStop(1, 'rgba(40,60,20,0.7)'); x.fillStyle = g; x.fillRect(0, 0, S, S);   // мох у земли
+  }, 256);
+}
+const NECRO_GLOW = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(220,255,200,1)'); g.addColorStop(0.25, 'rgba(90,255,110,0.7)'); g.addColorStop(1, 'rgba(20,200,60,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+const glowSpr = (par, x, y, z, s, op = 0.9) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: NECRO_GLOW, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.position.set(x, y, z); sp.scale.setScalar(s); par.add(sp); return sp; };
+function skullHead(z, add, par, boneM, dark, eyeS) {   // череп: свод, скулы, глазницы со свечением, носовая дыра, зубы, челюсть
+  const sk = add(par, gsph(0.11, 14, 12), boneM, 0, 0.03, 0, true); sk.scale.set(0.92, 1.05, 1.08);
+  add(par, gsph(0.07, 10, 8), boneM, 0, -0.035, 0.04, true).scale.set(1.1, 0.85, 0.9);
+  for (const sx of [-1, 1]) { add(par, gsph(0.03, 8, 6), dark, sx * 0.042, 0.015, 0.088, true).scale.set(1, 0.9, 0.6); add(par, gsph(0.02, 6, 5), boneM, sx * 0.075, -0.03, 0.06, true); }
+  add(par, gbox(0.024, 0.03, 0.02), dark, 0, -0.025, 0.105, true);
+  for (let k = -3; k <= 3; k++) add(par, gbox(0.01, 0.018, 0.008), boneM, k * 0.012, -0.065, 0.098, true);
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.06, 0); par.add(jaw);
+  add(jaw, gbox(0.095, 0.025, 0.09), boneM, 0, -0.03, 0.045, true);
+  for (let k = -3; k <= 3; k++) add(jaw, gbox(0.009, 0.015, 0.008), boneM, k * 0.011, -0.012, 0.088, true);
+  z.jaw = jaw; z.glow = [glowSpr(par, -0.042, 0.015, 0.1, eyeS), glowSpr(par, 0.042, 0.015, 0.1, eyeS)];
+}
+function boneLimb(add, par, len, r, boneM, twin) {   // кость с утолщениями на концах (у предплечья/голени — две параллельные)
+  const offs = twin ? [-r * 1.2, r * 1.2] : [0];
+  for (const o of offs) { add(par, gcyl(r, r * 0.85, len, 6), boneM, o, -len / 2, 0); }
+  add(par, gsph(r * 1.9, 6, 5), boneM, 0, -len, 0); add(par, gsph(r * 1.7, 6, 5), boneM, 0, 0, 0);
+}
+// оптимизация (1.24): детали зомби в каждом узле скелета (тело, голова, челюсть, плечо, предплечье, бедро, голень) склеиваются
+// по материалу в одну сетку — вместо ~100 отдельных объектов на зомби остаётся ~25. Анимации и попадания работают как раньше.
+function mergeZombieParts(z) {
+  try {
+    const nodes = [z.body, z.head, z.jaw, z.lArm, z.lArm.el, z.rArm, z.rArm.el, z.lLeg, z.lLeg.kn, z.rLeg, z.rLeg.kn].filter(n => n && Array.isArray(n.children));
+    const keep = new Set(z.eyes || []), out = [], geos = [], ops = [];
+    for (const nd of nodes) {
+      const byMat = new Map();
+      for (const c of nd.children) if (c.isMesh && !keep.has(c)) { if (!byMat.has(c.material)) byMat.set(c.material, []); byMat.get(c.material).push(c); }
+      for (const [m, list] of byMat) {
+        if (list.length < 2) { out.push(...list); continue; }
+        const parts = list.map(c => { c.updateMatrix(); const g = c.geometry.clone(); g.applyMatrix4(c.matrix); return g; });
+        const mg = mergeGeos(parts); parts.forEach(g => g.dispose()); geos.push(mg);
+        const mesh = new THREE.Mesh(mg, m); mesh.userData = { z, head: !!list[0].userData.head };
+        ops.push([nd, list, mesh]); out.push(mesh);
+      }
+    }
+    for (const [nd, list, mesh] of ops) { list.forEach(c => nd.remove(c)); nd.add(mesh); }   // заменяем только когда всё склеилось
+    if (ops.length) { z.meshes = out.concat([...keep]); z.geos = geos; }
+  } catch (e) { console.warn('merge', e); }
+}
+function makeSkeleton() {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const boneM = new THREE.MeshStandardMaterial({ map: boneTex(), bumpMap: null, roughness: 0.75, color: new THREE.Color(0xffffff).multiplyScalar(rnd(0.85, 1.05)) });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x050404, roughness: 1 }), cloth = new THREE.MeshStandardMaterial({ map: feldTex(false), roughness: 1, side: THREE.DoubleSide });
+  const steel = new THREE.MeshStandardMaterial({ color: 0x3e4239, roughness: 0.7, metalness: 0.4 });
+  const z = { g, body, mats: [boneM, dark, cloth, steel], meshes: [], rot: 'skeleton', skeleton: true };
+  const add = (par, geo, m, x, y, zz, head) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, zz); o.userData = { z, head: !!head }; par.add(o); z.meshes.push(o); return o; };
+  for (let k = 0; k < 11; k++) add(body, gsph(0.024, 6, 5), boneM, 0, 0.88 + k * 0.06, -0.06 + Math.sin(k * 0.3) * 0.02).scale.set(1, 0.8, 1);   // позвоночник
+  for (let k = 0; k < 7; k++) for (const sx of [-1, 1]) { const rb = add(body, new THREE.TorusGeometry(0.15 - Math.abs(k - 2.5) * 0.012, 0.011, 4, 10, 2.1), boneM, 0, 1.18 + k * 0.05, -0.02); rb.rotation.set(Math.PI / 2 + 0.25, 0, sx > 0 ? -0.55 : Math.PI - 1.55); rb.scale.set(1, 0.7, 1); }   // рёбра
+  add(body, gbox(0.03, 0.22, 0.02), boneM, 0, 1.3, 0.1);   // грудина
+  add(body, new THREE.TorusGeometry(0.11, 0.03, 6, 12), boneM, 0, 0.86, 0).rotation.x = Math.PI / 2 - 0.3;   // таз
+  for (const sx of [-1, 1]) { const cl = add(body, gcyl(0.012, 0.01, 0.16, 5), boneM, sx * 0.09, 1.52, 0.04); cl.rotation.z = sx * (Math.PI / 2 - 0.2); add(body, gbox(0.08, 0.12, 0.015), boneM, sx * 0.1, 1.42, -0.09).rotation.z = sx * 0.3; }   // ключицы, лопатки
+  if (Math.random() < 0.5) { const sh = add(body, rlathe('skelRag', [[0.17, 1.0], [0.19, 1.2], [0.2, 1.4], [0.16, 1.5]], 10), cloth, 0, 0, 0); sh.scale.z = 0.7; }   // остатки кителя
+  z.head = new THREE.Group(); z.head.position.set(0, 1.7, 0.03); body.add(z.head);
+  skullHead(z, add, z.head, boneM, dark, 0.07);
+  if (Math.random() < 0.45) { const hm = add(z.head, rlathe('stahl', [[0.15, -0.045], [0.142, -0.02], [0.13, 0.0], [0.132, 0.04], [0.125, 0.09], [0.1, 0.135], [0.06, 0.16], [0.001, 0.168]], 18), steel, 0, 0.03, -0.012, true); hm.rotation.z = rnd(-0.25, 0.25); }
+  z.eyes = [];
+  const arm = sx => { const pv = new THREE.Group(); pv.position.set(sx * 0.19, 1.47, 0); body.add(pv); boneLimb(add, pv, 0.3, 0.016, boneM);
+    const el = new THREE.Group(); el.position.set(0, -0.3, 0); el.rotation.x = -0.3; pv.add(el); boneLimb(add, el, 0.27, 0.011, boneM, true);
+    for (let k = 0; k < 4; k++) { const f = add(el, gcyl(0.006, 0.004, 0.09, 4), boneM, -0.02 + k * 0.013, -0.33, 0.01); f.rotation.x = -0.4; }
+    pv.el = el; return pv; };
+  z.lArm = arm(-1); z.rArm = arm(1);
+  const leg = sx => { const pv = new THREE.Group(); pv.position.set(sx * 0.09, 0.84, 0); body.add(pv); boneLimb(add, pv, 0.42, 0.02, boneM);
+    const kn = new THREE.Group(); kn.position.set(0, -0.42, 0); pv.add(kn); add(kn, gsph(0.028, 6, 5), boneM, 0, 0, 0.02); boneLimb(add, kn, 0.38, 0.014, boneM, true);
+    add(kn, gbox(0.06, 0.03, 0.17), boneM, 0, -0.4, 0.04); pv.kn = kn; return pv; };
+  z.lLeg = leg(-1); z.rLeg = leg(1);
+  g.scale.setScalar(rnd(0.95, 1.05));
+  mergeZombieParts(z);
+  return z;
+}
+function makeNecro() {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const robe = new THREE.MeshStandardMaterial({ map: robeTex(), emissiveMap: RUNE_T, emissive: 0x38ff6a, emissiveIntensity: 1, roughness: 0.95, side: THREE.DoubleSide });
+  const boneM = new THREE.MeshStandardMaterial({ map: boneTex(), roughness: 0.6, color: 0xd8d0b8 }), dark = new THREE.MeshStandardMaterial({ color: 0x030303, roughness: 1 });
+  const wood = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.8 }), iron = new THREE.MeshStandardMaterial({ color: 0x2a2c2a, roughness: 0.4, metalness: 0.8 });
+  const z = { g, body, mats: [robe, boneM, dark, wood, iron], meshes: [], rot: 'necro', necro: true };
+  const add = (par, geo, m, x, y, zz, head) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, zz); o.userData = { z, head: !!head }; par.add(o); z.meshes.push(o); return o; };
+  // балахон: широкий рваный подол → узкая талия → грудь и плечи
+  const rb = add(body, rlathe('robe', [[0.44, 0.0], [0.38, 0.25], [0.3, 0.6], [0.22, 0.95], [0.21, 1.1], [0.25, 1.32], [0.27, 1.45], [0.2, 1.55], [0.08, 1.6]], 20), robe, 0, 0, 0); rb.scale.z = 0.8;
+  for (let k = 0; k < 14; k++) { const a = k / 14 * 6.28, L = rnd(0.12, 0.3), s = add(body, gbox(0.12, L, 0.012), robe, Math.sin(a) * 0.42, 0.02 - L / 2 + 0.06, Math.cos(a) * 0.42 * 0.8); s.rotation.y = a; s.rotation.x = rnd(-0.2, 0.2); }   // лохмотья подола
+  for (let k = 0; k < 4; k++) for (const sx of [-1, 1]) { const r = add(body, new THREE.TorusGeometry(0.12 - k * 0.008, 0.01, 4, 8, 1.4), boneM, 0, 1.18 + k * 0.06, 0.1); r.rotation.set(Math.PI / 2, 0, sx > 0 ? -0.2 : Math.PI - 1.2); }   // рёбра в разрезе балахона
+  add(body, gbox(0.14, 0.32, 0.02), dark, 0, 1.28, 0.165);   // тёмный разрез на груди
+  for (const sx of [-1, 1]) { const sp = add(body, new THREE.ConeGeometry(0.045, 0.2, 6), boneM, sx * 0.25, 1.58, -0.02); sp.rotation.z = -sx * 0.6; }   // костяные шипы на плечах
+  // капюшон с черепом внутри
+  z.head = new THREE.Group(); z.head.position.set(0, 1.72, 0.02); body.add(z.head);
+  const hood = add(z.head, gsph(0.17, 14, 10, 0, 6.29, 0, 2.2), robe, 0, 0.02, -0.02, true); hood.scale.set(1, 1.15, 1.15); hood.rotation.x = -0.35;
+  const peak = add(z.head, new THREE.ConeGeometry(0.09, 0.22, 10), robe, 0, 0.2, -0.1, true); peak.rotation.x = -0.9;
+  skullHead(z, add, z.head, boneM, dark, 0.13);
+  z.eyes = [];
+  // руки: широкие рукава, костлявые кисти с когтями
+  const arm = sx => { const pv = new THREE.Group(); pv.position.set(sx * 0.27, 1.47, 0); body.add(pv);
+    add(pv, rlathe('nsl1', [[0.07, -0.32], [0.075, -0.15], [0.08, 0.02]], 10), robe, 0, 0, 0);
+    const el = new THREE.Group(); el.position.set(0, -0.32, 0); el.rotation.x = -0.4; pv.add(el);
+    add(el, rlathe('nsl2', [[0.13, -0.3], [0.09, -0.15], [0.075, 0.02]], 12), robe, 0, 0, 0);
+    { const wr = new THREE.Group(); wr.position.y = -0.27; el.add(wr); boneLimb(add, wr, 0.1, 0.012, boneM, true); }   // костлявое запястье из рукава
+    for (let k = 0; k < 4; k++) { const f = add(el, gcyl(0.007, 0.003, 0.14, 4), boneM, -0.022 + k * 0.015, -0.42, 0.01); f.rotation.x = -0.3; }
+    pv.el = el; return pv; };
+  z.lArm = arm(-1); z.rArm = arm(1);
+  // посох в правой руке: кривое древко, железные кольца, череп и светящаяся сфера
+  const staff = new THREE.Group(); staff.position.set(0, -0.36, 0.06); z.rArm.el.add(staff); z.staff = staff;
+  add(staff, gcyl(0.02, 0.025, 1.9, 6), wood, 0, 0.45, 0);
+  for (const yy of [0.9, 1.1, -0.2]) add(staff, gcyl(0.03, 0.03, 0.04, 8), iron, 0, yy, 0);
+  const ts = add(staff, gsph(0.075, 10, 8), boneM, 0, 1.47, 0.02); ts.scale.set(0.9, 1, 1.1);
+  for (const sx of [-1, 1]) add(staff, gsph(0.016, 6, 5), dark, sx * 0.028, 1.48, 0.085);
+  for (let k = 0; k < 3; k++) { const pr = add(staff, gcyl(0.008, 0.002, 0.2, 4), wood, Math.cos(k * 2.1) * 0.06, 1.55, Math.sin(k * 2.1) * 0.06); pr.rotation.z = Math.cos(k * 2.1) * 0.5; pr.rotation.x = -Math.sin(k * 2.1) * 0.5; }
+  z.orb = glowSpr(staff, 0, 1.66, 0.02, 0.45); z.orbCore = add(staff, gsph(0.04, 10, 8), new THREE.MeshBasicMaterial({ color: 0xc8ffc8 }), 0, 1.66, 0.02);
+  // ноги прячутся под балахоном (нужны для анимаций)
+  const leg = sx => { const pv = new THREE.Group(); pv.position.set(sx * 0.1, 0.84, 0); body.add(pv); boneLimb(add, pv, 0.42, 0.02, boneM);
+    const kn = new THREE.Group(); kn.position.set(0, -0.42, 0); pv.add(kn); boneLimb(add, kn, 0.38, 0.015, boneM, true); add(kn, gbox(0.07, 0.03, 0.18), boneM, 0, -0.4, 0.04); pv.kn = kn; return pv; };
+  z.lLeg = leg(-1); z.rLeg = leg(1);
+  z.mist = [glowSpr(g, 0.3, 0.15, 0.2, 1.4, 0.25), glowSpr(g, -0.3, 0.1, -0.1, 1.2, 0.2), glowSpr(g, 0, 0.12, 0.35, 1.0, 0.2)];   // зелёная дымка у ног
+  g.scale.setScalar(1.3);
+  return z;
+}
+function necroSetup(z) {
+  z.run = false; z.gait = 'shamble'; z.armStyle = 'hang'; z.speed = 1.15; z.hp = Math.round(ZHP(round) * NECRO_HP_K * plk(PL_BOSS)); z.sumCd = rnd(2.5, 4); z.castT = 0;
+}
+// ---- надгробия ----
+const NGRAVES = [], NGRAVE_MESHES = [];
+let ngSeq = 0, SHOTN = 0;
+const TOMB_G = (() => { const s = new THREE.Shape(); s.moveTo(-0.28, 0); s.lineTo(0.28, 0); s.lineTo(0.28, 0.62); s.absarc(0, 0.62, 0.28, 0, Math.PI, false); s.lineTo(-0.28, 0);
+  const g = new THREE.ExtrudeGeometry(s, { depth: 0.14, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 1, curveSegments: 10 }); g.translate(0, 0, -0.07);
+  const p = g.attributes.position, uv = g.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + 0.3) / 0.6, p.getY(i) / 0.95); return g; })();
+const RUNE_RING_T = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); x.strokeStyle = 'rgba(120,255,140,0.9)'; x.lineWidth = 3;
+  x.beginPath(); x.arc(64, 64, 56, 0, 7); x.stroke(); x.lineWidth = 1.5; x.beginPath(); x.arc(64, 64, 46, 0, 7); x.stroke();
+  for (let k = 0; k < 12; k++) { const a = k / 12 * 6.28; x.beginPath(); x.moveTo(64 + Math.cos(a) * 47, 64 + Math.sin(a) * 47); x.lineTo(64 + Math.cos(a + 0.2) * 55, 64 + Math.sin(a + 0.2) * 55); x.stroke(); }
+  return new THREE.CanvasTexture(c); })();
+function spawnGrave(x, zz, owner, id, y = 0) {
+  const grp = new THREE.Group(); grp.position.set(x, y - 1.1, zz); grp.rotation.y = Math.atan2(PX - x, PZ - zz) + rnd(-0.3, 0.3); scene.add(grp);
+  const stone = new THREE.MeshStandardMaterial({ map: tombTex(), roughness: 0.9, emissive: 0x000000 });
+  const tomb = new THREE.Mesh(TOMB_G, stone); tomb.rotation.z = rnd(-0.12, 0.12); tomb.rotation.x = rnd(-0.1, 0.05); grp.add(tomb);
+  const mound = new THREE.Mesh(gsph(0.5, 12, 6, 0, 6.29, 0, 1.4), new THREE.MeshStandardMaterial({ color: 0x2a2016, roughness: 1 })); mound.scale.set(0.9, 0.3, 1.4); mound.position.set(0, 0, 0.55); grp.add(mound);
+  const ring = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: RUNE_RING_T, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); ring.position.set(x, y + 0.03, zz); scene.add(ring);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: NECRO_GLOW, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); glow.scale.set(1.6, 1.2, 1); glow.position.set(0, 0.4, 0.3); grp.add(glow);
+  const gr = { id: id || ((window.MP && MP.selfId ? MP.selfId : 'sp') + ':g' + (++ngSeq)), x, z: zz, y, hp: GRAVE_HP, owner, grp, tomb, mound, ring, glow, stone, t: 0, next: 1.4, sids: new Set(), alive: true, kids: [], flash: 0 };
+  tomb.userData = mound.userData = { grave: gr }; NGRAVE_MESHES.push(tomb, mound); NGRAVES.push(gr);
+  puffDust(x, y + 0.1, zz, 18, [0, 0]); graveRumble(x, zz);
+  if (window.MP && MP.active && MP.isAuthority && MP.necroEvt) MP.necroEvt({ t: 'grave', id: gr.id, x, z: zz, y });
+  return gr;
+}
+function graveRumble(x, z) { if (typeof AC === 'undefined' || !AC) return; const d = Math.hypot(x - PX, z - PZ), v = Math.max(0, 1 - d / 35); if (v < 0.03) return; noise(1.0, 0.45 * v, 'lowpass', 160, 50, 0, 1); noise(0.5, 0.25 * v, 'bandpass', 900, 300, 0.1, 1.5); CF.hrV += (Math.random() - 0.5) * 2 * v; CF.kickV -= 0.8 * v; }
+function graveHit(gr, sid, n = 1) {   // попадание по надгробию: 5 выстрелов (дробь одного выстрела — один раз)
+  if (!gr.alive) return;
+  if (sid != null) { if (gr.sids.has(sid)) return; gr.sids.add(sid); }
+  gr.flash = 1; sparks(gr.x, gr.y + 0.6, gr.z, 4); puffDust(gr.x, gr.y + 0.5, gr.z, 2, [0, 0]);
+  if (window.MP && MP.active && !MP.isAuthority) { if (MP.necroEvt) MP.necroEvt({ t: 'hit', id: gr.id, sid: String(sid), n }); return; }   // гость: решает хост
+  gr.hp -= n; crossEl.classList.add('hit'); setTimeout(() => crossEl.classList.remove('hit'), 110);
+  if (gr.hp <= 0) { destroyGrave(gr, true); if (!(window.MP && MP.active)) addPoints(100, 'kill', 'НАДГРОБИЕ'); }
+}
+function destroyGrave(gr, burst) {
+  if (!gr.alive) return; gr.alive = false;
+  if (burst) { for (let k = 0; k < 7; k++) { const ch = new THREE.Mesh(gbox(rnd(0.08, 0.18), rnd(0.08, 0.2), rnd(0.06, 0.12)), gr.stone); ch.position.set(gr.x, gr.y + rnd(0.2, 0.8), gr.z); ch.userData.v = new THREE.Vector3(rnd(-3, 3), rnd(2, 5), rnd(-3, 3)); ch.userData.t = 1.6; scene.add(ch); NG_CHUNKS.push(ch); }
+    puffDust(gr.x, gr.y + 0.4, gr.z, 20, [0, 0]); graveRumble(gr.x, gr.z); }
+  scene.remove(gr.grp); scene.remove(gr.ring); NGRAVE_MESHES.splice(NGRAVE_MESHES.indexOf(gr.tomb), 1); NGRAVE_MESHES.splice(NGRAVE_MESHES.indexOf(gr.mound), 1);
+  NGRAVES.splice(NGRAVES.indexOf(gr), 1); gr.ring.material.dispose(); gr.glow.material.dispose();
+  if (window.MP && MP.active && MP.isAuthority && MP.necroEvt) MP.necroEvt({ t: 'gone', id: gr.id });
+}
+const NG_CHUNKS = [];
+function spawnSkeletonFrom(gr) {
+  const z = spawnZombie(null, false, false, 'skeleton'); if (!z) return;
+  const a = gr.grp.rotation.y; z.state = 'rise'; z.t = 0; z.riseDur = 1.5;
+  z.g.position.set(gr.x + Math.sin(a) * 0.65, -2.1, gr.z + Math.cos(a) * 0.65); z.g.rotation.y = a;
+  z.hp = Math.round(ZHP(round) * 0.6 * plk(PL_HP)); z.speed = rnd(2.4, 3.2); z.gait = pick(['run', 'lurch']); z.armStyle = pick(['reach', 'high', 'claw']); z.run = true;
+  z.fromGrave = gr; gr.kids.push(z); puffDust(z.g.position.x, 0.1, z.g.position.z, 10, [0, 0]);
+  if (window.MP && MP.active && MP.isAuthority && !z.mpId) z.mpId = `${MP.socket.id}:${++mpZombieSeq}`;
+}
+function updateNGraves(dt) {
+  for (let i = NG_CHUNKS.length - 1; i >= 0; i--) { const c = NG_CHUNKS[i], v = c.userData.v; v.y -= 12 * dt; c.position.addScaledVector(v, dt); if (c.position.y < 0.05) { c.position.y = 0.05; v.multiplyScalar(0.4); v.y = Math.abs(v.y) * 0.3; } c.rotation.x += dt * 5; c.userData.t -= dt; if (c.userData.t <= 0) { scene.remove(c); NG_CHUNKS.splice(i, 1); } }
+  const auth = !(window.MP && MP.active) || MP.isAuthority;
+  for (let i = NGRAVES.length - 1; i >= 0; i--) {
+    const gr = NGRAVES[i]; gr.t += dt;
+    const rise = Math.min(1, gr.t / 0.9), e = 1 - Math.pow(1 - rise, 3);
+    gr.grp.position.y = gr.y - 1.1 * (1 - e) + (rise < 1 ? (Math.random() - 0.5) * 0.05 : 0);
+    gr.grp.position.x = gr.x + (rise < 1 ? (Math.random() - 0.5) * 0.04 : 0);
+    if (rise < 1 && Math.random() < dt * 20) puffDust(gr.x + rnd(-0.4, 0.4), gr.y + 0.05, gr.z + rnd(-0.4, 0.4), 1, [0, 0]);
+    const pulse = 0.5 + 0.5 * Math.sin(gr.t * 3 + i);
+    gr.ring.material.opacity = Math.min(1, gr.t) * (0.35 + 0.35 * pulse); gr.ring.rotation.y += dt * 0.4;
+    gr.glow.material.opacity = Math.min(1, gr.t) * (0.25 + 0.2 * pulse);
+    if (gr.flash > 0) { gr.flash = Math.max(0, gr.flash - dt * 5); gr.stone.emissive.setRGB(gr.flash * 0.6, gr.flash * 0.6, gr.flash * 0.5); }
+    if (!auth) continue;
+    if (gr.owner && (gr.owner.state === 'dying' || !zombies.includes(gr.owner))) { destroyGrave(gr, true); continue; }   // некромант мёртв — надгробия рассыпаются
+    gr.kids = gr.kids.filter(k => k.state !== 'dying' && zombies.includes(k));
+    gr.next -= dt;
+    if (gr.next <= 0 && rise >= 1 && roundActive) { gr.next = rnd(15, 24); if (gr.kids.length < 2) spawnSkeletonFrom(gr); }   // первый — сразу, потом редко
+  }
+}
+function necroGraveSpot(z) {   // свободное место на земле перед некромантом
+  const p = z.g.position;
+  for (let k = 0; k < 30; k++) {
+    const a = Math.atan2(PX - p.x, PZ - p.z) + rnd(-1.6, 1.6), r = rnd(2.2, 5), x = p.x + Math.sin(a) * r, zz = p.z + Math.cos(a) * r;
+    if (stairAt(x, zz)) continue; const gy = floorAt(x, zz, 0.3); if (gy > 0.15 || p.y > 0.3) continue;
+    if (colliders.some(b => !b.prop && x + 0.6 > b.x0 && x - 0.6 < b.x1 && zz + 0.6 > b.z0 && zz - 0.6 < b.z1 && b.y1 > 0.1 && b.y0 < 1.6)) continue;
+    if (NGRAVES.some(gg => Math.hypot(gg.x - x, gg.z - zz) < 1.8) || Math.hypot(x - PX, zz - PZ) < 1.8) continue;
+    return [x, zz];
+  }
+  return null;
+}
+function necroTick(z, target, dp, dt) {   // true — стоит и колдует
+  z.sumCd -= dt;
+  if (z.castT > 0) {
+    turn(z, target.x - z.g.position.x, target.z - z.g.position.z, dt);
+    const was = z.castT; z.castT -= dt;
+    if (was > 0.8 && z.castT <= 0.8) {   // удар посохом — земля раскрывается
+      const mine = NGRAVES.filter(gr => gr.owner === z).length;
+      for (let k = 0; k < Math.min(2, GRAVE_MAX - mine); k++) { const s = necroGraveSpot(z); if (s) spawnGrave(s[0], s[1], z); }
+    }
+    return true;
+  }
+  if (z.sumCd <= 0 && dp < 30 && z.g.position.y < 0.3 && NGRAVES.filter(gr => gr.owner === z).length < GRAVE_MAX) {
+    z.castT = 1.8; z.sumCd = rnd(16, 22); necroScream(z);
+    if (window.MP && MP.active && MP.isAuthority && MP.necroEvt) MP.necroEvt({ t: 'cast', zid: z.mpId || '' });
+    return true;
+  }
+  return false;
+}
+function necroScream(z) { const p = z.g.position; if (!playSfxAt('nscream', p.x, p.z, 70, 1, 0, 1)) { bossSnd('roar', p.x, p.z); } }
+function necroPose(z, dt) {
+  const t = z.t;
+  if (z.orb) { const k = 0.4 + 0.08 * Math.sin(t * 5) + (z.castT > 0 ? 0.35 : 0); z.orb.scale.setScalar(k); z.orb.material.opacity = 0.75 + 0.25 * Math.sin(t * 9); }
+  if (z.mats[0].emissiveIntensity != null) z.mats[0].emissiveIntensity = 0.7 + 0.3 * Math.sin(t * 2.2) + (z.castT > 0 ? 1.2 : 0);   // руны пульсируют, при колдовстве вспыхивают
+  if (z.mist) z.mist.forEach((m, k) => { m.material.opacity = 0.18 + 0.08 * Math.sin(t * 1.5 + k * 2); m.position.y = 0.12 + 0.05 * Math.sin(t + k); });
+  z.body.position.y += 0.04 * Math.sin(t * 1.6);   // слегка парит
+  if (z.castT > 0) {   // колдовство: посох вверх, левая рука вперёд, голова запрокинута, крик
+    const u = 1 - z.castT / 1.8, up = Math.min(1, u / 0.45), slam = u > 0.5 ? Math.min(1, (u - 0.5) / 0.08) : 0;
+    z.rArm.rotation.x = -2.9 * up + 1.3 * slam; z.rArm.rotation.z = 0.3 * up; z.rArm.el.rotation.x = -0.2;
+    z.lArm.rotation.x = -1.6 * up; z.lArm.rotation.z = -0.9 * up; z.lArm.el.rotation.x = -0.1;
+    z.head.rotation.x = -0.6 * up * (1 - slam * 0.5) + Math.sin(t * 40) * 0.03 * up; z.body.rotation.x = -0.15 * up + 0.2 * slam;
+    if (z.jaw) z.jaw.rotation.x = 0.7 * up;
+  } else if (z.staff) z.rArm.rotation.x = Math.min(z.rArm.rotation.x, -0.5);   // посох держит перед собой
+}
+// =================== ДЖАГГЕРНАУТ: 20 волна (дальше — каждые 10), обе карты ===================
+// Огромный жирный мясник: бледная кожа в крови, распахнутая чёрная безрукавка, рваные тёмные штаны, кованые наручи с шипами, лысая голова
+// и раззявленный в крике рот. Медленный. Здоровья втрое больше, чем у Некроманта. Умеет:
+//  • удар кулаками по земле — ударная волна, урон всем рядом;  • бросок камня — половина здоровья игрока;
+//  • на малом здоровье хватает ближайшего зомби и сжирает его (+4% здоровья);  • «вонючка»: зелёное облако — все зомби в 10 м быстрее и подлечены.
+const ROCK_G = new THREE.DodecahedronGeometry(0.3, 1), ROCK_M = PMT(0x6a655c, 'stone', 0.95, 0);
+const BRUTE_HP_K = 20, BRUTE_MELEE = 50, SLAM_R = 4.8, SLAM_DMG = 40, STINK_R = 10;
+function bruteCount(r) { return r === 20 || (r > 20 && r % 10 === 0) ? 1 : 0; }
+function bruteSkinTex() {   // бледная жирная кожа, синюшные пятна, растяжки, размазанная кровь
+  return ztex('bruteSkin', (x, S) => {
+    x.fillStyle = '#d2c0b4'; x.fillRect(0, 0, S, S);
+    for (let i = 0; i < 40; i++) zBlob(x, Math.random() * S, Math.random() * S, 12 + Math.random() * 40, pick(['rgba(150,110,130,0.25)', 'rgba(230,215,205,0.3)', 'rgba(140,150,130,0.18)']));
+    noiseDots(x, S, 3500, 0.08); zVeins(x, S, 8, 'rgba(100,70,110,0.4)', 1.3);
+    x.strokeStyle = 'rgba(170,120,120,0.35)'; x.lineWidth = 1.5; for (let i = 0; i < 18; i++) { const px = Math.random() * S, py = Math.random() * S; x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + 10, py + 6, px + 20 + Math.random() * 15, py + Math.random() * 8); x.stroke(); }   // растяжки
+    for (let i = 0; i < 10; i++) { const px = Math.random() * S, py = Math.random() * S * 0.6, L = 40 + Math.random() * 90, g = x.createLinearGradient(0, py, 0, py + L); g.addColorStop(0, 'rgba(120,8,8,0.9)'); g.addColorStop(1, 'rgba(90,5,5,0)'); x.fillStyle = g;
+      x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + (Math.random() - 0.5) * 20, py + L / 2, px + (Math.random() - 0.5) * 8, py + L); x.lineTo(px + 6, py + L); x.quadraticCurveTo(px + 10, py + L / 2, px + 14, py); x.fill(); }   // потёки крови
+    for (let i = 0; i < 8; i++) zBlob(x, Math.random() * S, Math.random() * S, 10 + Math.random() * 30, 'rgba(110,10,8,0.55)');
+  }, 256);
+}
+function leatherTex() {   // чёрная потёртая кожа/сукно с прорехами
+  return ztex('bruteVest', (x, S) => {
+    x.fillStyle = '#1e1d1f'; x.fillRect(0, 0, S, S); noiseDots(x, S, 3000, 0.1);
+    for (let i = 0; i < 30; i++) zBlob(x, Math.random() * S, Math.random() * S, 10 + Math.random() * 35, pick(['rgba(70,65,60,0.3)', 'rgba(0,0,0,0.4)', 'rgba(80,10,8,0.35)']));
+    x.strokeStyle = 'rgba(120,115,110,0.35)'; for (let i = 0; i < 40; i++) { x.lineWidth = 0.7; const px = Math.random() * S, py = Math.random() * S; x.beginPath(); x.moveTo(px, py); x.lineTo(px + (Math.random() - 0.5) * 30, py + (Math.random() - 0.5) * 30); x.stroke(); }
+  }, 256);
+}
+function makeBrute() {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const skin = new THREE.MeshStandardMaterial({ map: bruteSkinTex(), bumpMap: null, roughness: 0.5, color: 0xf0e6e0 });
+  const vest = new THREE.MeshStandardMaterial({ map: leatherTex(), roughness: 0.8, side: THREE.DoubleSide }), pants = new THREE.MeshStandardMaterial({ map: greyJeansTex(), roughness: 0.95, color: 0x5a5a60 });
+  const iron = new THREE.MeshStandardMaterial({ color: 0x2c2a28, roughness: 0.45, metalness: 0.8 }), dark = new THREE.MeshStandardMaterial({ color: 0x0a0303, roughness: 1 }), gore = new THREE.MeshStandardMaterial({ color: 0x5a0808, roughness: 0.35 }), bone = new THREE.MeshStandardMaterial({ color: 0xd8ccae, roughness: 0.6 });
+  const z = { g, body, mats: [skin, vest, pants, iron, dark, gore, bone], meshes: [], rot: 'brute', brute: true };
+  const add = (par, geo, m, x, y, zz, head) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, zz); o.userData = { z, head: !!head }; par.add(o); z.meshes.push(o); return o; };
+  // туша: широкий таз, огромное брюхо, покатые плечи, горб
+  add(body, rlathe('bruteTorso', [[0.0, 0.78], [0.25, 0.8], [0.3, 0.92], [0.34, 1.08], [0.34, 1.22], [0.33, 1.34], [0.31, 1.44], [0.24, 1.52], [0.12, 1.58], [0.08, 1.6]], 18), skin, 0, 0, 0).scale.z = 0.82;
+  add(body, gsph(0.33, 16, 12), skin, 0, 1.06, 0.1).scale.set(1.08, 0.95, 0.95);   // пузо
+  for (const sx of [-1, 1]) { add(body, gsph(0.15, 12, 10), skin, sx * 0.14, 1.32, 0.18).scale.set(1, 0.85, 0.6); add(body, gsph(0.14, 10, 8), skin, sx * 0.25, 1.5, -0.02).scale.set(1, 0.8, 1); }   // грудь и трапеции
+  add(body, gsph(0.2, 12, 8), skin, 0, 1.42, -0.15).scale.set(1.2, 0.9, 0.8);   // горб
+  add(body, gsph(0.06, 8, 6), gore, 0.12, 1.15, 0.36).scale.set(1.4, 1.8, 0.3); add(body, gsph(0.05, 8, 6), gore, -0.16, 0.98, 0.34).scale.set(1, 2.2, 0.3);   // рваные раны
+  // распахнутая безрукавка: профиль вращения без передней части
+  add(body, new THREE.LatheGeometry([[0.34, 0.95], [0.36, 1.1], [0.36, 1.25], [0.35, 1.38], [0.33, 1.47], [0.26, 1.55], [0.14, 1.62]].map(p => new THREE.Vector2(p[0], p[1])), 18, 0.75, 4.8), vest, 0, 0, 0).scale.set(1.05, 1, 0.88);
+  for (let k = 0; k < 6; k++) { const a = 0.9 + k * 0.85, L = rnd(0.1, 0.22), s = add(body, gbox(0.1, L, 0.01), vest, Math.sin(a) * 0.36, 0.95 - L / 2, Math.cos(a) * 0.32); s.rotation.y = a; }   // рваный низ
+  add(body, rlathe('brutePants', [[0.0, 0.66], [0.27, 0.68], [0.31, 0.8], [0.33, 0.9], [0.31, 0.94]], 18), pants, 0, 0, 0).scale.z = 0.85;
+  add(body, gcyl(0.315, 0.315, 0.05, 18), iron, 0, 0.92, 0).scale.z = 0.86;   // ремень
+  // голова: лысая, низкий лоб, тяжёлые надбровья, крошечные глаза, раскрытая в крике пасть
+  add(body, gcyl(0.13, 0.16, 0.16, 12), skin, 0, 1.62, 0.04);
+  z.head = new THREE.Group(); z.head.position.set(0, 1.76, 0.08); body.add(z.head);
+  add(z.head, gsph(0.15, 14, 12), skin, 0, 0.03, -0.01, true).scale.set(1, 1.05, 1.05);
+  add(z.head, gsph(0.13, 12, 10), skin, 0, -0.06, 0.03, true).scale.set(1.15, 0.85, 0.95);   // щёки, второй подбородок
+  add(z.head, gbox(0.22, 0.04, 0.07), skin, 0, 0.05, 0.11, true);   // надбровья
+  for (const sx of [-1, 1]) { add(z.head, gsph(0.022, 8, 6), dark, sx * 0.055, 0.02, 0.135, true); add(z.head, gsph(0.035, 6, 5), skin, sx * 0.15, 0.0, 0.0, true).scale.set(0.4, 1, 0.8); }
+  add(z.head, gbox(0.04, 0.05, 0.04), skin, 0, -0.02, 0.15, true).rotation.x = -0.3;   // нос
+  const eg = []; for (const sx of [-1, 1]) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: EYE_GLOW_T, color: 0xff3020, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.setScalar(0.07); sp.position.set(sx * 0.055, 0.02, 0.15); z.head.add(sp); eg.push(sp); } z.glow = eg;
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.07, 0.02); z.head.add(jaw); z.jaw = jaw;
+  add(jaw, gbox(0.17, 0.06, 0.14), skin, 0, -0.05, 0.06, true); add(jaw, gbox(0.13, 0.04, 0.1), dark, 0, -0.01, 0.08, true);
+  for (let k = -3; k <= 3; k++) { add(z.head, gbox(0.014, 0.022, 0.01), bone, k * 0.017, -0.075, 0.14, true); add(jaw, gbox(0.013, 0.02, 0.01), bone, k * 0.016, -0.02, 0.13, true); }
+  z.eyes = [];
+  // руки: толстые, кованые наручи с шипами, огромные кисти
+  const arm = sx => {
+    const pv = new THREE.Group(); pv.position.set(sx * 0.4, 1.46, 0); body.add(pv);
+    add(pv, gsph(0.15, 12, 10), skin, 0, 0, 0);
+    add(pv, rlathe('bUarm', [[0.1, -0.36], [0.12, -0.25], [0.14, -0.12], [0.14, 0.0]], 12), skin, 0, 0, 0);
+    const el = new THREE.Group(); el.position.set(0, -0.36, 0); el.rotation.x = -0.3; pv.add(el);
+    add(el, gsph(0.1, 10, 8), skin, 0, 0, 0);
+    add(el, rlathe('bGaunt', [[0.11, -0.36], [0.13, -0.28], [0.13, -0.12], [0.115, -0.04]], 12), iron, 0, 0, 0);   // наруч
+    for (let k = 0; k < 5; k++) { const a = k / 5 * 6.28, sp = add(el, new THREE.ConeGeometry(0.022, 0.08, 6), iron, Math.cos(a) * 0.13, -0.22, Math.sin(a) * 0.13); sp.rotation.z = -Math.cos(a) * 1.4; sp.rotation.x = Math.sin(a) * 1.4; }
+    add(el, gsph(0.11, 10, 8), skin, 0, -0.46, 0.02).scale.set(1.05, 0.95, 0.7);   // кулак
+    for (let k = 0; k < 4; k++) { const f = add(el, gcyl(0.026, 0.022, 0.11, 6), skin, -0.06 + k * 0.04, -0.55, 0.05); f.rotation.x = -0.6; }
+    add(el, gcyl(0.026, 0.022, 0.1, 6), skin, sx * -0.09, -0.46, 0.06).rotation.z = sx * 0.6;
+    pv.el = el; return pv;
+  };
+  z.lArm = arm(-1); z.rArm = arm(1);
+  const leg = sx => {
+    const pv = new THREE.Group(); pv.position.set(sx * 0.17, 0.82, 0); body.add(pv);
+    add(pv, rlathe('bThigh', [[0.13, -0.42], [0.16, -0.3], [0.19, -0.15], [0.19, 0.05]], 12), pants, 0, 0, 0);
+    const kn = new THREE.Group(); kn.position.set(0, -0.42, 0); pv.add(kn);
+    add(kn, rlathe('bShin', [[0.1, -0.36], [0.13, -0.2], [0.14, -0.05], [0.14, 0.03]], 12), pants, 0, 0, 0);
+    add(kn, gbox(0.17, 0.09, 0.3), iron, 0, -0.4, 0.06);   // сапог
+    pv.kn = kn; return pv;
+  };
+  z.lLeg = leg(-1); z.rLeg = leg(1);
+  g.scale.setScalar(1.75);
+  mergeZombieParts(z);
+  const rock = new THREE.Mesh(ROCK_G, ROCK_M); rock.position.set(0, -0.6, 0.12); rock.visible = false; z.rArm.el.add(rock); z.handRock = rock;   // камень в руке (после склейки, в попадания не входит)
+  return z;
+}
+function bruteSetup(z) {
+  z.run = false; z.gait = 'lurch'; z.armStyle = 'hang'; z.speed = 0.95; z.hp = z.hpMax = Math.round(ZHP(round) * BRUTE_HP_K * plk(PL_BOSS));
+  z.act = null; z.actT = 0; z.slamCd = 2; z.throwCd = rnd(4, 7); z.eatCd = 0; z.stinkCd = rnd(7, 10);
+}
+// ---- камни ----
+const ROCKS = [];
+function spawnRock(d) {
+  const m = new THREE.Mesh(ROCK_G, ROCK_M); m.position.set(d.x, d.y, d.z); scene.add(m);
+  ROCKS.push({ m, v: new THREE.Vector3(d.vx, d.vy, d.vz), t: 0, spin: new THREE.Vector3(rnd(-6, 6), rnd(-6, 6), rnd(-6, 6)) });
+}
+function updateRocks(dt) {
+  for (let i = ROCKS.length - 1; i >= 0; i--) {
+    const r = ROCKS[i], p = r.m.position; r.t += dt; r.v.y -= 13 * dt; p.addScaledVector(r.v, dt); r.m.rotation.x += r.spin.x * dt; r.m.rotation.y += r.spin.y * dt;
+    let hit = null;
+    if (!dead && !downed && Math.hypot(p.x - PX, p.z - PZ) < 0.8 && p.y > PF - 0.2 && p.y < PF + 2.1) {   // попал: половина здоровья
+      hurtPlayer(Math.round(maxHp * 0.5)); CF.kickV -= 3.5; CF.hrV += (Math.random() - 0.5) * 6; hit = 'player';
+    } else if (p.y <= floorAt(p.x, p.z, p.y + 0.3) + 0.25 || r.t > 4) hit = 'floor';
+    else for (const b of colliders) if (!b.prop && !b.zpass && !b.win && p.x > b.x0 && p.x < b.x1 && p.y > b.y0 && p.y < b.y1 && p.z > b.z0 && p.z < b.z1) { hit = 'wall'; break; }
+    if (hit) {
+      puffDust(p.x, Math.max(p.y, 0.1), p.z, 14, [0, 0]); sparks(p.x, p.y, p.z, 6);
+      const d = Math.hypot(p.x - PX, p.z - PZ); if (typeof AC !== 'undefined' && AC) noise(0.5, 0.5 * Math.max(0, 1 - d / 35), 'lowpass', 400, 60, 0, 1);
+      if (hit !== 'player') CF.kickV -= Math.max(0, 1.6 - d * 0.12);
+      for (let k = 0; k < 5; k++) { const ch = new THREE.Mesh(gbox(rnd(0.06, 0.14), rnd(0.05, 0.12), rnd(0.06, 0.12)), ROCK_M); ch.position.copy(p); ch.userData.v = new THREE.Vector3(rnd(-3, 3), rnd(1.5, 4), rnd(-3, 3)); ch.userData.t = 1.4; scene.add(ch); NG_CHUNKS.push(ch); }
+      scene.remove(r.m); ROCKS.splice(i, 1);
+    }
+  }
+}
+// ---- вонючка ----
+const STINKS = [];
+function spawnStink(x, y, zz) {
+  const parts = [];
+  for (let k = 0; k < 18; k++) { const a = Math.random() * 6.28, r = Math.random() * STINK_R * 0.8, sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: SMK, color: pick([0x6aa02a, 0x88b030, 0x4a7a20]), transparent: true, opacity: 0, depthWrite: false }));
+    sp.position.set(x + Math.cos(a) * r * 0.2, y + 0.6, zz + Math.sin(a) * r * 0.2); sp.scale.setScalar(2); scene.add(sp); parts.push({ sp, a, r, h: rnd(0.4, 1.6), s: rnd(3, 6) }); }
+  STINKS.push({ x, y, z: zz, t: 0, life: 6.5, parts });
+  const d = Math.hypot(x - PX, zz - PZ); if (typeof AC !== 'undefined' && AC) { noise(1.6, 0.3 * Math.max(0, 1 - d / 30), 'lowpass', 300, 90, 0, 2); noise(1.2, 0.15 * Math.max(0, 1 - d / 30), 'bandpass', 1200, 400, 0.2, 3); }
+}
+function updateStinks(dt) {
+  for (let i = STINKS.length - 1; i >= 0; i--) {
+    const s = STINKS[i]; s.t += dt; const u = s.t / s.life;
+    for (const q of s.parts) { const rr = q.r * Math.min(1, s.t / 1.2); q.sp.position.set(s.x + Math.cos(q.a + s.t * 0.15) * rr, s.y + q.h + Math.sin(s.t + q.a) * 0.15, s.z + Math.sin(q.a + s.t * 0.15) * rr); q.sp.scale.setScalar(q.s * (0.6 + 0.4 * Math.min(1, s.t))); q.sp.material.opacity = 0.45 * Math.min(1, s.t / 0.6) * (1 - Math.max(0, (u - 0.7) / 0.3)); }
+    if (s.t >= s.life) { s.parts.forEach(q => { scene.remove(q.sp); q.sp.material.dispose(); }); STINKS.splice(i, 1); }
+  }
+}
+function stinkBuff(x, zz) {   // все зомби в 10 м: +40% к скорости на 8 с и лечение 15% здоровья
+  for (const o of zombies) { if (o.state === 'dying' || o.brute) continue; if (Math.hypot(o.g.position.x - x, o.g.position.z - zz) > STINK_R) continue;
+    o.buffT = 8; const mx = o.hpMax || o.hp; o.hp = Math.min(mx, o.hp + mx * 0.15); }
+}
+function slamFx(x, y, zz) {
+  const ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: NFX_RING_T, color: 0xd8c8a8, transparent: true, opacity: 0.9, depthWrite: false })); ring.position.set(x, y + 0.05, zz); scene.add(ring);
+  NFX.push({ o: ring, t: 0, life: 0.5, s0: 0.5, s1: SLAM_R * 2.4, op: 0.9, k: 'ring' });
+  for (let i = 0; i < 6; i++) NFX.push({ o: nfxSpr(SMK, false, new THREE.Vector3(x, y + 0.3, zz), 1, 0, 0x6a6052), t: 0, life: 1.4, s0: 1, s1: 5, op: 0.55, k: 'dust', v: new THREE.Vector3(rnd(-5, 5), 0.4, rnd(-5, 5)) });
+  for (let i = 0; i < 10; i++) { const m = new THREE.Mesh(gbox(rnd(0.05, 0.12), rnd(0.04, 0.1), rnd(0.05, 0.12)), new THREE.MeshStandardMaterial({ color: 0x3a342c, roughness: 1 })); m.position.set(x + rnd(-1, 1), y + 0.1, zz + rnd(-1, 1)); scene.add(m); NFX.push({ o: m, t: 0, life: 1.4, k: 'debris', v: new THREE.Vector3(rnd(-3, 3), rnd(3, 7), rnd(-3, 3)), gy: y }); }
+  const d = Math.hypot(x - PX, zz - PZ);
+  if (typeof AC !== 'undefined' && AC) { noise(0.9, 0.7 * Math.max(0, 1 - d / 40), 'lowpass', 200, 40, 0, 1); tone(48, 0.6, 'sine', 0.3 * Math.max(0, 1 - d / 40), 30); }
+  CF.kickV -= Math.max(0, 5 - d * 0.35); CF.hrV += (Math.random() - 0.5) * Math.max(0, 6 - d * 0.4);
+  if (!dead && !downed && d < SLAM_R && Math.abs(PF - y) < 1.2) hurtPlayer(Math.round(SLAM_DMG * (1 - 0.5 * d / SLAM_R)));   // каждый игрок считает удар по себе сам
+}
+function bruteEvt(z, a, extra) { if (window.MP && MP.active && MP.isAuthority && MP.necroEvt) MP.necroEvt(Object.assign({ t: 'brute', a, zid: z.mpId || '' }, extra || {})); }
+function bruteTick(z, target, dp, dt) {   // true — занят особым действием
+  const p = z.g.position;
+  z.slamCd -= dt; z.throwCd -= dt; z.eatCd -= dt; z.stinkCd -= dt;
+  if (z.act) {
+    z.actT += dt; const T = z.actT;
+    if (z.act !== 'eat') turn(z, target.x - p.x, target.z - p.z, dt);
+    if (z.act === 'slam') { if (!z.done && T >= 0.75) { z.done = true; slamFx(p.x, p.y, p.z); bruteEvt(z, 'slam', { x: p.x, y: p.y, z: p.z }); } if (T >= 1.45) z.act = null; }
+    else if (z.act === 'throw') {
+      if (!z.done && T >= 1.05) {
+        z.done = true; z.handRock.visible = false;
+        const o = new THREE.Vector3(); z.handRock.getWorldPosition(o);
+        const ty = target.floor + 1.0, d = Math.hypot(target.x - o.x, target.z - o.z), Tf = Math.max(0.45, d / 17), G = 13;
+        const r = { x: o.x, y: o.y, z: o.z, vx: (target.x - o.x) / Tf, vy: (ty - o.y) / Tf + 0.5 * G * Tf, vz: (target.z - o.z) / Tf };
+        spawnRock(r); bruteEvt(z, 'rock', r); bossSnd('roar', p.x, p.z);
+      }
+      if (T >= 1.6) { z.act = null; z.handRock.visible = false; }
+    }
+    else if (z.act === 'stink') { if (!z.done && T >= 0.9) { z.done = true; spawnStink(p.x, p.y, p.z); stinkBuff(p.x, p.z); bruteEvt(z, 'stink', { x: p.x, y: p.y, z: p.z }); } if (T >= 1.6) z.act = null; }
+    else if (z.act === 'eat') {
+      const v = z.victim;
+      if (!v || !zombies.includes(v) || v.state === 'dying') { z.act = null; z.victim = null; return true; }
+      turn(z, v.g.position.x - p.x, v.g.position.z - p.z, dt);
+      const hand = new THREE.Vector3(); z.rArm.el.localToWorld(hand.set(0, -0.5, 0.1));
+      const mouth = new THREE.Vector3(); z.head.localToWorld(mouth.set(0, -0.1, 0.25));
+      const k = Math.min(1, T / 0.5), k2 = Math.max(0, Math.min(1, (T - 0.6) / 0.5));
+      const tgt = hand.lerp(mouth, k2); tgt.y -= 1.1; v.g.position.lerp(tgt, Math.min(1, dt * (8 + 8 * k))); v.g.rotation.z = 0.8 * k;
+      if (T > 1.1 && Math.random() < dt * 18) bloodHit(mouth.clone(), new THREE.Vector3(rnd(-1, 1), rnd(0, 1), rnd(-1, 1)).normalize(), true, false);
+      if (T >= 2.0) {
+        z.hp = Math.min(z.hpMax, z.hp + z.hpMax * 0.04); z.act = null;   // подкрепился: +4% здоровья
+        v.state = 'dying'; v.gone = true; v.g.visible = false; z.victim = null; pop('ДЖАГГЕРНАУТ ЖРЁТ ЗОМБИ', 'head');
+      }
+    }
+    return true;
+  }
+  if (p.y > 0.4 && z.slamCd > 0) return false;
+  if (z.hp < z.hpMax * 0.35 && z.eatCd <= 0) {   // мало здоровья — ищет, кого бы сожрать
+    let best = null, bd = 6;
+    for (const o of zombies) { if (o === z || o.brute || o.boss || o.necro || o.state !== 'chase' || o.grabbed) continue; const d = Math.hypot(o.g.position.x - p.x, o.g.position.z - p.z); if (d < bd) { bd = d; best = o; } }
+    if (best) { z.act = 'eat'; z.actT = 0; z.done = false; z.victim = best; best.grabbed = true; best.state = 'grabbed'; z.eatCd = 10; bossSnd('roar', p.x, p.z); bruteEvt(z, 'eat'); return true; }
+    z.eatCd = 2;
+  }
+  if (dp < 3.6 && z.slamCd <= 0 && Math.abs(target.floor - p.y) < 1.2) { z.act = 'slam'; z.actT = 0; z.done = false; z.slamCd = rnd(3.2, 4.5); bruteEvt(z, 'aslam'); return true; }
+  if (z.stinkCd <= 0) { z.act = 'stink'; z.actT = 0; z.done = false; z.stinkCd = rnd(16, 24); bossSnd('roar', p.x, p.z); bruteEvt(z, 'astink'); return true; }
+  if (dp > 6 && dp < 30 && z.throwCd <= 0 && Math.abs(target.floor - p.y) < 1.6 && los(p.x, p.z, target.x, target.z, p.y)) { z.act = 'throw'; z.actT = 0; z.done = false; z.throwCd = rnd(7, 11); bruteEvt(z, 'athrow'); return true; }
+  return false;
+}
+function brutePose(z, dt) {
+  const T = z.actT || 0, sm = x => x * x * (3 - 2 * x);
+  if (z.act === 'slam') {   // обе руки над головой → удар кулаками в землю с приседом
+    const up = sm(Math.min(1, T / 0.6)), dn = T < 0.6 ? 0 : sm(Math.min(1, (T - 0.6) / 0.15)), back = T < 1.0 ? 0 : sm(Math.min(1, (T - 1.0) / 0.45));
+    const ax = -3.0 * up * (1 - dn) + (-0.9) * dn * (1 - back) + (-0.5) * back;
+    z.lArm.rotation.x = z.rArm.rotation.x = ax; z.lArm.el.rotation.x = z.rArm.el.rotation.x = -0.5 * up * (1 - dn);
+    z.body.rotation.x = -0.25 * up * (1 - dn) + 0.55 * dn * (1 - back); z.body.position.y = -0.18 * dn * (1 - back);
+    z.lLeg.kn.rotation.x = z.rLeg.kn.rotation.x = 0.7 * dn * (1 - back); z.lLeg.rotation.x = z.rLeg.rotation.x = -0.4 * dn * (1 - back);
+  } else if (z.act === 'throw') {   // присед, подбирает камень, заносит над головой, швыряет
+    const grab = T < 0.4 ? sm(T / 0.4) : 1 - sm(Math.min(1, (T - 0.4) / 0.3)), wind = T < 0.5 ? 0 : sm(Math.min(1, (T - 0.5) / 0.5)), thr = T < 1.0 ? 0 : sm(Math.min(1, (T - 1.0) / 0.15)), rec = T < 1.2 ? 0 : sm(Math.min(1, (T - 1.2) / 0.4));
+    z.body.rotation.x = 0.6 * grab - 0.25 * wind * (1 - thr) + 0.35 * thr * (1 - rec); z.body.rotation.y = 0.35 * wind * (1 - thr) - 0.3 * thr * (1 - rec);
+    z.rArm.rotation.x = -0.8 * grab - 2.9 * wind * (1 - thr) - 1.2 * thr * (1 - rec); z.rArm.el.rotation.x = -0.9 * wind * (1 - thr);
+    z.lArm.rotation.x = -1.2 * wind; z.lLeg.kn.rotation.x = z.rLeg.kn.rotation.x = 0.6 * grab;
+  } else if (z.act === 'stink') {   // запрокидывает голову, руки в стороны, раздувается
+    const k = Math.sin(Math.min(1, T / 1.4) * Math.PI);
+    z.lArm.rotation.z = -1.0 * k; z.rArm.rotation.z = 1.0 * k; z.lArm.rotation.x = z.rArm.rotation.x = -0.6 * k; z.head.rotation.x = -0.7 * k; z.body.rotation.x = -0.3 * k; z.body.scale.setScalar(1 + 0.06 * k);
+  } else if (z.act === 'eat') {   // тянет жертву ко рту и вгрызается
+    const k = Math.min(1, T / 0.5), k2 = Math.max(0, Math.min(1, (T - 0.6) / 0.5));
+    z.rArm.rotation.x = -1.3 * k - 0.9 * k2; z.rArm.el.rotation.x = -1.6 * k2; z.lArm.rotation.x = -1.0 * k2; z.lArm.el.rotation.x = -1.5 * k2; z.head.rotation.x = 0.25 * k2 + Math.sin(T * 30) * 0.08 * k2; z.body.rotation.x = 0.25;
+  } else z.body.scale.setScalar(1);
+  if (z.handRock) z.handRock.visible = z.act === 'throw' && T >= 0.35 && T < 1.05;
+  if (z.jaw) z.jaw.rotation.x = z.act === 'eat' ? 0.5 + 0.4 * Math.abs(Math.sin(T * 14)) : z.act ? 0.75 : z.jaw.rotation.x;
+}
+function bruteRemote(d) {   // онлайн: эффекты Джаггернаута у остальных игроков (урон от камня/удара каждый считает по себе сам)
+  if (d.a === 'rock' && [d.x, d.y, d.z, d.vx, d.vy, d.vz].every(Number.isFinite)) spawnRock(d);
+  else if (d.a === 'slam' && [d.x, d.y, d.z].every(Number.isFinite)) slamFx(d.x, d.y, d.z);
+  else if (d.a === 'stink' && [d.x, d.y, d.z].every(Number.isFinite)) { spawnStink(d.x, d.y, d.z); for (const o of zombies) if (!o.brute && Math.hypot(o.g.position.x - d.x, o.g.position.z - d.z) < STINK_R) o.buffT = 8; }
+  const z = zombies.find(o => o.mpId === d.zid), m = { aslam: 'slam', athrow: 'throw', astink: 'stink', eat: 'eat' }[d.a];
+  if (z && z.brute && m) { z.act = m; z.actT = 0; if (m !== 'slam') bossSnd('roar', z.g.position.x, z.g.position.z); }
+}
+// ---- полоса здоровья босса сверху экрана ----
+const bossBarEl = (() => { const d = document.createElement('div'); d.id = 'bossbar'; d.innerHTML = '<div class="nm"></div><div class="bar"><div class="tr"></div><div class="fl"></div></div>'; document.body.appendChild(d); return d; })();
+let bossBarTrail = 1, bossBarZ = null;
+function updateBossBar(dt) {
+  let b = null; for (const z of zombies) if ((z.brute || z.necro) && z.state !== 'dying' && z.state !== 'menu') { if (!z.hpMax || z.hp > z.hpMax) z.hpMax = Math.max(z.hpMax || 0, z.hp); if (!b || (z.brute && !b.brute)) b = z; }
+  if (!b) { bossBarEl.classList.remove('on'); bossBarZ = null; return; }
+  if (b !== bossBarZ) { bossBarZ = b; bossBarTrail = 1; bossBarEl.querySelector('.nm').textContent = b.brute ? 'ДЖАГГЕРНАУТ' : 'НЕКРОМАНТ'; bossBarEl.className = 'on ' + (b.brute ? 'brute' : 'necro'); }
+  const f = Math.max(0, Math.min(1, b.hp / b.hpMax)); bossBarTrail = Math.max(f, bossBarTrail - dt * 0.25);
+  bossBarEl.querySelector('.fl').style.width = (f * 100).toFixed(2) + '%'; bossBarEl.querySelector('.tr').style.width = (bossBarTrail * 100).toFixed(2) + '%';
+}
+
+function makeZombie(boss, kind) {
+  if (kind === 'necro') return makeNecro(); if (kind === 'brute') return makeBrute();
+  if (kind === 'skeleton') return makeSkeleton();
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   let r = Math.random() * ARCH.reduce((s, a) => s + a.w, 0), A = ARCH[0];
   for (const a of ARCH) { if ((r -= a.w) <= 0) { A = a; break; } }
   if (boss) A = BOSS_A;
-  else return makeRotZombie(pickRotKind());   // 1.18: вся орда — новые анатомические модели шести видов (старые архетипы остаются только для босса)
+  else return makeRotZombie(kind && ROT_KINDS.includes(kind) ? kind : pickRotKind());   // 1.18: вся орда — новые анатомические модели шести видов (старые архетипы остаются только для босса)
   const tone = pick(SKIN_TONES), tint = rnd(0.8, 1.1);
   const mk = (map, col) => new THREE.MeshStandardMaterial({ map, bumpMap: map, bumpScale: 0.012, color: new THREE.Color(col || 0xffffff).multiplyScalar(tint), roughness: 0.92 });   // рельеф из той же текстуры: складки, раны, вены
   const rotMap = A.rot === 'flesh' ? fleshTex() : A.rot === 'decay' ? decayTex(Math.random() * 3 | 0) : A.rot === 'pale' ? paleTex() : null;
@@ -7296,8 +7985,8 @@ function makeZombie(boss) {
   if (boss) { torso.scale.set(1.35, 1, 0.95); chest.scale.set(1.3, 0.6, 0.9); add(body, gsph(0.26, 12, 10), skin, 0, 1.08, 0.04).scale.set(1.15, 1.0, 1.0); bossDecorate(z, add, body, skin, gore); }   // раздутое брюхо
   return z;
 }
-function spawnZombie(mp, network = false, boss = false) {
-  const w = mp ? null : activeWin[Math.random() * activeWin.length | 0], z = makeZombie(boss); // только окна открытых комнат
+function spawnZombie(mp, network = false, boss = false, kind = null) {
+  const w = mp ? null : activeWin[Math.random() * activeWin.length | 0], z = makeZombie(boss, kind); // только окна открытых комнат
   const run = round >= 5 && Math.random() < Math.min(0.85, 0.2 + 0.1 * (round - 5));
   z.run = run;
   z.gait = pick(run ? ['run', 'run', 'run', 'lurch'] : ['shamble', 'shamble', 'limp', 'limp', 'lurch']);   // походка
@@ -7306,8 +7995,11 @@ function spawnZombie(mp, network = false, boss = false) {
   z.speed = (run ? Math.min(5.5, 3.4 + 0.1 * round) : Math.min(2.4, 1.2 + 0.1 * (round - 1))) * (0.9 + Math.random() * 0.2);
   if (z.gait === 'limp') z.speed *= 1.25;
   if (round >= 6) z.speed *= Math.min(1.5, 1 + 0.08 * (round - 5));   // с 6 раунда зомби быстрее (до +50%)
-  z.hp = ZHP(round);
+  z.hp = Math.round(ZHP(round) * plk(PL_HP));
   if (boss) bossSetup(z);
+  if (z.necro) necroSetup(z);
+  if (z.brute) bruteSetup(z);
+  if (!z.hpMax) z.hpMax = z.hp;
   Object.assign(z, { w, state: network ? 'chase' : (mp ? 'menu' : 'window'), t: 0, phase: Math.random() * 6, mv: 0, flash: 0, stagger: 0, atkCd: 0.5, atkT: 0, planT: 0, wp: null, stuck: 0, stuckTot: 0, nT: 0, moved: 0, torn: 0, apT: 0, ghost: true });
   if (network) {
     z.g.position.set(mp.x, mp.y || 0, mp.z); z.g.rotation.y = mp.yaw || 0;
@@ -7328,6 +8020,8 @@ function spawnZombie(mp, network = false, boss = false) {
   }
   scene.add(z.g); zombies.push(z);
   if (boss && !network) { bossSnd('roar', z.g.position.x, z.g.position.z); pop('ПЛЕВАКА ИДЁТ!', 'head'); }
+  if (z.necro && !network) { necroScream(z); pop('НЕКРОМАНТ!', 'head'); }
+  if (z.brute && !network) { bossSnd('roar', z.g.position.x, z.g.position.z); CF.kickV -= 1.5; pop('ДЖАГГЕРНАУТ!', 'head'); }
   return z;
 }
 function zombieMeshes() { const a = []; for (const z of zombies) if (z.state !== 'dying') a.push(...z.meshes); return a; }
@@ -7346,7 +8040,9 @@ function hitZombie(z, head, dmg, fx) {
   if (head) { crossEl.classList.add('hs'); clearTimeout(hsTO); hsTO = setTimeout(() => crossEl.classList.remove('hs'), 50); }   // крестик на 0.05 c
   if (z.hp <= 0) { z.state = 'dying'; z.dt = 0; z.eyes.forEach(e => e.visible = false); startRagdoll(z, head, dmg != null ? dmg : (head ? wp.head : wp.body)); kills++; maybeDropMaxAmmo(z);
     if (fx && fx.knife) addPoints(90, 'kill'); else if (head) addPoints(75, 'head', 'HEADSHOT'); else addPoints(45, 'kill');   // 1.19: меньше очков (было 120/100/60)
-    if (z.boss) addPoints(500, 'kill', 'ПЛЕВАКА'); }
+    if (z.boss) addPoints(500, 'kill', 'ПЛЕВАКА');
+    if (z.necro) addPoints(1500, 'kill', 'НЕКРОМАНТ');
+    if (z.brute) addPoints(3000, 'kill', 'ДЖАГГЕРНАУТ'); }
   else addPoints(5);   // попадание без убийства (было 10)
 }
 function hurtPlayer(d) {
@@ -7497,6 +8193,7 @@ function preDeath(z, rd, u, dt) {   // короткая «предсмертна
   }
 }
 function updateRagdoll(z, dt) {
+  if (!z.rd) { z.gone = true; z.g.visible = false; return; }   // съеден Джаггернаутом — тела нет
   const rd = z.rd, p = z.g.position, b = z.body; z.dt += dt;
   const vb = z.w && z.w.base || 0;
   if (z.vault && p.y > vb) { p.y = Math.max(vb, p.y - dt * 3); if (p.y === vb) z.vault = false; }
@@ -7543,10 +8240,13 @@ function updateZombie(z, dt) {
   const target = z.mpTarget || { id: window.MP && MP.selfId, x: PX, z: PZ, floor: PF };
   z.ghost = z.state === 'window' || z.state === 'tear' || z.state === 'enter' || z.state === 'vault'; // в проёме коллизия окна отключена
   if (z.flash > 0) z.flash = Math.max(0, z.flash - dt * 4);
-  if (z.flash > 0 || z.fl2) { z.mats.forEach(m => m.emissive.setRGB(z.flash * 0.7, 0, 0)); z.fl2 = z.flash > 0; }
+  if (z.buffT > 0) z.buffT -= dt;
+  const bG = z.buffT > 0 ? 0.09 + 0.05 * Math.sin(z.t * 7) : 0;   // зелёный отсвет от «вонючки» Джаггернаута
+  if (z.flash > 0 || z.fl2 || bG) { z.mats.forEach(m => m.emissive && m.emissive.setRGB(z.flash * 0.7, bG, 0)); z.fl2 = z.flash > 0 || bG > 0; }
   if (z.state === 'dying') { updateRagdoll(z, dt); return; }
+  if (z.state === 'grabbed') return;   // его держит и жрёт Джаггернаут
   z.phase += dt * (z.gait === 'run' ? 7.5 : z.gait === 'limp' ? 2.7 : z.gait === 'lurch' ? 3.6 : 3.4);   // фаза шага идёт всегда
-  const sp0 = z.speed, spd = sp0 * gaitMul(z), frozen = z.stagger > 0;
+  const sp0 = z.speed * (z.buffT > 0 ? 1.4 : 1), spd = sp0 * gaitMul(z), frozen = z.stagger > 0 && !z.brute;
   if (frozen) z.stagger -= dt;
   else if (z.state === 'window') { // идёт ТОЛЬКО к EntryPoint, игрока игнорирует
     z.apT += dt;
@@ -7597,18 +8297,20 @@ function updateZombie(z, dt) {
   } else { // chase
     const dp = Math.hypot(target.x - p.x, target.z - p.z), fy = p.y;
     z.planT -= dt; if (z.planT <= 0) { plan(z, target.x, target.z, target.floor, target.visible); z.planT = 0.35 + Math.random() * 0.2; }
-    if (!z.roared) { z.roared = true; if (!z.boss && dp < 16 && Math.random() < 0.45 && los(p.x, p.z, target.x, target.z, fy)) { z.roarT = 0.95; zGrowl(p.x, p.z); } }   // заметил игрока — рёв
+    if (!z.roared) { z.roared = true; if (!z.boss && !z.necro && !z.brute && dp < 16 && Math.random() < 0.45 && los(p.x, p.z, target.x, target.z, fy)) { z.roarT = 0.95; zGrowl(p.x, p.z); } }   // заметил игрока — рёв
     if (z.roarT > 0) { z.roarT -= dt; turn(z, target.x - p.x, target.z - p.z, dt); }
+    else if (z.necro && necroTick(z, target, dp, dt)) { z.atkCd = Math.max(z.atkCd, 0.25); }
+    else if (z.brute && bruteTick(z, target, dp, dt)) { z.atkCd = Math.max(z.atkCd, 0.4); }
     else if (z.boss && bossSpitTick(z, target, dp, dt)) { z.atkCd = Math.max(z.atkCd, 0.25); }
-    else if (dp < (z.boss ? 1.75 : 1.3) + (inFountain(target.x, target.z) && !inFountain(p.x, p.z) ? 1.9 : 0) && Math.abs(target.floor - fy) < 1.6 && los(p.x, p.z, target.x, target.z, inFountain(target.x, target.z) ? fy + 0.45 : fy)) {   // у фонтана тянутся через бортик
+    else if (dp < (z.brute ? 2.4 : z.boss ? 1.75 : 1.3) + (inFountain(target.x, target.z) && !inFountain(p.x, p.z) ? 1.9 : 0) && Math.abs(target.floor - fy) < 1.6 && los(p.x, p.z, target.x, target.z, inFountain(target.x, target.z) ? fy + 0.45 : fy)) {   // у фонтана тянутся через бортик
       turn(z, target.x - p.x, target.z - p.z, dt);
       z.atkCd -= dt;
       if (z.atkCd <= 0) {
-        z.atkCd = 0.4; z.atkT = z.atkLen = 0.36; z.atkKind = Math.random() * 4 | 0;   // бьёт чаще (было раз в 0,55 с)
+        z.atkCd = z.brute ? 1.3 : 0.4; z.atkT = z.atkLen = z.brute ? 0.6 : 0.36; z.atkKind = Math.random() * 4 | 0;   // бьёт чаще (было раз в 0,55 с)
         if (window.MP && MP.active && MP.isAuthority && target.id && target.id !== MP.selfId) {
           MP.requestPlayerHit(target.id, z.mpId);
         } else {
-          hurtPlayer(z.boss ? BOSS_MELEE : 25);
+          hurtPlayer(z.brute ? BRUTE_MELEE : z.boss ? BOSS_MELEE : z.necro ? NECRO_MELEE : 25);
           if (dead) return;
         }
       }
@@ -7619,7 +8321,7 @@ function updateZombie(z, dt) {
     }
   }
   if (z.state === 'chase' && !z.as) { // защита от застревания
-    const busy = z.atkT > 0 || z.roarT > 0 || (z.boss && z.spitT > 0) || Math.hypot(target.x - p.x, target.z - p.z) < 1.9;   // бьёт, плюётся или стоит вплотную — это не застревание
+    const busy = z.atkT > 0 || z.roarT > 0 || z.castT > 0 || z.act || (z.boss && z.spitT > 0) || Math.hypot(target.x - p.x, target.z - p.z) < 1.9;   // бьёт, плюётся или стоит вплотную — это не застревание
     if (!frozen && !busy && z.moved < spd * dt * 0.25) { z.stuck += dt; z.stuckTot += dt; } else { z.stuck = Math.max(0, z.stuck - dt); if (z.moved > spd * dt * 0.5) z.stuckTot = Math.max(0, z.stuckTot - dt * 0.5); }
     if (z.stuck > 2) { const a = Math.random() * 6.28; z.nx = Math.cos(a); z.nz = Math.sin(a); z.nT = 0.6; z.stuck = 0; }
     if (z.stuckTot > 12) {   // совсем застрял: переносим на ближайший узел навигации своего этажа (а не к окну через всю карту)
@@ -7715,6 +8417,8 @@ function updateZombie(z, dt) {
   if (z.jaw) z.jaw.rotation.x = 0.18 + 0.12 * Math.abs(Math.sin(z.t * 2.3 + z.phase)) + (z.roarT > 0 ? 0.55 : 0) + (z.atkT > 0 ? 0.45 * Math.sin((1 - z.atkT / (z.atkLen || 0.4)) * Math.PI) : 0) + (Math.random() < 0.02 ? 0.2 : 0);   // челюсть: жуёт воздух, раскрывается при рёве и укусе
   if (z.roarT > 0) { const u = 1 - z.roarT / 0.95; z.head.rotation.x = -0.75 * Math.sin(Math.min(1, u * 1.25) * Math.PI) + Math.sin(z.t * 40) * 0.04; }   // голова назад, трясётся от крика
   if (z.boss) bossPose(z, dt);
+  if (z.necro) necroPose(z, dt);
+  if (z.brute) brutePose(z, dt);
 }
 
 function updateNetworkZombieVisual(z, dt) {
@@ -7771,12 +8475,14 @@ function updateNetworkZombieVisual(z, dt) {
   z.head.rotation.z = z.headTilt + Math.sin(z.t * 1.4 + z.phase * 0.2) * 0.1;
   z.head.rotation.x = z.headDrop;
   if (z.boss) { if (z.spitT > 0) z.spitT -= dt; bossPose(z, dt); }
+  if (z.necro) { if (z.castT > 0) z.castT -= dt; necroPose(z, dt); }
+  if (z.brute) { if (z.act) { z.actT += dt; if (z.actT > 2.1) z.act = null; } brutePose(z, dt); }
 }
 
 // ---------- раунды ----------
 function startRound() {
-  round++; nades = NADE_PER_ROUND; roundActive = true; toSpawn = Math.round((6 + 3 * (round - 1) + 0.2 * (round - 1) * (round - 1)) * 1.3);   // 1.19: на 30% больше зомби за волну spawnTimer = 0;
-  bossLeft = bossCount(round); bossTotal = toSpawn;
+  round++; nades = NADE_PER_ROUND; roundActive = true; toSpawn = Math.round((6 + 3 * (round - 1) + 0.2 * (round - 1) * (round - 1)) * 1.3 * plk(PL_COUNT));   // 1.19: на 30% больше зомби за волну spawnTimer = 0;
+  bossLeft = bossCount(round); bossTotal = toSpawn; necroLeft = necroCount(round); bruteLeft = bruteCount(round);
   roundEl.textContent = round; annEl.textContent = 'ROUND ' + round;
   annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
   sfx('round');
@@ -7835,7 +8541,7 @@ function updateGame(dt) {
       interEl.textContent = '';
       const alive = zombies.filter(z => z.state !== 'dying').length;
       spawnTimer -= dt;
-      if (toSpawn > 0 && alive < Math.min(28, 10 + 2 * round) && spawnTimer <= 0) { const bz = bossLeft > 0 && (toSpawn <= bossLeft || (toSpawn < bossTotal * 0.75 && Math.random() < 0.15)); if (bz) bossLeft--; spawnZombie(null, false, bz); toSpawn--; spawnTimer = Math.max(0.5, 1.6 - 0.1 * round); }   // выходят чаще
+      if (toSpawn > 0 && alive < Math.min(28 + 3 * (plN() - 1), 10 + 2 * round + 3 * (plN() - 1)) && spawnTimer <= 0) { const bz = bossLeft > 0 && (toSpawn <= bossLeft || (toSpawn < bossTotal * 0.75 && Math.random() < 0.15)); if (bz) bossLeft--; const nz = !bz && necroLeft > 0 && (toSpawn <= necroLeft + bossLeft || (toSpawn < bossTotal * 0.8 && Math.random() < 0.12)); if (nz) necroLeft--; const jz = !bz && !nz && bruteLeft > 0 && (toSpawn <= bruteLeft + necroLeft + bossLeft || (toSpawn < bossTotal * 0.7 && Math.random() < 0.1)); if (jz) bruteLeft--; spawnZombie(null, false, bz, nz ? 'necro' : jz ? 'brute' : null); toSpawn--; spawnTimer = Math.max(0.5, 1.6 - 0.1 * round); }   // выходят чаще
       if (toSpawn === 0 && alive === 0) { roundActive = false; nextRoundAt = gtime + 10; }
     } else {
       interEl.textContent = `ROUND ${round + 1} IN ${Math.max(0, Math.ceil(nextRoundAt - gtime))}`;
@@ -7853,7 +8559,7 @@ function updateGame(dt) {
       }
       z.mpTarget = nearest;
       updateZombie(z, dt);
-      if (z.state === 'dying' && z.gone) { scene.remove(z.g); z.mats.forEach(m => m.dispose()); zombies.splice(i, 1); }
+      if (z.state === 'dying' && z.gone) { scene.remove(z.g); z.mats.forEach(m => m.dispose()); (z.geos || []).forEach(g => g.dispose()); zombies.splice(i, 1); }
     }
     zombieVoices(dt);
     for (let i = 0; i < zombies.length; i++) for (let j = i + 1; j < zombies.length; j++) { // расталкивание
@@ -7923,7 +8629,7 @@ function menuUpdate(dt, t) {
 }
 controls.addEventListener('lock', () => {   // старт игры: убираем фоновых зомби, ставим игрока на место
   if (!menuOn) return; menuOn = false; document.body.classList.remove('menu');
-  for (let i = zombies.length - 1; i >= 0; i--) if (zombies[i].menu) { scene.remove(zombies[i].g); zombies[i].mats.forEach(m => m.dispose()); zombies.splice(i, 1); }
+  for (let i = zombies.length - 1; i >= 0; i--) if (zombies[i].menu) { scene.remove(zombies[i].g); zombies[i].mats.forEach(m => m.dispose()); (zombies[i].geos || []).forEach(g => g.dispose()); zombies.splice(i, 1); }
   pos.copy(SPAWN); camera.rotation.set(0, SPAWN_YAW, 0);
 });
 // ---------- вступление при начале катки: затемнение 3 с + два звука из /sounds ----------
@@ -7981,16 +8687,18 @@ function loop() {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   if (controls.isLocked && !dead) { update(dt); updateGame(dt); updateProjs(dt); } else if (menuOn) menuUpdate(dt, t);
   updateNetworkZombies(dt);
-  updateBoardFx(dt); updateBooms(dt); if (controls.isLocked || (window.MP && MP.inMultiplayerGame)) updateSpits(dt);
+  updateBoardFx(dt); updateBooms(dt); updateNGraves(dt); updateRocks(dt); updateStinks(dt); updateBossBar(dt); updateNadeFx(dt); if (controls.isLocked || (window.MP && MP.inMultiplayerGame)) updateSpits(dt);
   if (!dead) updateBullets(dt);
   updateBlood(dt);
   bulbs.forEach(o => {
+    if (!o.l.real) return;
     let f = 1 + Math.sin(t * 3 + o.ph) * 0.04;
     if (o.bad && Math.sin(t * 17 + o.ph) * Math.sin(t * 5.3 + o.ph) > 0.85) f = 0.15;
     f *= (typeof FEAR !== 'undefined' ? FEAR.power : 1);
     o.l.intensity = o.base * f;
     if (o.fx) { for (const [m, a] of o.fx) m.material.opacity = a * f; o.bulb.material.color.setScalar(0.08 + 0.92 * f); }
   });
+  updateLightPool();
   animFires(t);
   animFog(t);
   camFxUpdate(dt, t);
@@ -8028,6 +8736,7 @@ function warmupGPU() {
   try {
     for (const k of ROT_KINDS) { const z = makeRotZombie(k); z.g.position.set(PX, -50, PZ); scene.add(z.g); temp.push(z.g); const zf = makeRotZombie(k); zf.mats.forEach(m => { m.transparent = true; }); zf.g.position.set(PX, -50, PZ); scene.add(zf.g); temp.push(zf.g); }   // в т.ч. «тающие» трупы
     try { const b = makeZombie(true); b.g.position.set(PX, -50, PZ); scene.add(b.g); temp.push(b.g); } catch (e) {}
+    try { for (const f of [makeNecro, makeSkeleton, makeBrute]) { const q = f(); q.g.position.set(PX, -50, PZ); scene.add(q.g); temp.push(q.g); } const tm = new THREE.Mesh(TOMB_G, new THREE.MeshStandardMaterial({ map: tombTex() })); tm.position.set(PX, -50, PZ); scene.add(tm); temp.push(tm); } catch (e) {}
     show(scene); show(weaponScene);
     renderer.compile(scene, camera); renderer.compile(weaponScene, weaponCam);
     // один кадр в крошечную текстуру с камерой, смотрящей во все стороны: так загружаются и сами текстуры
