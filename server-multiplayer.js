@@ -19,7 +19,7 @@ for (const sg of [-1, 1]) {
   for (const z of [-9, 9]) for (const dx of [-4.3, 0, 4.3]) VK_WINS.push({ x: sg * 13 + dx, z });
 }
 const UPG_PRICE = 5500, UPG_MS = 4200;   // Улучшайзер (Verrückt): цена и время анимации — как на клиенте
-const DROP_CHANCE = 0.02, DP_CHANCE = 0.01, DROP_LIFE_MS = 32000, DP_MS = 25000;   // бонусы при убийстве зомби: MAX AMMO (2%) и DOUBLE POINTS (1%, x2 очки на 25 с)
+const DROP_CHANCE = 0.008, DP_CHANCE = 0.01, DROP_LIFE_MS = 32000, DP_MS = 25000;   // бонусы при убийстве зомби: MAX AMMO (2%) и DOUBLE POINTS (1%, x2 очки на 25 с)
 const rooms = Object.create(null);
 const roomOf = Object.create(null);
 
@@ -29,7 +29,7 @@ const WEAPONS = [
   { body: 60, head: 120, interval: 850, pellets: 8 },
   { body: 150, head: 300, interval: 550, pellets: 1 },
   { body: 250, head: 500, interval: 280, pellets: 1 },
-  { body: 555, head: 555, interval: 850, pellets: 24 },   // Ray Gun (1.14: 555 / 850 мс; 1.8: 746 / 650; изначально 865 / 420)
+  { body: 861, head: 861, interval: 850, pellets: 24 },   // Ray Gun (1.14: 555 / 850 мс; 1.8: 746 / 650; изначально 865 / 420)
   { body: 110, head: 220, interval: 100, pellets: 1 },
   { body: 95, head: 190, interval: 90, pellets: 1 },   // M16A1 (только Mystery Box)
   { body: 55, head: 110, interval: 140, pellets: 2 },  // двойные пистолеты (только Mystery Box): 2 пули за выстрел
@@ -54,7 +54,7 @@ const MAPS = {
       [-12, 15, 1.7], [-7, 15, 1.7], [-2, 15, 5.7], [6, 15, 5.7],
       [-15, -5.5, 1.7], [-15, 7, 5.7], [15, -2, 1.7], [15, 4, 5.7],
     ],
-    wall: { thompson: { x: -14.7, z: 10 }, shotgun: { x: -14.7, z: -11.5 } },
+    wall: { thompson: { x: -14.7, z: 10 }, shotgun: { x: -14.7, z: -11.5 }, mp40: { x: -4.22, z: 13 } },
     box: { x: 0.3, z: -13.25, available: dr => !!(dr[0] || dr[2] || dr[4]) },
     qr: { x: 14.22, z: 8, minY: -1, maxY: 3.2 },
     perks: {
@@ -70,7 +70,7 @@ const MAPS = {
       { x: -6, z: 0, price: 1000 }, { x: 6, z: 0, price: 1000 },           // главные двери левого/правого дома
     ],   // платный вход на 2 этаж: левый и правый корпус (порядок как в VK_DOORS на клиенте)
     windows: [],
-    wall: { thompson: { x: -19.8, z: 2.75 }, shotgun: { x: 19.8, z: -2.75 } },   // как WALLBUY / WB2 на клиенте
+    wall: { thompson: { x: -19.8, z: 2.75 }, shotgun: { x: 19.8, z: -2.75 }, mp40: { x: 6.19, z: 6.5 } },   // как WALLBUY / WB2 на клиенте
     box: { x: 13, z: -21.35, available: dr => !!dr[2] },   // Mystery Box в сарае (VK_SHED.cx, boxZ + d/2); доступен после открытия сарая (дверь 2)
     // Ящики по индексу «места» (как BOX_SITES на клиенте): 0 — сарай, 1 — левый корпус 2 эт., 2 — правый корпус 2 эт. (после покупки входа на 2 этаж)
     boxes: [
@@ -114,7 +114,7 @@ function makePlayer(id, name, slot) {
     id, name: cleanName(name, id), color: ['#e04040', '#3a8ee6', '#46c46a', '#e6c83a'][slot], slot,
     x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0, active: false, downed: false, reviving: null,
     points: 500, hp: 100, perks: { cola: false, doubleTap: false, juggernog: false, builder: false },
-    owned: { thompson: false, shotgun: false }, upg: Object.create(null), shots: Object.create(null), lastShotAt: -Infinity,
+    owned: { thompson: false, shotgun: false, mp40: false }, upg: Object.create(null), shots: Object.create(null), lastShotAt: -Infinity,
   };
 }
 function makeRoom(code, hostId, map) {
@@ -338,7 +338,7 @@ io.on('connection', socket => {
     zombie.hp = Math.max(0, zombie.hp - damage);
     const killed = zombie.hp <= 0;
     if (killed) zombie.state = 'dying';
-    const reward = ((killed ? (shot.weapon === -1 ? 120 : (head ? 100 : 60)) : 10) + (killed && zombie.boss ? 500 : 0)) * ((room.game.dpUntil || 0) > Date.now() ? 2 : 1);   // босс «Плевака»: +500 за убийство   // Double Points действует на всю комнату
+    const reward = ((killed ? (shot.weapon === -1 ? 90 : (head ? 75 : 45)) : 5) + (killed && zombie.boss ? 500 : 0)) * ((room.game.dpUntil || 0) > Date.now() ? 2 : 1);   // босс «Плевака»: +500 за убийство   // Double Points действует на всю комнату
     player.points += reward;
     let drop = null;
     if (killed) {
@@ -382,7 +382,7 @@ io.on('connection', socket => {
     const zombie = room.game.zombies.find(z => z.id === zombieId);
     if (!target || !target.active || target.downed || !zombie || zombie.state === 'dying') return;
     const now = Date.now();
-    if (now - (zombie.lastAttackAt || 0) < 450 ||
+    if (now - (zombie.lastAttackAt || 0) < 320 ||
         Math.hypot(target.x - zombie.x, target.z - zombie.z) > (zombie.boss ? 2.3 : 1.8) + (room.map === 'verruckt' && Math.hypot(target.x, target.z) < 3.0 ? 1.9 : 0) ||   // в фонтане зомби тянутся через бортик
         Math.abs((target.y - 1.7) - zombie.y) > 1.8) return;
     zombie.lastAttackAt = now;
@@ -500,6 +500,10 @@ io.on('connection', socket => {
       if (!near(player, pos.x, pos.z, 3, -1, 3.2)) return failPurchase(socket, 'Подойдите к стене с оружием');
       price = shotgun ? (owned ? 600 : 1200) : (owned ? 500 : 1000);
       weaponIndex = shotgun ? 2 : 1;
+    } else if (kind === 'mp40') {   // MP40 на стене (1.21)
+      const pos = cfg.wall.mp40;
+      if (!near(player, pos.x, pos.z, 3, -1, 3.2)) return failPurchase(socket, 'Подойдите к стене с оружием');
+      price = player.owned.mp40 ? 625 : 1250; weaponIndex = 9;
     } else if (kind === 'box') {
       // в стартовой комнате ящика нет: он появляется в центральном зале после открытия двери (как на клиенте)
       const boxPos = (cfg.boxes && cfg.boxes[Number(doorIndex) || 0]) || cfg.box;
@@ -521,9 +525,11 @@ io.on('connection', socket => {
     if (kind === 'builder') player.perks.builder = true;
     if (kind === 'thompson') player.owned.thompson = true;
     if (kind === 'shotgun') player.owned.shotgun = true;
+    if (kind === 'mp40') player.owned.mp40 = true;
     if (kind === 'box') {
       if (boxResult === 1) player.owned.thompson = true;
       if (boxResult === 2) player.owned.shotgun = true;
+      if (boxResult === 9) player.owned.mp40 = true;
     }
     io.to(room.code).emit('purchaseCommitted', {
       playerId: socket.id, kind, doorIndex, price, weaponIndex, boxResult, repair: repairKind, noCd: kind === 'vwindow' && !!player.perks.builder,
