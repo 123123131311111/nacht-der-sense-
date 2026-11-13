@@ -144,6 +144,7 @@
       }
       if (typeof shotSnd === 'function') shotSnd(shot.weapon);
       const player = remote[shot.id];
+      if (player && Number.isInteger(shot.weapon) && shot.weapon >= 0) player.weapon = shot.weapon;
       if (player && player.muzzleLight) {
         player.muzzleLight.color.setHex(shot.weapon === 5 ? 0x45ff64 : 0xffa030);
         player.muzzleLight.intensity = 2.5; player.kick = 1;
@@ -187,6 +188,7 @@
       const r = remote[d.id]; if (!r) return;
       if (!r.active) { r.active = true; r.group.position.set(d.x, d.y - EYE_HEIGHT, d.z); }   // первое появление — без «пролёта»
       r.target = { x: d.x, y: d.y, z: d.z, yaw: d.yaw, pitch: Number.isFinite(d.pitch) ? d.pitch : 0 };
+      if (Number.isInteger(d.w)) r.weapon = d.w; r.reloading = d.rl === 1; r.sprint = d.sp === 1;
     });
   }
 
@@ -209,9 +211,11 @@
         if (p.id === selfId) {
           if (typeof p.points === 'number') { points = p.points; updatePoints(); }
           if (p.perks) {
-            if (p.perks.cola && !speedCola) { speedCola = true; perkMsg('cola'); }
-            if (p.perks.doubleTap && !doubleTap) { doubleTap = true; perkMsg('dtap'); }
-            if (p.perks.builder && typeof gotBuilder === 'function') gotBuilder(false);   // «Строитель» (Verrückt)
+            // 1.27: перк мог прийти в состоянии раньше, чем событие покупки, — тогда раньше выдавалась только иконка без анимации
+            if (p.perks.cola && !speedCola) { speedCola = true; drinkPerk('cola'); }
+            if (p.perks.doubleTap && !doubleTap) { doubleTap = true; drinkPerk('dtap'); }
+            if (p.perks.juggernog && typeof juggernog !== 'undefined' && !juggernog) { applyJugg(); drinkPerk('jugg'); }
+            if (p.perks.builder && typeof gotBuilder === 'function') gotBuilder(true);   // «Строитель» (Verrückt)
           }
         } else {
           const r = remote[p.id];
@@ -382,9 +386,9 @@
     } else if (event.kind === 'box') {
       boxStart(event.boxResult, own);
     } else if (own && event.kind === 'cola') {
-      speedCola = true; perkMsg('cola');
+      if (!speedCola) { speedCola = true; drinkPerk('cola'); }
     } else if (own && event.kind === 'doubleTap') {
-      doubleTap = true; perkMsg('dtap');
+      if (!doubleTap) { doubleTap = true; drinkPerk('dtap'); }
     } else if (own && event.kind === 'thompson') {
       const w = WEAPONS[1];
       w.mag = w.magSize; w.reserve = w.maxReserve - w.magSize;
@@ -471,7 +475,7 @@
     hostId = h; roomCode = code;
     $('lobCode').textContent = code;
     $('lobList').innerHTML = players.map(p =>
-      `<div class="lp"><i style="background:${p.color}"></i>${esc(p.name)}${p.id === hostId ? ' <small>(хост)</small>' : ''}${p.id === selfId ? ' <small>(ты)</small>' : ''}</div>`
+      `<div class="lp"><i style="background:${p.color}"></i>${esc(p.name)}${typeof HERO_NAMES !== 'undefined' && HERO_NAMES[p.slot] ? ' <small>· ' + HERO_NAMES[p.slot] + '</small>' : ''}${p.id === hostId ? ' <small>(хост)</small>' : ''}${p.id === selfId ? ' <small>(ты)</small>' : ''}</div>`
     ).join('') + `<div class="lc">${players.length} / 4</div>`;
   }
   const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -528,8 +532,10 @@
   let last = { x: 1e9, y: 1e9, z: 1e9, yaw: 1e9, pitch: 1e9 };
   function sendMove(force) {
     _e.setFromQuaternion(camera.quaternion, 'YXZ');
-    const cur = { x: pos.x, y: pos.y, z: pos.z, yaw: _e.y, pitch: _e.x };
-    if (!force && Math.abs(cur.x - last.x) + Math.abs(cur.y - last.y) + Math.abs(cur.z - last.z) +
+    const cur = { x: pos.x, y: pos.y, z: pos.z, yaw: _e.y, pitch: _e.x,
+      w: typeof window.__curWeapon === 'function' ? window.__curWeapon() : 0,   // 1.27: какое оружие в руках, перезарядка, бег — для аватара у остальных
+      rl: typeof reloading !== 'undefined' && reloading ? 1 : 0, sp: typeof isSprint !== 'undefined' && isSprint ? 1 : 0 };
+    if (!force && cur.w === last.w && cur.rl === last.rl && cur.sp === last.sp && Math.abs(cur.x - last.x) + Math.abs(cur.y - last.y) + Math.abs(cur.z - last.z) +
         Math.abs(cur.yaw - last.yaw) + Math.abs(cur.pitch - last.pitch) < 0.001) return;
     last = cur; socket.emit('move', cur);
   }
@@ -548,8 +554,8 @@
       windowBoards: windows.map(w => ({ boards: w.boards.length, pending: w.pending.length })),
       zombies: zombies.filter(z => !z.menu && z.mpId).map(z => ({
         id: z.mpId,
-        x: z.g.position.x, y: z.g.position.y, z: z.g.position.z,
-        yaw: z.g.rotation.y,
+        x: Math.round(z.g.position.x * 100) / 100, y: Math.round(z.g.position.y * 100) / 100, z: Math.round(z.g.position.z * 100) / 100,   // 1.28: до сантиметра — пакет почти вдвое меньше
+        yaw: Math.round(z.g.rotation.y * 100) / 100,
         moving: z.moved > 0.0005 || z.state === 'vault',
         attacking: z.atkT > 0,
         attackKind: z.atkKind,
@@ -573,6 +579,18 @@
   }
   // Солдат из простых форм: ботинки, штаны, жилет в цвете игрока, каска, лицо, руки с винтовкой. Начало координат — ступни, «вперёд» = -Z.
   function createAvatar(p) {
+    if (typeof makeHero === 'function') {   // 1.27: один из 4 героев по слоту игрока, с оружием, которое у него в руках
+      try {
+        const h = makeHero(p), team = new THREE.Color(p.color || '#ffffff');
+        const ring = new THREE.Mesh(new THREE.RingGeometry(0.38, 0.46, 24), new THREE.MeshBasicMaterial({ color: team, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+        ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; ring.userData.team = team.getHex(); h.group.add(ring);
+        const label = makeLabel(p.name); h.group.add(label);
+        h.group.visible = false; scene.add(h.group);
+        remote[p.id] = { group: h.group, hero: h, muzzleLight: { color: new THREE.Color(0xffa030), intensity: 0 }, ring, label, downed: false, lieK: 0, knifeT: 0, kick: 0, active: false,
+          weapon: 0, reloading: false, sprint: false, vy: 0, lastY: null, target: { x: 0, y: EYE_HEIGHT, z: 0, yaw: 0, pitch: 0 } };
+        return;
+      } catch (e) { console.warn('hero', e); }
+    }
     const group = new THREE.Group(); group.rotation.order = 'YXZ';   // сначала поворот по курсу, затем «ложимся» вокруг локальной X
     const team = new THREE.Color(p.color);
     const std = (c, r = 0.85, mt = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: mt });
@@ -641,7 +659,7 @@
   function removeAvatar(id) {
     const r = remote[id]; if (!r) return;
     scene.remove(r.group);
-    r.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } });
+    r.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && !(o.material.userData && o.material.userData.shared)) { if (o.material.map && !(typeof GLOW_TEX !== 'undefined' && o.material.map === GLOW_TEX)) o.material.map.dispose(); o.material.dispose(); } });
     delete remote[id];
   }
   function clearRemote() { Object.keys(remote).forEach(removeAvatar); }
@@ -649,20 +667,33 @@
   // Плавное движение чужих аватаров + походка (по реальной скорости), наклон по взгляду, отдача при выстреле.
   (function smooth() {
     requestAnimationFrame(smooth);
+    const now = performance.now(), dtr = Math.min(0.05, Math.max(0.004, (now - (smooth.l || now - 16)) / 1000)); smooth.l = now;
+    const kf = 1 - Math.exp(-dtr * 17);   // 1.28: сглаживание не зависит от частоты кадров (на 144 Гц аватары раньше «летали» иначе, чем на 60)
     for (const id in remote) {
       const r = remote[id], t = r.target, g = r.group;
       if (!r.active) continue;
       const px = g.position.x, pz = g.position.z;
-      g.position.x += (t.x - g.position.x) * 0.25;
+      if (Math.hypot(t.x - px, t.z - pz) > 6) { g.position.set(t.x, t.y - EYE_HEIGHT, t.z); r.lastY = null; }   // большой разрыв (лаг, телепорт) — сразу на место
+      g.position.x += (t.x - g.position.x) * kf;
       r.lieK += ((r.downed ? 1 : 0) - r.lieK) * 0.12;   // плавно ложимся / встаём
-      g.position.y += ((t.y - EYE_HEIGHT + r.lieK * 0.24) - g.position.y) * 0.25;
-      g.position.z += (t.z - g.position.z) * 0.25;
-      let dy = t.yaw - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * 0.25;
+      g.position.y += ((t.y - EYE_HEIGHT + r.lieK * 0.24) - g.position.y) * kf;
+      g.position.z += (t.z - g.position.z) * kf;
+      let dy = t.yaw - g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); g.rotation.y += dy * kf;
       g.visible = !menuOn;
       g.rotation.x = r.lieK * Math.PI / 2;                                   // повален: лежит на спине, головой назад
       r.label.position.set(0, 1.95 - r.lieK * 1.05, -r.lieK * 1.0);          // подпись остаётся над телом
       r.ring.material.color.setHex(r.downed ? 0xff2a2a : r.ring.userData.team);
       r.ring.material.opacity = r.downed ? 0.45 + 0.35 * Math.abs(Math.sin(performance.now() / 280)) : 0.55;
+      if (r.hero) {   // герой: вся анимация внутри makeHero
+        const dt = dtr, vx = (g.position.x - px) / dt, vz = (g.position.z - pz) / dt;
+        if (r.lastY == null) r.lastY = g.position.y; r.vy += (((g.position.y - r.lastY) / dt) - r.vy) * 0.3; r.lastY = g.position.y;
+        r.svx = (r.svx || 0) + (vx - (r.svx || 0)) * 0.25; r.svz = (r.svz || 0) + (vz - (r.svz || 0)) * 0.25;
+        if (r.kick > 0) r.kick = Math.max(0, r.kick - 0.12);
+        if (r.knifeT > 0) { r.knifeT += dt; if (r.knifeT >= 0.38) r.knifeT = 0; }
+        r.hero.update(dt, { vx: r.svx, vz: r.svz, vy: r.downed ? 0 : r.vy, yaw: g.rotation.y, pitch: t.pitch || 0, sprint: r.sprint, reloading: r.reloading, weapon: r.weapon,
+          kick: r.kick, knifeT: r.downed ? 0 : r.knifeT, downed: r.downed, flashCol: r.muzzleLight.color });
+        continue;
+      }
       if (r.downed) { r.knifeT = 0; r.knife.visible = false; r.gun.visible = true; for (const l of r.legs) l.rotation.x = 0; r.kick = 0; r.flash.material.opacity = 0; continue; }
       if (!r.legs) continue;
       const sp = Math.hypot(g.position.x - px, g.position.z - pz) * 60;          // м/с при ~60 кадрах/с

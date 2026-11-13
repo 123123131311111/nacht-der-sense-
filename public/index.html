@@ -52,6 +52,24 @@ body.touch #bossbar{top:8px}
 #inter{position:fixed;left:0;right:0;top:14%;text-align:center;z-index:2;pointer-events:none;font:700 22px "Courier New",monospace;color:#ccc;letter-spacing:.2em;text-shadow:2px 2px 0 #000}
 #perkmsg{position:fixed;left:0;right:0;top:40%;text-align:center;z-index:2;pointer-events:none;font:700 clamp(30px,7vw,64px) Georgia,serif;letter-spacing:.12em;color:#4cff6a;text-shadow:0 0 24px #0a6,4px 4px 0 #000;opacity:0}
 #perkmsg.go{animation:ann 2.5s ease-out}
+#board{position:fixed;left:50%;top:13%;transform:translate(-50%,-12px);min-width:min(760px,94vw);background:linear-gradient(rgba(14,9,7,.93),rgba(8,5,4,.93));border:1px solid #4a3220;box-shadow:0 0 0 1px #000,0 10px 40px rgba(0,0,0,.8);z-index:6;pointer-events:none;opacity:0;transition:opacity .15s,transform .15s;font-family:Georgia,serif;color:#d8c8b0;padding:14px 18px 16px}
+#board.on{opacity:1;transform:translate(-50%,0)}
+#board .hd{font-size:22px;letter-spacing:5px;color:#e8d0a8;text-shadow:0 0 8px #600;border-bottom:1px solid #3a2618;padding-bottom:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:baseline}
+#board .hd span{font-size:12px;letter-spacing:3px;color:#8a6a50}
+#board table{width:100%;border-collapse:collapse;font-size:15px}
+#board th{font-size:10px;letter-spacing:2px;color:#8a6a50;font-weight:normal;padding:4px 8px;text-align:right}
+#board td{padding:7px 8px;text-align:right;border-top:1px solid rgba(80,50,30,.35);font-family:'Courier New',monospace;font-size:16px}
+#board th.nm,#board td.nm{text-align:left}
+#board td.nm{font-family:Georgia,serif;font-size:16px;color:#f0e0c8;white-space:nowrap}
+#board td.nm i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;box-shadow:0 0 6px currentColor;vertical-align:1px}
+#board td.nm span{font-size:11px;color:#8a7058;margin-left:8px;letter-spacing:1px}
+#board td.rk{color:#8a6a50;width:22px;text-align:center}
+#board td.sc{color:#ffd24a;font-weight:bold}
+#board tr.me td{background:rgba(160,40,20,.18)}
+#board tr.me td.nm{color:#fff}
+#board tr.off td{opacity:.4}
+#board b.dn{font-size:10px;color:#ff4a3a;margin-left:8px;letter-spacing:2px;font-family:Georgia,serif}
+body.touch #board{top:6%;font-size:13px}
 #perks{position:fixed;left:24px;right:auto;bottom:140px;top:auto;z-index:2;pointer-events:none;display:flex;gap:8px}
 #perks .pk{display:block;width:46px;height:46px;box-sizing:border-box;border-radius:7px;border:2px solid;box-shadow:0 0 10px currentColor;animation:pkin .4s ease-out}
 #perks .pk svg{display:block;margin:2px}
@@ -3002,6 +3020,14 @@ document.getElementById('bHelp').addEventListener('click', () => { showHelp(selD
 menuEl.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => view('main')));
 // ---------- журнал изменений: новые записи добавляются В НАЧАЛО массива ----------
 const CHANGELOG = [
+  { v: '1.28', d: '13 ноября 2026', groups: [
+    ['Синхронизация', ['Снимок мира от хоста больше не копится в очереди при плохом интернете — старые кадры отбрасываются, поэтому задержка не растёт со временем.', 'Координаты зомби в снимке округлены до сантиметра — пакет почти вдвое меньше.', 'Если зомби или игрок сильно отстал (лаг, телепорт), он сразу встаёт на место, а не «скользит» сквозь стены.', 'Движение аватаров сглаживается одинаково на любой частоте кадров (60/144 Гц).']],
+  ]},
+  { v: '1.27', d: '13 ноября 2026', groups: [
+    ['Перки', ['Онлайн Speed Cola, Double Tap, Джагер Фанта и «Строитель» теперь всегда выпиваются с анимацией бутылки (раньше иногда давалась только иконка — если состояние с сервера приходило раньше события покупки).', 'Купил два перка подряд — выпьет оба по очереди.']],
+    ['Таблица по TAB', ['Зажми TAB: раунд, все игроки с цветом и героем, счёт (сколько всего заработал), очки на руках, убийства, в голову, падения, сколько раз поднял союзника. Выше — тот, кто больше заработал; твоя строка подсвечена, лежащие помечены. Онлайн всё считает сервер. Работает и в одиночке.']],
+    ['Герои', ['Вместо одинаковых солдатиков — 4 героя по слоту в лобби: Доктор (грязный халат, седина, бородка), Механик (рабочий жилет с карманами, шапка, борода), Солдат (чёрный стёганый бронежилет, ремни, перчатки, высокие ботинки), Разведчица (кожаная куртка, джинсы, хвост).', 'В руках у героя то оружие, которое у игрока сейчас: все 13 моделей, Dual M1911 — по пистолету в каждой руке. Руки сами держат оружие (кисти на рукояти и цевье).', 'Анимации: шаг и бег во все стороны, на бегу наклон и оружие у груди, прыжок, отдача и вспышка, перезарядка (левая рука к магазину и обратно), нож, повален — лежит с пистолетом, дыхание, хвост качается.', 'В лобби рядом с именем видно героя.']],
+  ]},
   { v: '1.26', d: '13 ноября 2026', groups: [
     ['Баланс под число игроков', ['Здоровье обычных зомби: в соло ×0,8, вдвоём ×1, втроём ×1,2, вчетвером ×1,4.', 'Зомби за волну: вдвоём ×1,4, втроём ×1,75, вчетвером ×2,1; одновременно на карте — на 3 больше за каждого игрока сверх одного.', 'Плевака: ×0,85 / ×1,2 / ×1,6 / ×2 по здоровью.', 'Джаггернаут: в соло ~73 тыс. HP на 20 волне (было 364 тыс.), вдвоём ~146 тыс., втроём ~234 тыс., вчетвером ~365 тыс. — как раньше.', 'Некромант: в соло ~14 тыс. на 10 волне (было 28 тыс.), вдвоём ~27 тыс., втроём ~44 тыс., вчетвером ~69 тыс.', 'Скелеты — как обычные зомби (×0,8…×1,4). Число игроков считается в момент появления зомби: если кто-то зашёл или вышел, следующие уже по-новому.']],
   ]},
@@ -5352,7 +5378,7 @@ function pop(txt, cls) {
 function addPoints(n, cls, label) {
   if (window.MP && MP.active) return;
   if (n > 0 && dpT > 0) n *= 2;   // бонус Double Points
-  points += n; updatePoints(); pop('+' + n + (label ? ' ' + label : ''), cls);
+  points += n; if (n > 0) SOLO.earned += n; updatePoints(); pop('+' + n + (label ? ' ' + label : ''), cls);
 }
 function spend(n) {
   if (window.MP && MP.active) return;
@@ -5786,13 +5812,19 @@ const perkDrink = createPerkDrink({
   mesh: perkBottle,
   onDrinkStart: () => sfx('popen'),
   onPerkApplied: () => perkMsg(perkDrinkKind),   // иконка перка + звуки — в момент первого глотка
-  onDrinkEnd: () => {}
+  onDrinkEnd: () => nextDrink()
 });
-function drinkPerk(k = 'cola') {   // покупка перка: проиграть анимацию (если уже идёт или это синхронизация — просто выдать иконку)
+const perkQueue = [];   // 1.27: купил два перка подряд (или пришли из сети разом) — выпьет оба по очереди, а не просто получит иконку
+function startDrink(k) {
   perkDrinkKind = k; const c = PERK_BOTTLE_COL[k] || PERK_BOTTLE_COL.cola;
   pbMat.liquid.color.setHex(c[0]); pbMat.liquid.emissive.setHex(c[1]); pbMat.label.color.setHex(c[1]); pbMat.cap.color.setHex(c[2]);
-  if (!perkDrink.play()) perkMsg(k);
+  return perkDrink.play();
 }
+function drinkPerk(k = 'cola') {   // покупка перка: анимация с бутылкой (в одиночке и онлайн); если уже пьёт — в очередь
+  if (perkDrink.busy) { if (!perkQueue.includes(k)) perkQueue.push(k); return; }
+  if (dead || !startDrink(k)) perkMsg(k);
+}
+function nextDrink() { const k = perkQueue.shift(); if (k) setTimeout(() => { if (dead || downed || !startDrink(k)) perkMsg(k); }, 180); }
 
 
 // ---------- DOUBLE TAP (2 этаж, северо-запад) ----------
@@ -8038,7 +8070,7 @@ function hitZombie(z, head, dmg, fx) {
   const wp = WEAPONS[cur]; z.hp -= (dmg != null ? dmg : (head ? wp.head : wp.body)) * (doubleTap ? 2 : 1); z.flash = 1; z.stagger = fx && fx.stagger != null ? fx.stagger : 0.25; z.flinch = 0.3; z.flDir = Math.random() < 0.5 ? -1 : 1; sfx('hit');   // fx — только у пуль (Ray Gun без изменений)
   crossEl.classList.add('hit'); setTimeout(() => crossEl.classList.remove('hit'), 110);
   if (head) { crossEl.classList.add('hs'); clearTimeout(hsTO); hsTO = setTimeout(() => crossEl.classList.remove('hs'), 50); }   // крестик на 0.05 c
-  if (z.hp <= 0) { z.state = 'dying'; z.dt = 0; z.eyes.forEach(e => e.visible = false); startRagdoll(z, head, dmg != null ? dmg : (head ? wp.head : wp.body)); kills++; maybeDropMaxAmmo(z);
+  if (z.hp <= 0) { z.state = 'dying'; z.dt = 0; z.eyes.forEach(e => e.visible = false); startRagdoll(z, head, dmg != null ? dmg : (head ? wp.head : wp.body)); kills++; if (head) SOLO.heads++; maybeDropMaxAmmo(z);
     if (fx && fx.knife) addPoints(90, 'kill'); else if (head) addPoints(75, 'head', 'HEADSHOT'); else addPoints(45, 'kill');   // 1.19: меньше очков (было 120/100/60)
     if (z.boss) addPoints(500, 'kill', 'ПЛЕВАКА');
     if (z.necro) addPoints(1500, 'kill', 'НЕКРОМАНТ');
@@ -8052,6 +8084,7 @@ function hurtPlayer(d) {
   if (hp <= 0) {
     hp = 0;
     if (window.MP && MP.active && MP.inMultiplayerGame) { goDown(); return; }   // онлайн: падаем на пол, союзник может поднять
+    SOLO.downs++;
     if (quickRevive) { useQuickRevive(); return; }   // одиночная игра: Быстрое возрождение спасает один раз
     finalDeath();
   }
@@ -8429,6 +8462,7 @@ function updateNetworkZombieVisual(z, dt) {
     const ty = target.y + target.vy * age;
     const tz = target.z + target.vz * age;
     const k = 1 - Math.exp(-dt * 14);
+    if (Math.hypot(tx - z.g.position.x, tz - z.g.position.z) > 3) z.g.position.set(tx, ty, tz);   // 1.28: сильно отстал (лаг/телепорт у хоста) — ставим сразу, без «проскальзывания» сквозь стены
     const dx = tx - z.g.position.x, dz = tz - z.g.position.z;
     z.g.position.x += dx * k;
     z.g.position.y += (ty - z.g.position.y) * k;
@@ -8687,7 +8721,7 @@ function loop() {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   if (controls.isLocked && !dead) { update(dt); updateGame(dt); updateProjs(dt); } else if (menuOn) menuUpdate(dt, t);
   updateNetworkZombies(dt);
-  updateBoardFx(dt); updateBooms(dt); updateNGraves(dt); updateRocks(dt); updateStinks(dt); updateBossBar(dt); updateNadeFx(dt); if (controls.isLocked || (window.MP && MP.inMultiplayerGame)) updateSpits(dt);
+  updateBoardFx(dt); updateBooms(dt); updateNGraves(dt); updateRocks(dt); updateStinks(dt); updateBossBar(dt); updateBoard(dt); updateNadeFx(dt); if (controls.isLocked || (window.MP && MP.inMultiplayerGame)) updateSpits(dt);
   if (!dead) updateBullets(dt);
   updateBlood(dt);
   bulbs.forEach(o => {
@@ -8730,12 +8764,348 @@ addEventListener('resize', () => {
 // ---------- прогрев: заранее собираем все шейдеры и загружаем текстуры, пока открыто меню ----------
 // Раньше при первом открытии двери/ящика всплывали спрятанные модели (оружие в ящике, руки с новым оружием, зомби новых видов),
 // и видеокарта на несколько секунд останавливалась, компилируя под них шейдеры. Теперь всё это делается один раз при загрузке.
+// ---------- таблица игроков по TAB (1.27) ----------
+// Онлайн: счёт, убийства, в голову, падения и поднятия считает сервер (они приходят в состоянии игры); выше тот, кто больше заработал.
+// В одиночке — те же столбцы по своей игре.
+const HERO_NAMES = ['Доктор', 'Механик', 'Солдат', 'Разведчица'], HERO_COLS = ['#e04040', '#3a8ee6', '#46c46a', '#e6c83a'];
+const SOLO = { heads: 0, downs: 0, earned: 0 };
+window.__curWeapon = () => cur;
+const boardEl = (() => { const d = document.createElement('div'); d.id = 'board'; document.body.appendChild(d); return d; })();
+let boardOn = false, boardT = 0;
+function boardRows() {
+  const M = window.MP;
+  if (M && M.active && M.inMultiplayerGame && M.players.length) {
+    return M.players.filter(p => p).map(p => {
+      const st = p.stats || {}, me = p.id === M.selfId, slot = Number.isInteger(p.slot) ? p.slot : 0;
+      return { me, name: p.name || 'Игрок', hero: HERO_NAMES[slot] || '', col: p.color || HERO_COLS[slot], score: st.earned || 0, money: me ? points : (p.points || 0),
+        kills: st.kills || 0, heads: st.heads || 0, downs: st.downs || 0, revives: st.revives || 0, down: me ? downed : !!p.downed, off: !p.active && !me };
+    });
+  }
+  return [{ me: true, name: 'Вы', hero: HERO_NAMES[0], col: HERO_COLS[0], score: SOLO.earned, money: points, kills, heads: SOLO.heads, downs: SOLO.downs, revives: 0, down: false, off: false }];
+}
+function renderBoard() {
+  const rows = boardRows().sort((a, b) => b.score - a.score || b.kills - a.kills || a.downs - b.downs);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const tr = rows.map((r, i) => `<tr class="${r.me ? 'me' : ''}${r.off ? ' off' : ''}"><td class="rk">${i + 1}</td><td class="nm"><i style="background:${esc(r.col)}"></i>${esc(r.name)}<span>${esc(r.hero)}</span>${r.down ? '<b class="dn">ЛЕЖИТ</b>' : ''}</td><td class="sc">${r.score}</td><td>${r.money}</td><td>${r.kills}</td><td>${r.heads}</td><td>${r.downs}</td><td>${r.revives}</td></tr>`).join('');
+  boardEl.innerHTML = `<div class="hd">РАУНД ${round || 0}<span>${MAP_ID === 'verruckt' ? 'VERRÜCKT' : 'NACHT DER UNTOTEN'}</span></div>
+    <table><thead><tr><th>#</th><th class="nm">ИГРОК</th><th>СЧЁТ</th><th>ОЧКИ</th><th>УБИЙСТВА</th><th>В ГОЛОВУ</th><th>ПАДЕНИЯ</th><th>ПОДНЯЛ</th></tr></thead><tbody>${tr}</tbody></table>`;
+}
+function showBoard(on) { if (boardOn === on) return; boardOn = on; boardEl.classList.toggle('on', on); if (on) { renderBoard(); boardT = 0; } }
+addEventListener('keydown', e => { if (e.code === 'Tab') { e.preventDefault(); if (started && !dead) showBoard(true); } }, true);
+addEventListener('keyup', e => { if (e.code === 'Tab') { e.preventDefault(); showBoard(false); } }, true);
+addEventListener('blur', () => showBoard(false));
+function updateBoard(dt) { if (!boardOn) return; boardT -= dt; if (boardT <= 0) { boardT = 0.25; renderBoard(); } }
+// =================== ГЕРОИ (1.27): 4 персонажа для игроков онлайн ===================
+// Слот 0 — Доктор (старый учёный в грязном халате), 1 — Механик (пожилой мастер в рабочем жилете), 2 — Солдат (чёрный бронежилет, перчатки),
+// 3 — Разведчица (кожаная куртка, джинсы, хвост). Свои персонажи, нарисованы процедурно (холст), без чужих моделей.
+// Скелет: ступни → бёдра (колени) → корпус → верх корпуса «aim» (наклон по взгляду) → голова, руки, оружие. Руки — двузвенная IK:
+// кисти всегда держат именно то оружие, которое у игрока в руках (13 моделей), при перезарядке левая рука уходит к магазину.
+// Анимации: шаг/бег вперёд-назад-вбок, наклон на бегу и оружие у груди, прыжок, отдача и вспышка, перезарядка, нож, «лежит» (повален), дыхание.
+function heroCanvas(S, base, f) { const c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d'); g.fillStyle = base; g.fillRect(0, 0, S, S); f(g, S); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; }
+function heroCloth(base, o = {}) {   // ткань: переплетение, складки, грязь, пятна, швы, карманы, стёжка, джинса, кожа
+  return heroCanvas(256, base, (g, S) => {
+    const R = Math.random;
+    for (let y = 0; y < S; y += 2) { g.fillStyle = `rgba(0,0,0,${0.03 + R() * 0.03})`; g.fillRect(0, y, S, 1); }
+    for (let x = 0; x < S; x += 3) { g.fillStyle = `rgba(255,255,255,${R() * 0.025})`; g.fillRect(x, 0, 1, S); }
+    if (o.denim) { g.strokeStyle = 'rgba(255,255,255,0.07)'; g.lineWidth = 1; for (let k = -S; k < S; k += 3) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + S, S); g.stroke(); }
+      for (let i = 0; i < 6; i++) zBlob(g, R() * S, R() * S, 20 + R() * 40, 'rgba(200,215,235,0.16)'); }   // потёртости
+    for (let i = 0; i < 10; i++) { const x = R() * S, w = 6 + R() * 20, gr = g.createLinearGradient(x - w, 0, x + w, 0); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.5, `rgba(0,0,0,${0.08 + R() * 0.1})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - w, 0, w * 2, S); }   // складки
+    if (o.leather) { for (let i = 0; i < 26; i++) { g.strokeStyle = `rgba(20,10,5,${0.2 + R() * 0.3})`; g.lineWidth = 1 + R(); const x = R() * S, y = R() * S; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 8, y + (R() - 0.5) * 10, x + 14 + R() * 20, y + (R() - 0.5) * 6); g.stroke(); }
+      for (let i = 0; i < 9; i++) zBlob(g, R() * S, R() * S, 14 + R() * 30, 'rgba(210,170,120,0.14)'); }   // заломы и вытертые места
+    if (o.quilt) { g.strokeStyle = 'rgba(0,0,0,0.55)'; g.lineWidth = 2; for (let y = 10; y < S; y += o.quilt) { g.beginPath(); g.moveTo(0, y); g.lineTo(S, y); g.stroke(); g.strokeStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); g.moveTo(0, y + 2); g.lineTo(S, y + 2); g.stroke(); g.strokeStyle = 'rgba(0,0,0,0.55)'; }
+      for (let y = 10; y < S; y += o.quilt) { const gr = g.createLinearGradient(0, y, 0, y + o.quilt); gr.addColorStop(0, 'rgba(255,255,255,0.06)'); gr.addColorStop(1, 'rgba(0,0,0,0.12)'); g.fillStyle = gr; g.fillRect(0, y, S, o.quilt); } }
+    (o.pockets || []).forEach(([x, y, w, h]) => { g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(x + 2, y + 2, w, h); g.fillStyle = base; g.fillRect(x, y, w, h); g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(x, y, w, 3);
+      g.strokeStyle = 'rgba(0,0,0,0.45)'; g.setLineDash([3, 2]); g.strokeRect(x + 3, y + 3, w - 6, h - 6); g.setLineDash([]); g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x, y + h * 0.3, w, 2); });   // карманы с клапанами
+    (o.seams || []).forEach(y => { g.strokeStyle = 'rgba(0,0,0,0.4)'; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(0, y); g.lineTo(S, y); g.stroke(); g.setLineDash([]); });
+    for (let i = 0; i < (o.dirt || 8); i++) zBlob(g, R() * S, S * (0.4 + R() * 0.6), 10 + R() * 35, o.dirtCol || 'rgba(60,45,30,0.22)');   // грязь, больше внизу
+    for (let i = 0; i < (o.stains || 0); i++) zBlob(g, R() * S, R() * S, 6 + R() * 18, pick(['rgba(110,20,15,0.35)', 'rgba(90,80,40,0.3)', 'rgba(60,50,40,0.3)']));   // пятна (кровь, масло)
+    for (let i = 0; i < 1500; i++) { g.fillStyle = R() < 0.5 ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)'; g.fillRect(R() * S, R() * S, 1, 1); }
+  });
+}
+function heroSkinTex(base) { return heroCanvas(128, base, (g, S) => { for (let i = 0; i < 14; i++) zBlob(g, Math.random() * S, Math.random() * S, 8 + Math.random() * 20, pick(['rgba(160,80,70,0.12)', 'rgba(90,60,40,0.1)', 'rgba(255,230,210,0.08)'])); for (let i = 0; i < 600; i++) { g.fillStyle = 'rgba(0,0,0,0.05)'; g.fillRect(Math.random() * S, Math.random() * S, 1, 1); } }); }
+const HERO_DEF = [
+  { name: 'Доктор', skin: '#d8b49a', hair: 0x9a9890, beard: 0xa8a6a0, hairStyle: 'side', beardStyle: 'short', sh: 0.19, hs: 1.0,
+    shirt: ['#9ab0c0', {}], coat: ['#d6d2c6', { stains: 14, dirt: 12, dirtCol: 'rgba(90,80,50,0.25)', pockets: [[30, 150, 60, 50], [160, 150, 60, 50]] }], pants: ['#5e5f5a', { dirt: 10 }], shoes: 0x3a2618,
+    upper: 'coat', fore: 'coat', hand: 'skin', tie: 0x2a2e3a, skirt: 0.5 },
+  { name: 'Механик', skin: '#6e4a32', hair: 0x2a2624, beard: 0x8a8680, hairStyle: 'cap', beardStyle: 'full', sh: 0.2, hs: 1.0,
+    shirt: ['#b8b4a8', { dirt: 10 }], vest: ['#4e5a2c', { pockets: [[20, 90, 70, 55], [160, 90, 70, 55], [30, 170, 60, 45], [165, 170, 60, 45]], dirt: 12, stains: 4 }], pants: ['#a89a84', { pockets: [[150, 120, 70, 80]], dirt: 14, stains: 5 }], shoes: 0x2a2018,
+    upper: 'shirt', fore: 'skin', cuff: 'shirt', hand: 'skin', cap: 0x5a2220 },
+  { name: 'Солдат', skin: '#d0a888', hair: 0x1a1612, hairStyle: 'short', sh: 0.21, hs: 1.02,
+    shirt: ['#2a2a2c', {}], armor: ['#202224', { quilt: 22, dirt: 6, dirtCol: 'rgba(90,90,90,0.15)' }], pants: ['#344030', { pockets: [[150, 110, 70, 70]], dirt: 10 }], shoes: 0x0e0e0e,
+    upper: 'armor', fore: 'shirt', hand: 'glove', pads: true, belts: true, boots: true },
+  { name: 'Разведчица', skin: '#c89676', hair: 0x2c1c14, hairStyle: 'pony', sh: 0.17, hs: 0.96, female: true,
+    shirt: ['#8a8c88', {}], jacket: ['#6e4a34', { leather: true, seams: [60, 180], dirt: 6 }], pants: ['#4a6488', { denim: true, dirt: 8, dirtCol: 'rgba(80,70,60,0.2)' }], shoes: 0x4a3020,
+    upper: 'jacket', fore: 'jacket', hand: 'mitt' },
+];
+// оружие у аватара: начало координат — правая кисть на рукояти, вперёд −Z. lh — левая кисть, mz — дуло, mg — магазин, p — пистолетный хват
+const HW_MAT = {};
+function hwMats() {
+  if (HW_MAT.blk) return HW_MAT;
+  const S = (c, r, m) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
+  Object.assign(HW_MAT, { blk: S(0x1c1d20, 0.45, 0.75), stl: S(0x50545a, 0.35, 0.85), wd: S(0x6e4528, 0.7, 0), wd2: S(0x4a2c16, 0.75, 0), olv: S(0x3e4428, 0.8, 0.1), plst: S(0x161616, 0.6, 0.1),
+    red: S(0xa8281a, 0.35, 0.5), gold: S(0xb08a3a, 0.3, 0.85), glow: new THREE.MeshBasicMaterial({ color: 0x5cff70 }) });
+  for (const k in HW_MAT) HW_MAT[k].userData.shared = true;   // общие на всех аватаров — не удалять при выходе игрока
+  return HW_MAT;
+}
+function heroGun(id) {
+  const m = hwMats(), g = new THREE.Group();
+  const B = (w, h, d, mt, x, y, z, rx = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mt); o.position.set(x, y, z); o.rotation.x = rx; g.add(o); return o; };
+  const C = (r0, r1, L, mt, x, y, z, seg = 10) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, L, seg), mt); o.rotation.x = Math.PI / 2; o.position.set(x, y, z); g.add(o); return o; };
+  let d = { lh: [0, -0.02, -0.26], mz: -0.6, mg: [0, -0.08, -0.12], p: false };
+  const pistol = () => { B(0.03, 0.035, 0.2, m.stl, 0, 0.065, -0.065); B(0.028, 0.03, 0.15, m.blk, 0, 0.035, -0.05); B(0.03, 0.11, 0.05, m.wd2, 0, -0.005, 0.005, 0.22); B(0.02, 0.02, 0.03, m.blk, 0, 0.015, -0.03); d = { lh: [-0.035, -0.025, 0.015], mz: -0.17, mg: [0, -0.07, 0.01], p: true }; };
+  switch (id) {
+    case 0: case 8: pistol(); break;
+    case 1: B(0.05, 0.075, 0.3, m.blk, 0, 0.065, -0.13); C(0.016, 0.016, 0.16, m.blk, 0, 0.075, -0.42); for (let k = 0; k < 6; k++) C(0.024, 0.024, 0.01, m.blk, 0, 0.075, -0.3 - k * 0.02, 8);
+      B(0.032, 0.09, 0.035, m.wd, 0, 0.0, -0.3); B(0.03, 0.08, 0.04, m.wd, 0, 0, 0, 0.25); B(0.04, 0.085, 0.26, m.wd, 0, 0.04, 0.15, -0.12); B(0.03, 0.17, 0.04, m.blk, 0, -0.035, -0.16);
+      d = { lh: [0, -0.02, -0.3], mz: -0.5, mg: [0, -0.1, -0.16] }; break;
+    case 2: C(0.018, 0.018, 0.56, m.blk, 0, 0.085, -0.4); C(0.015, 0.015, 0.4, m.blk, 0, 0.05, -0.33); B(0.045, 0.075, 0.2, m.stl, 0, 0.06, -0.07); C(0.026, 0.026, 0.17, m.wd, 0, 0.045, -0.32);
+      B(0.03, 0.08, 0.04, m.wd, 0, 0, 0, 0.25); B(0.042, 0.09, 0.28, m.wd, 0, 0.035, 0.16, -0.15); d = { lh: [0, 0.02, -0.32], mz: -0.68, mg: [0, 0.03, -0.2] }; break;
+    case 3: case 4: { const lw = id === 4 ? m.wd : m.wd2; B(0.045, 0.06, 0.82, lw, 0, 0.04, -0.2); B(0.05, 0.1, 0.3, lw, 0, 0.02, 0.2, -0.12); C(0.014, 0.014, 0.22, m.blk, 0, 0.075, -0.68); B(0.036, 0.04, 0.2, m.stl, 0, 0.08, -0.05);
+      if (id === 3) { const bh = B(0.012, 0.012, 0.06, m.stl, 0.035, 0.08, 0.0); bh.rotation.y = 1.2; } else B(0.03, 0.03, 0.06, m.gold, 0, 0.11, -0.05);
+      B(0.008, 0.02, 0.01, m.blk, 0, 0.1, -0.76); d = { lh: [0, 0.0, -0.34], mz: -0.8, mg: [0, 0.1, -0.05] }; break; }
+    case 5: C(0.03, 0.04, 0.16, m.red, 0, 0.06, -0.07, 14); for (let k = 0; k < 3; k++) C(0.042, 0.042, 0.012, m.glow, 0, 0.06, -0.02 - k * 0.045, 14); C(0.012, 0.02, 0.06, m.gold, 0, 0.06, -0.17, 10);
+      B(0.03, 0.1, 0.045, m.red, 0, -0.005, 0.01, 0.25); B(0.012, 0.012, 0.09, m.gold, 0, 0.1, -0.06); d = { lh: [-0.035, -0.025, 0.015], mz: -0.21, mg: [0, 0.06, -0.04], p: true }; break;
+    case 6: B(0.06, 0.08, 0.42, m.blk, 0, 0.06, -0.12); C(0.03, 0.03, 0.38, m.blk, 0, 0.065, -0.52, 10); for (let k = 0; k < 5; k++) B(0.064, 0.012, 0.03, m.stl, 0, 0.065, -0.4 - k * 0.07);
+      C(0.012, 0.012, 0.1, m.blk, 0, 0.065, -0.74); B(0.04, 0.07, 0.24, m.plst, 0, 0.04, 0.2, -0.1); B(0.03, 0.08, 0.04, m.plst, 0, 0, 0, 0.25); B(0.08, 0.1, 0.12, m.olv, -0.07, 0.02, -0.12);
+      for (const sx of [-1, 1]) { const l = B(0.01, 0.2, 0.01, m.blk, sx * 0.03, -0.03, -0.6); l.rotation.z = sx * 0.3; }
+      d = { lh: [0, -0.03, -0.22], mz: -0.8, mg: [-0.07, 0.02, -0.12] }; break;
+    case 7: B(0.045, 0.07, 0.24, m.plst, 0, 0.06, -0.1); B(0.015, 0.04, 0.16, m.plst, 0, 0.115, -0.1); C(0.028, 0.026, 0.2, m.plst, 0, 0.06, -0.31, 10); C(0.01, 0.01, 0.2, m.blk, 0, 0.065, -0.5);
+      B(0.03, 0.14, 0.05, m.blk, 0, -0.03, -0.1, -0.2); B(0.03, 0.08, 0.04, m.plst, 0, 0, 0, 0.25); B(0.045, 0.07, 0.25, m.plst, 0, 0.05, 0.16, -0.06); d = { lh: [0, 0.02, -0.3], mz: -0.62, mg: [0, -0.1, -0.11] }; break;
+    case 9: C(0.026, 0.026, 0.3, m.blk, 0, 0.06, -0.12, 10); C(0.012, 0.012, 0.16, m.blk, 0, 0.06, -0.34); B(0.026, 0.2, 0.034, m.blk, 0, -0.06, -0.18); B(0.028, 0.08, 0.04, m.plst, 0, 0, 0, 0.2);
+      for (const sy of [0.04, -0.01]) B(0.008, 0.008, 0.24, m.stl, 0, sy, 0.13); B(0.04, 0.05, 0.01, m.stl, 0, 0.015, 0.25); d = { lh: [0, -0.1, -0.18], mz: -0.43, mg: [0, -0.15, -0.18] }; break;
+    case 10: B(0.045, 0.07, 0.3, m.stl, 0, 0.06, -0.12); C(0.02, 0.022, 0.18, m.wd2, 0, 0.055, -0.33); C(0.011, 0.011, 0.12, m.blk, 0, 0.065, -0.48); { const mg = B(0.03, 0.18, 0.045, m.blk, 0, -0.05, -0.17); mg.rotation.x = -0.35; }
+      B(0.03, 0.08, 0.04, m.wd2, 0, 0, 0, 0.25); B(0.042, 0.08, 0.24, m.wd, 0, 0.04, 0.15, -0.1); d = { lh: [0, 0.03, -0.32], mz: -0.56, mg: [0, -0.12, -0.2] }; break;
+    case 11: B(0.045, 0.065, 0.26, m.blk, 0, 0.06, -0.1); C(0.032, 0.032, 0.26, m.blk, 0, 0.06, -0.36, 12); { const mg = B(0.028, 0.15, 0.04, m.blk, 0, -0.04, -0.13); mg.rotation.x = -0.3; }
+      B(0.03, 0.08, 0.04, m.plst, 0, 0, 0, 0.25); B(0.035, 0.06, 0.2, m.plst, 0, 0.05, 0.13, -0.05); d = { lh: [0, 0.02, -0.3], mz: -0.5, mg: [0, -0.1, -0.15] }; break;
+    case 12: B(0.05, 0.08, 0.22, m.blk, 0, 0.06, -0.08); C(0.019, 0.019, 0.46, m.blk, 0, 0.085, -0.38); C(0.025, 0.025, 0.3, m.stl, 0, 0.085, -0.3, 8); C(0.016, 0.016, 0.36, m.blk, 0, 0.045, -0.3);
+      B(0.04, 0.045, 0.14, m.plst, 0, 0.04, -0.3); B(0.03, 0.08, 0.04, m.plst, 0, 0, 0, 0.25); B(0.012, 0.012, 0.3, m.stl, 0, 0.11, 0.14); B(0.05, 0.06, 0.02, m.plst, 0, 0.08, 0.28);
+      d = { lh: [0, 0.02, -0.3], mz: -0.62, mg: [0, 0.04, -0.2] }; break;
+    default: pistol();
+  }
+  g.userData = d; return g;
+}
+const HV = () => new THREE.Vector3();
+const _ikD = HV(), _ikP = HV(), _q1 = new THREE.Quaternion(), DOWN = new THREE.Vector3(0, -1, 0);
+function heroIK(S, T, a, b, pole, E) {   // двузвенная IK: плечо S, кисть T, длины a/b, «полюс» локтя → E (локоть); T подтягивается, если не дотянуться
+  _ikD.subVectors(T, S); let L = _ikD.length(); const mx = a + b - 0.002;
+  if (L > mx) { _ikD.multiplyScalar(mx / L); L = mx; T.copy(S).add(_ikD); } if (L < 0.05) L = 0.05;
+  _ikD.normalize(); const x = (a * a - b * b + L * L) / (2 * L), h = Math.sqrt(Math.max(0, a * a - x * x));
+  _ikP.copy(pole); _ikP.addScaledVector(_ikD, -_ikP.dot(_ikD)); if (_ikP.lengthSq() < 1e-6) _ikP.set(0, -1, 0); _ikP.normalize();
+  E.copy(S).addScaledVector(_ikD, x).addScaledVector(_ikP, h);
+}
+function aimSeg(mesh, A, B) { mesh.position.copy(A); _ikD.subVectors(B, A).normalize(); mesh.quaternion.setFromUnitVectors(DOWN, _ikD); }
+function makeHero(p) {
+  const slot = Math.max(0, Math.min(3, Number.isInteger(p && p.slot) ? p.slot : 0)), D = HERO_DEF[slot], hs = D.hs;
+  const team = new THREE.Color((p && p.color) || HERO_COLS[slot]);
+  const group = new THREE.Group(); group.rotation.order = 'YXZ';
+  const root = new THREE.Group(); root.scale.setScalar(hs); group.add(root);
+  const STD = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.85, metalness: 0 }, o));
+  const mat = {
+    skin: STD({ map: heroSkinTex(D.skin), roughness: 0.7 }),
+    shirt: STD({ map: heroCloth(D.shirt[0], D.shirt[1]) }), pants: STD({ map: heroCloth(D.pants[0], D.pants[1]) }),
+    shoe: STD({ color: D.shoes, roughness: 0.55 }), hair: STD({ color: D.hair, roughness: 0.9 }), beard: STD({ color: D.beard || D.hair, roughness: 1 }),
+    eye: new THREE.MeshStandardMaterial({ color: 0x141010, roughness: 0.2 }), white: STD({ color: 0xe8e2d8, roughness: 0.4 }), lip: STD({ color: 0x8a4a40, roughness: 0.6 }),
+    glove: STD({ color: 0x141416, roughness: 0.6 }), metal: STD({ color: 0x8a8a84, roughness: 0.3, metalness: 0.85 }), strap: STD({ color: 0x1a1816, roughness: 0.7 }),
+    band: new THREE.MeshStandardMaterial({ color: team, roughness: 0.5, emissive: team.clone().multiplyScalar(0.25) }),
+  };
+  if (D.coat) mat.coat = STD({ map: heroCloth(D.coat[0], D.coat[1]), side: THREE.DoubleSide });
+  if (D.vest) mat.vest = STD({ map: heroCloth(D.vest[0], D.vest[1]), side: THREE.DoubleSide });
+  if (D.armor) mat.armor = STD({ map: heroCloth(D.armor[0], D.armor[1]), roughness: 0.7, side: THREE.DoubleSide });
+  if (D.jacket) mat.jacket = STD({ map: heroCloth(D.jacket[0], D.jacket[1]), roughness: 0.55, side: THREE.DoubleSide });
+  mat.mitt = mat.glove;
+  const lathe = (prof, seg = 14, ph0 = 0, phL = Math.PI * 2) => new THREE.LatheGeometry(prof.map(q => new THREE.Vector2(Math.max(0.001, q[0]), q[1])), seg, ph0, phL);
+  const add = (par, geo, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); par.add(o); return o; };
+  const sph = (r, ws = 12, hs2 = 10, ...rest) => new THREE.SphereGeometry(r, ws, hs2, ...rest), box = (w, h, d) => new THREE.BoxGeometry(w, h, d), cyl = (a, b, h, s = 10) => new THREE.CylinderGeometry(a, b, h, s);
+  const OPEN = (gap) => [Math.PI + gap / 2, Math.PI * 2 - gap];   // распахнутое спереди (−Z)
+  const fem = !!D.female, sh = D.sh, hipW = fem ? 0.105 : 0.1;
+  // --- ноги ---
+  const hips = new THREE.Group(); hips.position.y = 0.94; root.add(hips);
+  add(hips, lathe([[0.1, -0.1], [fem ? 0.17 : 0.155, -0.06], [fem ? 0.165 : 0.15, 0.04], [0.14, 0.08]], 14), mat.pants).scale.z = 0.72;
+  add(hips, cyl(0.152, 0.152, 0.045, 16), D.belts ? mat.strap : mat.strap, 0, 0.05, 0).scale.z = 0.72;
+  add(hips, box(0.05, 0.035, 0.012), mat.metal, 0, 0.05, -0.112);   // пряжка
+  const legs = [-1, 1].map(sd => {
+    const leg = new THREE.Group(); leg.position.set(sd * hipW, -0.04, 0); hips.add(leg);
+    add(leg, lathe([[0.058, -0.43], [0.068, -0.3], [fem ? 0.088 : 0.084, -0.12], [fem ? 0.09 : 0.086, 0.02]], 12), mat.pants);
+    if (D.pants[1].pockets && sd > 0) add(leg, box(0.02, 0.1, 0.09), mat.pants, sd * 0.085, -0.22, 0);   // боковой карман
+    const kn = new THREE.Group(); kn.position.y = -0.43; leg.add(kn);
+    add(kn, sph(0.062, 10, 8), mat.pants);
+    add(kn, lathe([[0.046, -0.4], [0.055, -0.3], [0.062, -0.12], [0.06, 0]], 12), mat.pants);
+    if (D.boots) { add(kn, lathe([[0.056, -0.42], [0.06, -0.3], [0.062, -0.16]], 12), mat.shoe); for (const y of [-0.22, -0.3]) add(kn, cyl(0.064, 0.064, 0.012, 12), mat.strap, 0, y, 0); }
+    else if (fem) add(kn, lathe([[0.054, -0.42], [0.058, -0.32]], 12), mat.shoe);
+    const foot = add(kn, box(0.095, 0.075, 0.25), mat.shoe, 0, -0.44, -0.045); foot.geometry.translate(0, 0, 0);
+    add(kn, box(0.1, 0.02, 0.26), mat.strap, 0, -0.475, -0.045);   // подошва
+    leg.kn = kn; return leg;
+  });
+  // --- корпус (низ) ---
+  const torso = new THREE.Group(); torso.position.y = 0.94; root.add(torso);
+  const waist = fem ? 0.13 : 0.14, belly = D.name === 'Доктор' ? 0.155 : waist + 0.005;
+  add(torso, lathe([[0.14, 0.04], [belly, 0.16], [waist + 0.01, 0.3], [sh - 0.02, 0.44]], 16), mat.shirt).scale.z = 0.7;
+  // --- верх корпуса: наклоняется по взгляду ---
+  const aim = new THREE.Group(); aim.position.y = 0.42; torso.add(aim);
+  add(aim, lathe([[sh - 0.02, 0.0], [sh + 0.005, 0.08], [sh - 0.01, 0.14], [0.09, 0.19]], 16), mat.shirt).scale.z = 0.66;
+  if (fem) for (const sx of [-1, 1]) add(aim, sph(0.058, 10, 8), mat.shirt, sx * 0.06, 0.04, -0.075).scale.set(1, 0.9, 0.75);
+  // одежда поверх
+  const outer = mat.coat || mat.vest || mat.armor || mat.jacket;
+  if (D.coat) {   // халат: длинный, распахнут, полы до колен
+    const [a0, aL] = OPEN(0.55);
+    add(torso, lathe([[0.2, -0.46], [0.19, -0.2], [0.165, 0.0], [0.16, 0.16], [waist + 0.03, 0.3], [sh + 0.0, 0.44]], 16, a0, aL), mat.coat).scale.z = 0.74;
+    add(aim, lathe([[sh + 0.0, 0.0], [sh + 0.025, 0.08], [sh + 0.005, 0.14], [0.1, 0.2]], 16, Math.PI + 0.2, Math.PI * 2 - 0.4), mat.coat).scale.z = 0.7;
+    for (const sx of [-1, 1]) { const l = add(aim, box(0.06, 0.2, 0.012), mat.coat, sx * 0.06, 0.06, -0.115); l.rotation.z = sx * 0.35; l.rotation.x = 0.15; }   // лацканы
+    add(aim, box(0.03, 0.18, 0.01), STD({ color: D.tie, roughness: 0.6 }), 0, 0.03, -0.112);   // галстук
+    add(aim, box(0.024, 0.04, 0.003), mat.metal, 0.07, 0.05, -0.12);   // ручка в кармане
+  }
+  if (D.vest) {
+    const [a0, aL] = OPEN(0.35);
+    add(torso, lathe([[0.152, 0.02], [belly + 0.02, 0.16], [waist + 0.03, 0.3], [sh + 0.0, 0.44]], 16, a0, aL), mat.vest).scale.z = 0.74;
+    add(aim, lathe([[sh + 0.0, 0.0], [sh + 0.02, 0.08], [sh - 0.02, 0.15], [0.11, 0.19]], 16, Math.PI + 0.25, Math.PI * 2 - 0.5), mat.vest).scale.z = 0.7;
+    for (const sx of [-1, 1]) { add(torso, box(0.065, 0.07, 0.03), mat.vest, sx * 0.09, 0.22, -0.125); add(torso, box(0.06, 0.06, 0.03), mat.vest, sx * 0.1, 0.1, -0.13); }   // объёмные карманы
+    add(aim, cyl(0.075, 0.09, 0.05, 12), mat.shirt, 0, 0.2, 0);   // воротник рубашки
+  }
+  if (D.armor) {
+    add(torso, lathe([[0.16, 0.04], [0.172, 0.16], [0.17, 0.3], [sh + 0.02, 0.44]], 16), mat.armor).scale.z = 0.78;
+    add(aim, lathe([[sh + 0.02, 0.0], [sh + 0.035, 0.08], [sh + 0.0, 0.15], [0.1, 0.21]], 16), mat.armor).scale.z = 0.74;
+    add(aim, box(0.2, 0.18, 0.03), mat.armor, 0, 0.04, -0.135);   // грудная пластина
+    add(aim, lathe([[0.085, 0.18], [0.1, 0.24], [0.09, 0.29]], 14), mat.armor);   // высокий ворот
+    if (D.belts) for (const y of [0.06, 0.16]) { add(torso, cyl(0.178, 0.178, 0.04, 16), mat.strap, 0, y, 0).scale.z = 0.8; add(torso, box(0.07, 0.05, 0.02), mat.metal, 0, y, -0.145); add(torso, box(0.05, 0.03, 0.025), mat.strap, 0, y, -0.15); }
+  }
+  if (D.jacket) {   // короткая кожаная куртка, распахнута; под ней серая майка
+    const [a0, aL] = OPEN(0.5);
+    add(torso, lathe([[0.15, 0.1], [waist + 0.03, 0.2], [waist + 0.035, 0.3], [sh + 0.0, 0.44]], 16, a0, aL), mat.jacket).scale.z = 0.74;
+    add(aim, lathe([[sh + 0.0, 0.0], [sh + 0.02, 0.08], [sh - 0.01, 0.15], [0.1, 0.2]], 16, Math.PI + 0.3, Math.PI * 2 - 0.6), mat.jacket).scale.z = 0.7;
+    add(aim, lathe([[0.1, 0.17], [0.13, 0.22], [0.12, 0.25]], 14, Math.PI + 0.6, Math.PI * 2 - 1.2), mat.jacket);   // отложной воротник
+    add(torso, cyl(0.155, 0.155, 0.03, 16), mat.strap, 0, 0.1, 0).scale.z = 0.74;
+  }
+  // плечи
+  for (const sx of [-1, 1]) add(aim, sph(0.075, 10, 8), D.pads ? mat.armor : (outer || mat.shirt), sx * sh, 0.1, 0).scale.set(1.05, 0.85, 0.95);
+  if (D.pads) for (const sx of [-1, 1]) { const pd = add(aim, sph(0.09, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat.armor, sx * (sh + 0.01), 0.11, 0); pd.scale.set(1, 0.7, 1); }
+  // --- голова ---
+  const head = new THREE.Group(); head.position.set(0, 0.29, 0); aim.add(head);
+  add(aim, cyl(0.048, 0.056, 0.1, 10), mat.skin, 0, 0.22, 0);   // шея
+  add(head, sph(0.105, 16, 14), mat.skin, 0, 0, 0).scale.set(fem ? 0.88 : 0.92, 1.06, 1.0);
+  add(head, sph(0.07, 12, 10), mat.skin, 0, -0.055, -0.03).scale.set(fem ? 0.95 : 1.1, 0.8, 1);   // челюсть
+  for (const sx of [-1, 1]) {
+    add(head, sph(0.02, 8, 6), mat.white, sx * 0.038, 0.012, -0.088).scale.set(1, 0.7, 0.5);
+    add(head, sph(0.011, 8, 6), mat.eye, sx * 0.038, 0.012, -0.097);
+    add(head, box(0.04, 0.009, 0.012), mat.hair, sx * 0.04, 0.042, -0.094).rotation.z = -sx * 0.12;   // брови
+    add(head, sph(0.024, 8, 6), mat.skin, sx * 0.1, 0.0, 0.0).scale.set(0.4, 1, 0.7);   // уши
+  }
+  add(head, box(0.024, 0.045, 0.03), mat.skin, 0, -0.012, -0.102).rotation.x = -0.25;   // нос
+  add(head, box(0.04, 0.008, 0.01), fem ? mat.lip : mat.lip, 0, -0.058, -0.096);   // рот
+  const H = D.hairStyle;
+  if (H === 'side') { add(head, sph(0.11, 14, 10, 0, Math.PI * 2, Math.PI * 0.18, Math.PI * 0.4), mat.hair, 0, 0.0, 0.0).scale.set(0.96, 1.05, 1.04); add(head, sph(0.06, 10, 8), mat.hair, 0, 0.06, 0.05).scale.set(1.4, 0.6, 1); }   // седина по бокам и затылку, залысины
+  else if (H === 'short') add(head, sph(0.109, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), mat.hair, 0, 0.012, 0.004).scale.set(0.94, 1.0, 1.04);
+  else if (H === 'cap') { add(head, sph(0.112, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), STD({ color: D.cap, roughness: 0.9 }), 0, 0.018, 0).scale.set(0.96, 1.05, 1.06); add(head, cyl(0.1, 0.1, 0.03, 14), STD({ color: D.cap, roughness: 0.9 }), 0, 0.03, 0).scale.z = 1.05; }   // вязаная шапка
+  else if (H === 'pony') { add(head, sph(0.112, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), mat.hair, 0, 0.01, 0.006).scale.set(0.92, 1.04, 1.06);
+    for (const sx of [-1, 1]) add(head, box(0.02, 0.1, 0.06), mat.hair, sx * 0.09, -0.01, -0.01);   // пряди у висков
+    const pony = new THREE.Group(); pony.position.set(0, 0.04, 0.1); head.add(pony); add(pony, sph(0.025, 8, 6), mat.band, 0, 0, 0); add(pony, lathe([[0.005, -0.2], [0.03, -0.12], [0.034, -0.04], [0.022, 0]], 10), mat.hair, 0, 0, 0.01); head.pony = pony; }
+  if (D.beardStyle === 'short') add(head, sph(0.08, 12, 8, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), mat.beard, 0, -0.03, -0.03).scale.set(1.12, 1, 1.05);
+  else if (D.beardStyle === 'full') { add(head, sph(0.085, 12, 8, 0, Math.PI * 2, Math.PI * 0.45, Math.PI * 0.55), mat.beard, 0, -0.025, -0.025).scale.set(1.1, 1.1, 1.08); add(head, box(0.05, 0.012, 0.015), mat.beard, 0, -0.045, -0.1); }
+  // --- руки: сегменты, которые ставит IK (дети aim) ---
+  const UA = 0.29, FA = 0.27, upM = mat[D.upper] || mat.shirt, foM = mat[D.fore] || mat.shirt, hdM = mat[D.hand] || mat.skin;
+  const arms = [-1, 1].map(sd => {
+    const up = add(aim, lathe([[0.04, -UA], [0.05, -UA * 0.6], [0.056, -0.06], [0.06, 0]], 10), upM);
+    const fo = add(aim, lathe([[0.034, -FA], [0.042, -FA * 0.5], [0.046, 0]], 10), foM);
+    if (D.cuff) add(fo, cyl(0.05, 0.05, 0.05, 10), mat[D.cuff], 0, -0.02, 0);   // закатанный рукав
+    if (D.upper === 'coat' || D.upper === 'jacket') add(fo, cyl(0.048, 0.044, 0.04, 10), upM, 0, -FA + 0.04, 0);   // манжета
+    if (sd < 0) add(up, cyl(0.062, 0.062, 0.045, 10), mat.band, 0, -0.1, 0);   // повязка в цвете игрока
+    const hand = new THREE.Group(); aim.add(hand);
+    add(hand, box(0.07, 0.085, 0.035), hdM, 0, -0.035, 0); add(hand, box(0.06, 0.03, 0.03), hdM, 0, -0.085, 0).rotation.x = 0.4;   // кисть, пальцы
+    add(hand, box(0.025, 0.05, 0.025), hdM, sd * -0.035, -0.04, -0.02).rotation.z = sd * 0.5;   // большой
+    if (D.hand === 'mitt') add(hand, box(0.06, 0.03, 0.03), mat.skin, 0, -0.1, 0.005);   // пальцы из митенок
+    return { sd, up, fo, hand, S: new THREE.Vector3(sd * sh, 0.1, 0), E: HV(), T: HV() };
+  });
+  // --- оружие ---
+  const gun = new THREE.Group(); aim.add(gun);
+  const gun2 = new THREE.Group(); aim.add(gun2);   // второй пистолет (Dual M1911)
+  const knife = new THREE.Group(); knife.visible = false; aim.add(knife);
+  add(knife, box(0.01, 0.035, 0.2), mat.metal, 0, 0, -0.12); add(knife, box(0.025, 0.03, 0.1), mat.strap, 0, 0, 0.02);
+  const flashMat = new THREE.SpriteMaterial({ map: GLOW_TEX, color: 0xffc060, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const flash = new THREE.Sprite(flashMat); flash.scale.setScalar(0.35); gun.add(flash);
+  const flash2 = new THREE.Sprite(flashMat); flash2.scale.setScalar(0.3); gun2.add(flash2);
+  let wid = -1;
+  function setWeapon(id) {
+    id = Number.isInteger(id) && id >= 0 && id <= 12 ? id : 0; if (id === wid) return; wid = id;
+    for (const g of [gun, gun2]) for (let i = g.children.length - 1; i >= 0; i--) { const c = g.children[i]; if (c === flash || c === flash2) continue; g.remove(c); c.traverse(o => o.geometry && o.geometry.dispose()); }
+    const m = heroGun(id); gun.add(m); gun.userData = m.userData; flash.position.set(0, 0.065, m.userData.mz);
+    gun2.visible = id === 8; if (id === 8) { const m2 = heroGun(0); gun2.add(m2); gun2.userData = m2.userData; flash2.position.set(0, 0.065, m2.userData.mz); }
+  }
+  setWeapon(0);
+  // кольцо и подпись — как раньше
+  const st = { phase: 0, sprintK: 0, rlT: 0, air: 0, breath: Math.random() * 6, lastY: 0, yv: 0 };
+  const tmp = HV(), tmp2 = HV(), POLE_R = new THREE.Vector3(0.7, -1, 0.5), POLE_L = new THREE.Vector3(-0.7, -1, 0.3);
+  function update(dt, s) {
+    // s: { vx, vz, vy, yaw, pitch, sprint, reloading, weapon, kick, knifeT, downed, color }
+    setWeapon(s.downed ? (wid === 8 ? 8 : 0) : s.weapon);
+    const sp = Math.hypot(s.vx, s.vz), sy = Math.sin(s.yaw), cy = Math.cos(s.yaw);
+    const fwd = -(s.vx * sy + s.vz * cy), side = s.vx * cy - s.vz * sy;
+    const k = Math.min(1, sp / 4.5), dir = fwd < -0.3 ? -1 : 1;
+    st.sprintK += ((s.sprint && sp > 3 && !s.downed && !s.reloading ? 1 : 0) - st.sprintK) * Math.min(1, dt * 8);
+    st.phase += dt * Math.min(sp, 9) * 2.1 * dir;
+    st.air += ((Math.abs(s.vy) > 1.2 ? 1 : 0) - st.air) * Math.min(1, dt * 10);
+    st.breath += dt;
+    const P = st.phase, amp = (0.55 + 0.35 * st.sprintK) * k * (1 - st.air);
+    // ноги
+    if (s.downed) { legs[0].rotation.set(0.25, 0, 0.1); legs[1].rotation.set(0.6, 0, -0.1); legs[0].kn.rotation.x = -0.4; legs[1].kn.rotation.x = -1.0; }
+    else for (let i = 0; i < 2; i++) {
+      const ph = P + i * Math.PI, sw = Math.sin(ph) * amp;
+      legs[i].rotation.x = sw + st.air * (i ? 0.7 : 0.35) ; legs[i].rotation.z = Math.min(1, Math.abs(side) / 3) * Math.sin(ph) * 0.12 * Math.sign(side || 1);
+      legs[i].kn.rotation.x = -(Math.max(0, Math.cos(ph)) * amp * 1.5 + 0.05 * k) - st.air * (i ? 1.2 : 0.8);
+    }
+    const bob = Math.abs(Math.sin(P)) * 0.035 * k * (1 - st.air);
+    hips.position.y = 0.94 + bob - 0.02 * k; torso.position.y = hips.position.y;
+    hips.rotation.y = Math.sin(P) * 0.12 * k; torso.rotation.y = -Math.sin(P) * 0.06 * k;
+    torso.rotation.x = -0.28 * st.sprintK - 0.05 * k * (1 - st.sprintK);
+    torso.rotation.z = Math.sin(P) * 0.03 * k;
+    // взгляд
+    const pitch = Math.max(-1.0, Math.min(1.0, s.pitch || 0));
+    aim.rotation.x = (pitch - torso.rotation.x) * (1 - st.sprintK * 0.6);
+    head.rotation.x = st.sprintK * 0.25; head.rotation.y = 0;
+    const br = Math.sin(st.breath * 1.6) * 0.004; aim.position.y = 0.42 + br;
+    if (head.pony) { head.pony.rotation.x = 0.35 + Math.sin(P * 2) * 0.15 * k + st.sprintK * 0.3; head.pony.rotation.z = Math.sin(P) * 0.2 * k; }
+    // оружие: обычный хват / пистолет / бег / перезарядка / отдача
+    const gd = gun.userData, pis = !!gd.p, kick = s.kick || 0;
+    if (s.reloading) st.rlT += dt; else st.rlT = 0;
+    const rc = s.reloading ? (st.rlT % 1.5) / 1.5 : 0, rK = s.reloading ? Math.min(1, st.rlT / 0.2) : 0;
+    const hold = pis ? [0.03, -0.03, -0.42] : [0.1, -0.12, -0.16];
+    gun.position.set(hold[0] - 0.05 * st.sprintK, hold[1] - 0.1 * st.sprintK - 0.04 * rK, hold[2] + 0.12 * st.sprintK + kick * (pis ? 0.04 : 0.05));
+    gun.rotation.set(kick * (pis ? 0.3 : 0.12) - 0.55 * st.sprintK + 0.3 * rK, 0.7 * st.sprintK + 0.15 * rK, 0.45 * rK);
+    if (wid === 8) { gun.position.x = 0.16; gun2.position.set(-0.16, -0.04, -0.42 + kick * 0.04); gun2.rotation.set(kick * 0.3 - 0.4 * st.sprintK, 0, 0); }
+    if (s.downed) { gun.position.set(0.12, 0.05, -0.32); gun.rotation.set(0.6, 0, 0); }
+    // нож
+    if (s.knifeT > 0) { const kp = Math.min(1, s.knifeT / 0.38), ke = kp < 0.5 ? 2 * kp * kp : 1 - Math.pow(-2 * kp + 2, 2) / 2, ks = Math.sin(Math.PI * kp);
+      knife.visible = true; gun.visible = false; knife.position.set(0.3 - 0.5 * ke, -0.15 + 0.05 * ks, -0.3 - 0.15 * ks); knife.rotation.set(-0.12, 0.9 - 1.9 * ke, 0); }
+    else { knife.visible = false; gun.visible = true; }
+    const fl = kick > 0.6 && !s.knifeT ? 0.95 : 0; flashMat.opacity = fl; flashMat.color.copy(s.flashCol || flashMat.color); flash.material.rotation = Math.random() * 6;
+    // руки (IK в пространстве aim)
+    const R = arms[1], L = arms[0];
+    if (s.knifeT > 0) R.T.copy(knife.position); else { R.T.set(0, 0, 0); gun.updateMatrix(); R.T.applyMatrix4(gun.matrix); }
+    R.hand.position.copy(R.T); R.hand.quaternion.copy(s.knifeT > 0 ? knife.quaternion : gun.quaternion);
+    if (wid === 8) { L.T.set(0, 0, 0); gun2.updateMatrix(); L.T.applyMatrix4(gun2.matrix); L.hand.quaternion.copy(gun2.quaternion); }
+    else if (s.knifeT > 0) { L.T.set(-0.15, -0.25, -0.12); L.hand.quaternion.identity(); }
+    else {
+      const lh = gd.lh, mg = gd.mg;
+      if (rK > 0 && !pis) {   // перезарядка: к магазину → вниз (новый) → обратно
+        const a = rc < 0.25 ? rc / 0.25 : rc < 0.55 ? 1 : rc < 0.8 ? 1 - (rc - 0.55) / 0.25 : 0, dn = rc > 0.3 && rc < 0.55 ? Math.sin((rc - 0.3) / 0.25 * Math.PI) : 0;
+        tmp.set(lh[0] + (mg[0] - lh[0]) * a, lh[1] + (mg[1] - lh[1]) * a - dn * 0.2, lh[2] + (mg[2] - lh[2]) * a);
+      } else tmp.set(lh[0], lh[1], lh[2]);
+      L.T.copy(tmp); gun.updateMatrix(); L.T.applyMatrix4(gun.matrix); L.hand.quaternion.copy(gun.quaternion);
+      if (s.downed) { L.T.set(-0.2, -0.3, -0.05); }
+    }
+    L.hand.position.copy(L.T);
+    for (const A of arms) {
+      heroIK(A.S, A.T, UA, FA, A.sd > 0 ? POLE_R : POLE_L, A.E);
+      aimSeg(A.up, A.S, A.E); aimSeg(A.fo, A.E, A.T); A.hand.position.copy(A.T);
+    }
+  }
+  return { group, root, legs, hips, torso, aim, head, gun, gun2, knife, flash, update, setWeapon, slot, name: D.name };
+}
 function warmupGPU() {
   const t0 = performance.now(), hidden = [], temp = [];
   const show = sc => sc.traverse(o => { if (o.visible === false) { hidden.push(o); o.visible = true; } });
   try {
     for (const k of ROT_KINDS) { const z = makeRotZombie(k); z.g.position.set(PX, -50, PZ); scene.add(z.g); temp.push(z.g); const zf = makeRotZombie(k); zf.mats.forEach(m => { m.transparent = true; }); zf.g.position.set(PX, -50, PZ); scene.add(zf.g); temp.push(zf.g); }   // в т.ч. «тающие» трупы
     try { const b = makeZombie(true); b.g.position.set(PX, -50, PZ); scene.add(b.g); temp.push(b.g); } catch (e) {}
+    try { for (let i = 0; i < 4; i++) { const h = makeHero({ slot: i, color: HERO_COLS[i] }); h.update(0.016, { vx: 0, vz: 0, vy: 0, yaw: 0, pitch: 0, weapon: [1, 5, 6, 8][i], kick: 1, knifeT: 0 }); h.group.position.set(PX, -50, PZ); scene.add(h.group); temp.push(h.group); } } catch (e) { console.warn('hero warmup', e); }   // шейдеры героев — чтобы не было рывка, когда заходит игрок
     try { for (const f of [makeNecro, makeSkeleton, makeBrute]) { const q = f(); q.g.position.set(PX, -50, PZ); scene.add(q.g); temp.push(q.g); } const tm = new THREE.Mesh(TOMB_G, new THREE.MeshStandardMaterial({ map: tombTex() })); tm.position.set(PX, -50, PZ); scene.add(tm); temp.push(tm); } catch (e) {}
     show(scene); show(weaponScene);
     renderer.compile(scene, camera); renderer.compile(weaponScene, weaponCam);
