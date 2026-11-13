@@ -122,6 +122,10 @@ body.playing::after{content:"";position:fixed;inset:0;pointer-events:none;z-inde
 #ammo small{font-size:12px;color:#e55}
 #hpbar{width:260px;height:12px;margin-left:-130px;bottom:26px;border:1px solid rgba(255,255,255,.28);border-radius:7px;background:rgba(12,0,0,.65);overflow:hidden;box-shadow:0 0 12px rgba(0,0,0,.8)}
 #hpbar div{background:linear-gradient(90deg,#6e0c0c,#e23b3b);transition:width .15s}
+#stambar{position:fixed;left:50%;bottom:16px;width:200px;height:5px;margin-left:-100px;border-radius:3px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);overflow:hidden;z-index:2;pointer-events:none;transition:opacity .4s}
+#stambar div{height:100%;width:100%;background:linear-gradient(90deg,#8a6a1a,#e6c25a);transition:background .2s}
+#stambar.ex div{background:linear-gradient(90deg,#5a1a10,#b0402a)}
+body.touch #stambar{bottom:5px}
 #hpbar.low{animation:hpp .7s infinite}
 @keyframes hpp{50%{box-shadow:0 0 18px #e22;border-color:#e44}}
 #prompt{left:50%;right:auto;transform:translateX(-50%);width:max-content;max-width:90vw;padding:9px 18px;background:rgba(0,0,0,.58);border:1px solid rgba(255,255,255,.16);border-radius:3px;font-size:17px}
@@ -2951,6 +2955,27 @@ document.getElementById('bHelp').addEventListener('click', () => { showHelp(selD
 menuEl.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => view('main')));
 // ---------- журнал изменений: новые записи добавляются В НАЧАЛО массива ----------
 const CHANGELOG = [
+  { v: '1.22', d: '13 ноября 2026', groups: [
+    ['Игрок', ['Выносливость: под полоской здоровья — шкала бега. Полной шкалы хватает примерно на 11 секунд бега подряд', 'Прыжок тратит часть шкалы (как ~1,3 с бега); на пустой шкале прыгнуть нельзя', 'Шкала кончилась — одышка: бег и прыжки недоступны, пока шкала не наберёт треть, шкала краснеет, слышно тяжёлое дыхание', 'Восстанавливается через секунду отдыха, полностью — примерно за 4,5 с; полная шкала прячется']],
+  ] },
+  { v: '1.21', d: '13 ноября 2026', groups: [
+    ['Зомби', ['Новые удары руками вместо «падения» корпусом: размашистый удар когтями правой или левой рукой с замахом и доворотом корпуса, двойной удар сверху и захват — руки разводятся и резко сводятся']],
+    ['Оружие', ['MP40 на стене: Nacht — в стартовой комнате на стене коридора, Verrückt — в правом корпусе у входа. Настоящий автомат на деревянном щите с заклёпками и крюками, латунная табличка «Maschinenpistole 40», меловая надпись и лампа-экспонат. Цена 1250, патроны 625 (работает и в мультиплеере)']],
+  ] },
+  { v: '1.20', d: '13 ноября 2026', groups: [
+    ['Зомби', ['Солдаты вермахта в рваной полевой форме фельдграу: китель с карманами и пуговицами, дыры с мясом внутри, галифе, сапоги, ремень с пряжкой, лямки и подсумки, воротник с петлицами, шлем M35 (иногда пробитый)', 'Офицеры в тёмной форме и фуражке с козырьком', 'Солдаты с распоротым кителем и животом, торчат рёбра; у части рукава оторваны и видны гнилые руки', 'Вместе солдаты — около 40% орды', 'Страшнее: у всех тлеющие оранжевые глаза, видно в темноте издалека, при смерти гаснут; изо рта свисает кровавая слюна']],
+  ] },
+  { v: '1.19', d: '13 ноября 2026', groups: [
+    ['Баланс', ['Зомби крепче: здоровье в 1,5 раза больше плюс 30 (1 волна — 248 вместо 145, 5 волна — 424 вместо 263, 10 волна — 857 вместо 551); босс — 11 обычных зомби вместо 15', 'Меньше очков: попадание 5 (было 10), убийство 45 (60), в голову 75 (100), ножом 90 (120)', 'MAX AMMO выпадает реже: 0,8% вместо 2%', 'Зомби больше: +30% за волну, одновременно до 28, выходят чаще', 'Бьют быстрее: первый удар почти сразу, как подошли, дальше раз в 0,38 с (было 0,55)']],
+  ] },
+  { v: '1.18', d: '13 ноября 2026', groups: [
+    ['Зомби', ['Новая анатомическая модель: узкий таз, впалый живот, проступающие рёбра, ключицы и позвонки, жилистые руки и ноги с икрами, длинные пальцы с когтями, босые ступни', 'Череп со впалыми щеками, надбровьями, провалом носа, зубами и отвисшей челюстью — она жуёт воздух и раскрывается при рёве и укусе', 'Шесть видов по референсу: освежёванный; в гроздьях пузырей; плесневелый в лохмотьях; бледный с развороченной грудью в рваных серых джинсах; гниющий жёлто-зелёный; кровавый с открытым мозгом и ногой, обглоданной до кости']],
+    ['Исправления', ['Мышь больше не «телепортирует» камеру: одиночные огромные рывки и первые события после захвата курсора отбрасываются', 'Фриз на несколько секунд при первом открытии двери, ящика или первом выстреле: все шейдеры и текстуры собираются заранее при загрузке; свет вспышки выстрела больше не включается/выключается (это заставляло пересобирать все шейдеры)']],
+  ] },
+  { v: '1.17', d: '13 ноября 2026', groups: [
+    ['Новые зомби', ['Освежёванные: мышцы, сухожилия, жир и запёкшаяся кровь, лоскуты уцелевшей кожи, грязные белые трусы, босые', 'Плесневелые: жёлто-зелёная гниющая кожа с тёмными венами, спорами и язвами', 'Бледные с развороченной грудью и торчащими рёбрами, в рваных серых штанах (иногда без штанины)', 'Гроздья сине-зелёных гнойных пузырей на груди, плечах и руках; у части рук и ног мясо и плесень вперемешку; голые черепа, пальцы на босых ногах', 'Теперь это почти половина орды']],
+    ['Анимации', ['Заметив игрока, часть зомби останавливается и ревёт: руки в стороны, голова запрокинута', 'От попадания зомби вздрагивает и дёргается в сторону', 'Пять видов смерти (из 1.16) работают и для новых зомби']],
+  ] },
   { v: '1.16', d: '12 ноября 2026', groups: [
     ['Исправления', ['SPAS-12 снова наносит урон: для него не было строки в таблице разброса, разброс прицела становился «не числом», и пули улетали в никуда — у всего оружия, пока не перезапустить игру', 'Звук SPAS-12 — присланная запись (теперь в WAV, грузится надёжнее)', 'Защита: если разброс вдруг испортится, он сбрасывается, а у нового оружия есть значения по умолчанию']],
     ['Зомби', ['Пять видов смерти: отлетает от попадания; оседает на колени и валится лицом вниз; разворачивается и падает боком; хватается за голову, пятится и падает навзничь; падает и бьётся в судорогах', 'Новые текстуры: пятнистая кожа с порами, венами, шелушением, ранами с гноем и потёками крови; ткань с переплетением, швами, складками, брызгами крови и прожжёнными дырами; объёмный рельеф', 'Видят и достают игрока в фонтане и на его бортике; если игрока не видно ни из одной точки, идут к ближайшей к нему']],
@@ -3195,8 +3220,10 @@ function update(dt) {
   if (keys.KeyW) mv.add(fwd); if (keys.KeyS) mv.sub(fwd);
   if (keys.KeyD) mv.add(right); if (keys.KeyA) mv.sub(right);
   if (touchMode) { mv.addScaledVector(fwd, TC.my).addScaledVector(right, TC.mx); }   // аналоговый стик
-  const sprint = keys.ShiftLeft || keys.ShiftRight || (touchMode && TC.sprint);
+  const wantSprint = (keys.ShiftLeft || keys.ShiftRight || (touchMode && TC.sprint)) && mv.lengthSq() > 0 && !downed;
+  const sprint = wantSprint && STAM.v > 0 && !STAM.ex;   // выносливость: бег ~11 с подряд, потом одышка
   moving = mv.lengthSq() > 0 && onGround; isSprint = !!sprint;
+  stamTick(dt, sprint && onGround);
   if (mv.lengthSq()) { const mag = Math.min(1, mv.length()); mv.normalize().multiplyScalar((sprint ? 8 : 4.5) * dt * mag); }   // у клавиатуры mag ≥ 1 → скорость прежняя
   const px0 = pos.x, pz0 = pos.z;
   if (downed) mv.set(0, 0, 0);
@@ -3207,7 +3234,7 @@ function update(dt) {
     if (stepT <= 0) { stepT = sprint ? 0.29 : 0.45; stepSnd(); }
   } else stepT = Math.min(stepT, 0.12);
 
-  if (keys.Space && onGround && !downed) { vy = 7; onGround = false; }
+  if (keys.Space && onGround && !downed && STAM.v >= STAM_JUMP && !STAM.ex) { vy = 7; onGround = false; STAM.v -= STAM_JUMP; STAM.rest = 0; }   // прыжок тратит выносливость
   vy -= 20 * dt;
   const ny = pos.y + vy * dt;
   const b = hit(pos.x, ny, pos.z);
@@ -3423,6 +3450,21 @@ function camFxRestore() {
 
 // ---------- оружие (вид от первого лица) ----------
 let moving = false, isSprint = false;
+// ---------- выносливость: полная шкала — 11 с бега подряд; прыжок — как ~1,3 с бега; восстанавливается через 0,9 с отдыха (полностью ~4,5 с) ----------
+const STAM_RUN = 1 / 11, STAM_JUMP = 0.12, STAM_REGEN = 0.22, STAM_DELAY = 0.9, STAM_RECOVER = 0.35;
+const STAM = { v: 1, rest: 0, ex: false, breathT: 0 };
+const stamEl = (() => { const d = document.createElement('div'); d.id = 'stambar'; d.innerHTML = '<div></div>'; document.body.appendChild(d); return d; })();
+function stamTick(dt, running) {
+  if (running) { STAM.v = Math.max(0, STAM.v - STAM_RUN * dt); STAM.rest = 0; if (STAM.v <= 0) { STAM.ex = true; STAM.breathT = 0; } }
+  else { STAM.rest += dt; if (STAM.rest > STAM_DELAY) STAM.v = Math.min(1, STAM.v + STAM_REGEN * dt * (STAM.ex ? 0.75 : 1)); }
+  if (STAM.ex && STAM.v >= STAM_RECOVER) STAM.ex = false;
+  if (STAM.ex || STAM.v < 0.2) {   // тяжёлое дыхание
+    STAM.breathT -= dt;
+    if (STAM.breathT <= 0 && typeof AC !== 'undefined' && AC) { STAM.breathT = STAM.ex ? 0.62 : 0.85; noise(0.32, STAM.ex ? 0.14 : 0.08, 'bandpass', 900, 500, 0, 1.2); noise(0.28, STAM.ex ? 0.1 : 0.06, 'bandpass', 700, 1100, 0.33, 1.4); }
+  }
+  stamEl.firstChild.style.width = (STAM.v * 100).toFixed(1) + '%'; stamEl.classList.toggle('ex', STAM.ex);
+  stamEl.style.opacity = STAM.v >= 0.999 && !STAM.ex ? 0 : 1;
+}
 renderer.autoClear = false;
 const weaponScene = new THREE.Scene();
 const weaponCam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 5);
@@ -4023,10 +4065,10 @@ flash.add(new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), new THREE.MeshBa
   star.position.z = -0.02; flash.add(star);
 }
 const flash2 = flash.clone(true); flash2.position.set(-0.2, 0.032, -0.18); flash2.visible = false; gun.add(flash2);   // вспышка левого пистолета (двойные пистолеты)
-const flashLocal = new THREE.PointLight(0xffa030, 5, 3.5); flashLocal.position.set(0, 0.05, -0.2); gun.add(flashLocal); flashLocal.visible = false;
+const flashLocal = new THREE.PointLight(0xffa030, 5, 3.5); flashLocal.position.set(0, 0.05, -0.2); gun.add(flashLocal); flashLocal.intensity = 0;   // свет вспышки всегда «включён» (яркость 0): смена числа ламп пересобирает все шейдеры — это давало фризы
 const flashWorld = new THREE.PointLight(0xffa030, 0, 12, 2); scene.add(flashWorld); // подсвечивает комнату
 
-const ZHP = r => Math.round(125 * Math.pow(1.16, r));   // здоровье зомби по раундам (усилено)
+const ZHP = r => Math.round(125 * Math.pow(1.16, r) * 1.5 + 30);   // здоровье зомби по раундам (1.19: в 1,5 раза больше + 30 — на 1 волне 248 вместо 145)
 const RAY_DMG = Math.ceil(ZHP(10)) + 4;   // = 555: с одного выстрела до 10 раунда (1.8: 746 — до 12, раньше 865)
 // ---------- арсенал и инвентарь (2 слота) ----------
 const WEAPONS = [
@@ -4093,7 +4135,7 @@ function switchWeapon(i) {
   flash2.visible = false;
   coneMat.color.setHex(i === 5 ? 0x40ff60 : 0xffa020); flashLocal.color.setHex(i === 5 ? 0x40ff60 : 0xffa030); flashWorld.color.setHex(i === 5 ? 0x40ff60 : 0xffa030);
   const f = WEAPONS[i].flash; flash.position.set(f[0], f[1], f[2]); flashLocal.position.set(f[0], f[1] + 0.02, f[2] - 0.02);
-  flash.visible = flashLocal.visible = false; flashT = 0;
+  flash.visible = false; flashLocal.intensity = 0; flashT = 0;
   updateHUD();
 }
 function switchSlot(s) { if (PD.on) return; const i = slots[s]; if (i >= 0) switchWeapon(i); }   // во время питья перка смена оружия заблокирована
@@ -4437,7 +4479,7 @@ function updateWeapon(dt, t) {
   if (flashT > 0) {
     flashT -= dt;
     const on = flashT > 0, k = Math.max(0, flashT / FLASH_T);
-    flash.visible = flashLocal.visible = on; flash2.visible = on && !!w.dual;
+    flash.visible = on; if (!on) flashLocal.intensity = 0; flash2.visible = on && !!w.dual;
     if (on) {
       flash.scale.setScalar(flashS * 0.5 * (0.6 + 0.4 * k)); flash2.scale.copy(flash.scale);
       flashLocal.intensity = 1.4 * (0.4 + 0.6 * k);
@@ -5245,6 +5287,32 @@ function makeChalkSG() {
   return new THREE.CanvasTexture(c);
 }
 { const m = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), new THREE.MeshBasicMaterial({ map: makeChalkSG(), transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.position.set(WB2.x + WB2.n[0] * 0.015, 1.75, WB2.z + WB2.n[1] * 0.015); m.rotation.y = Math.atan2(WB2.n[0], WB2.n[1]); scene.add(m); }
+// ---------- MP40 на стене (1.21): настоящий автомат на деревянном щите, меловой контур, латунная табличка, лампа-«экспонат» ----------
+const MP40_PRICE = 1250, MP40_AMMO = 625, WB3 = MAP_ID === 'nacht' ? { x: -4.22, z: 13, n: [-1, 0] } : { x: 6.19, z: 6.5, n: [1, 0] };
+(function buildMP40Wall() {
+  const ry = Math.atan2(WB3.n[0], WB3.n[1]), grp = new THREE.Group(); grp.position.set(WB3.x, 0, WB3.z); grp.rotation.y = ry; scene.add(grp);   // локально: z — от стены, x — вдоль стены
+  const wood = PMT(0x4a3020, 'wood', 0.85, 0), iron = new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.5, metalness: 0.6 }), brass = new THREE.MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.35, metalness: 0.8 });
+  const plank = (w, h, d, x, y, zz, m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, zz); grp.add(o); return o; };
+  plank(1.5, 0.72, 0.04, 0, 1.62, 0.02, wood);                      // щит
+  for (const yy of [1.27, 1.97]) plank(1.56, 0.05, 0.06, 0, yy, 0.03, wood);   // рамка
+  for (const xx of [-0.77, 0.77]) plank(0.05, 0.75, 0.06, xx, 1.62, 0.03, wood);
+  for (const [xx, yy] of [[-0.72, 1.31], [0.72, 1.31], [-0.72, 1.93], [0.72, 1.93]]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.02, 8).rotateX(Math.PI / 2), iron); b.position.set(xx, yy, 0.065); grp.add(b); }   // заклёпки
+  for (const xx of [-0.28, 0.25]) { plank(0.05, 0.1, 0.09, xx, 1.53, 0.075, iron); plank(0.05, 0.025, 0.05, xx, 1.585, 0.11, iron); }   // крюки-держатели
+  // меловой контур и надпись прямо на стене над щитом
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128; const g = c.getContext('2d');
+  g.font = 'bold 54px "Courier New", monospace'; g.textAlign = 'center'; g.fillStyle = 'rgba(235,232,215,0.85)'; g.fillText('MP 40', 256, 60); g.font = 'bold 38px "Courier New", monospace'; g.fillText(String(MP40_PRICE), 256, 112);
+  for (let k = 0; k < 500; k++) { g.clearRect(Math.random() * 512, Math.random() * 128, 2, 2); }
+  const ch = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.3), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); ch.position.set(0, 2.18, 0.012); grp.add(ch);
+  const pc = document.createElement('canvas'); pc.width = 256; pc.height = 48; const pg = pc.getContext('2d'); pg.fillStyle = '#b08a3a'; pg.fillRect(0, 0, 256, 48); pg.fillStyle = '#3a2a10'; pg.font = 'bold 22px Georgia, serif'; pg.textAlign = 'center'; pg.fillText('Maschinenpistole 40', 128, 31);
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.075, 0.008), [brass, brass, brass, brass, new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(pc), metalness: 0.6, roughness: 0.4 }), brass]); plate.position.set(0, 1.34, 0.045); grp.add(plate);
+  // сам автомат: модель из игры, боком к игроку, стволом вдоль стены
+  const gun = new THREE.Group(); buildModel(9, gun); gun.scale.setScalar(1.55); gun.rotation.set(0, Math.PI / 2, 0); gun.position.set(0.4, 1.72, 0.12); grp.add(gun);
+  // лампа-«экспонат» над щитом: светящийся плафон и мягкий ореол (без настоящего источника света)
+  plank(0.26, 0.05, 0.14, 0, 2.42, 0.09, iron);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe2a8 })); bulb.position.set(0, 2.39, 0.12); grp.add(bulb);
+  const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW_TEX, color: 0xffd9a0, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })); gl.scale.set(0.9, 0.9, 1); gl.position.set(0, 2.36, 0.15); grp.add(gl);
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.75, 1.0, 16, 1, true), new THREE.MeshBasicMaterial({ map: SHAFT_TEX, color: 0xffe0b0, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); cone.position.set(0, 1.88, 0.3); cone.rotation.x = 0.35; grp.add(cone);
+})();
 
 
 // ---------- MYSTERY BOX (950) ----------
@@ -6035,7 +6103,7 @@ try {
     // перед плакатом свободно (нет шкафов, полок, машин), не у окна, не у двери
     if (!clear(x - dx * 0.3, z - dz * 0.3, hy - hh, hy + hh, 0.25 + hw * 0.5, wall)) continue;
     if (colliders.some(b => b.win && Math.hypot(x - (b.x0 + b.x1) / 2, z - (b.z0 + b.z1) / 2) < 1.4)) continue;
-    if (DOORS.some(o => Math.hypot(x - o.px, z - o.pz) < 1.6)) continue;
+    if (DOORS.some(o => Math.hypot(x - o.px, z - o.pz) < 1.6) || [WALLBUY, WB2, WB3].some(o => Math.hypot(x - o.x, z - o.z) < 1.9)) continue;
     if (posters.some(q => Math.hypot(q[0] - x, q[1] - z) < 2.2 && Math.abs(q[2] - gy) < 1)) continue;
     const o = add(big ? G.poster : G.note, big ? pick(posterM) : paperM, x, hy, z, ry); o.rotation.z = R(-0.05, 0.05); if (!big) o.material = paperM;
     posters.push([x, z, gy]); placed++;
@@ -6077,7 +6145,7 @@ try {
     else { z = dz > 0 ? wall.z0 - 0.02 : wall.z1 + 0.02; x = Math.max(wall.x0 + hw + 0.12, Math.min(wall.x1 - hw - 0.12, p[0] + R(-1.5, 1.5))); ry = dz > 0 ? Math.PI : 0; if (x - hw < wall.x0 + 0.1 || x + hw > wall.x1 - 0.1) continue; }
     if (!clear(x - dx * 0.3, z - dz * 0.3, hy - hh, hy + hh, 0.2 + hw * 0.6, wall)) continue;
     if (colliders.some(b => b.win && Math.hypot(x - (b.x0 + b.x1) / 2, z - (b.z0 + b.z1) / 2) < 0.9 + hw)) continue;
-    if (DOORS.some(o => Math.hypot(x - o.px, z - o.pz) < 1.2 + hw)) continue;
+    if (DOORS.some(o => Math.hypot(x - o.px, z - o.pz) < 1.2 + hw) || [WALLBUY, WB2, WB3].some(o => Math.hypot(x - o.x, z - o.z) < 1.7 + hw)) continue;
     if (tags.some(q => Math.hypot(q[0] - x, q[1] - z) < 1.6 + hw && Math.abs(q[2] - gy) < 1) || posters.some(q => Math.hypot(q[0] - x, q[1] - z) < 1 + hw && Math.abs(q[2] - gy) < 1)) continue;
     const o = add(new THREE.PlaneGeometry(G2.w, G2.h), G2.m, x, hy, z, ry); o.rotation.z = R(-0.06, 0.06); if (G2.flip && Math.random() < 0.5) o.scale.x = -1;
     tags.push([x, z, gy]); gPlaced++;
@@ -6378,7 +6446,7 @@ function requestMPBuy(kind, doorIndex) {
   return true;
 }
 // ---------- бонусы с зомби: MAX AMMO (красный, шанс 2%) — максимум патронов; DOUBLE POINTS (золотой, шанс 1%) — x2 очки на 25 с ----------
-const DROP_CHANCE = 0.02, DP_CHANCE = 0.01, DP_TIME = 25, DROP_LIFE = 30, DROP_R = 1.3, DROP_LIM = MAP_ID === 'verruckt' ? 30 : 13.6;   // Verrückt: двор ±32 м, как и на сервере (±30) — раньше бонус переносился к центру и в онлайне не подбирался
+const DROP_CHANCE = 0.008, DP_CHANCE = 0.01,   /* 1.19: MAX AMMO реже — 0,8% вместо 2% */ DP_TIME = 25, DROP_LIFE = 30, DROP_R = 1.3, DROP_LIM = MAP_ID === 'verruckt' ? 30 : 13.6;   // Verrückt: двор ±32 м, как и на сервере (±30) — раньше бонус переносился к центру и в онлайне не подбирался
 const drops = []; let dropSeq = 0;
 const dropTex = (() => {
   const [c, g] = cv(128, 128), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
@@ -6591,6 +6659,22 @@ function updateInteract(dt) {
     promptEl.innerHTML = `Зажмите ${KE()}, чтобы купить ${what} очков` + (can ? '' : (points < price ? ' <span class="no">— не хватает очков</span>' : ' <span class="no">— патроны полные</span>')) + (buyT > 0 ? `<br><span class="ok">${bar(buyT / BUY_TIME)}</span>` : '');
     repT = 0; return;
   }
+  if (PF < 1.5 && Math.hypot(pos.x - WB3.x, pos.z - WB3.z) < 2.3) {
+    const S = WEAPONS[9], price = S.own ? MP40_AMMO : MP40_PRICE, can = points >= price && (!S.own || S.reserve + S.mag < S.maxReserve + S.magSize);
+    const full = !S.own && slots.indexOf(-1) < 0, what = S.own ? `патроны для MP40 за ${price}` : `MP40 за ${price}` + (full ? ` (заменит ${WEAPONS[cur].name})` : '');
+    if (holdE && can && !buyLock) {
+      buyT += dt;
+      if (buyT >= BUY_TIME) {
+        buyT = 0;
+        if (!requestMPBuy('mp40')) {
+          buyLock = true; spend(price); S.mag = S.magSize; S.reserve = S.maxReserve - S.magSize;
+          if (!S.own) equip(9); else updateHUD(); sfx('buy');
+        }
+      }
+    } else buyT = 0;
+    promptEl.innerHTML = `Зажмите ${KE()}, чтобы купить ${what} очков` + (can ? '' : (points < price ? ' <span class="no">— не хватает очков</span>' : ' <span class="no">— патроны полные</span>'));
+    repT = 0; return;
+  }
   const nw = VK_WINS.length ? nearWin() : null;
   if (nw && !(BARS.length && nearBar())) {
     const broken = nw.hp <= 0, cd = !broken ? Math.ceil((nw.repairAt - performance.now()) / 1000) : 0;
@@ -6711,19 +6795,78 @@ function clothTex(base, tag) {   // ткань: переплетение, швы
     }
   }, 256);
 }
+// ---------- «гнилые» зомби (по референсу): содранная кожа и мясо, жёлто-зелёная плесневелая кожа, гроздья гнойных пузырей, голый торс,
+// грязные белые трусы или рваные серые штаны, босые ноги ----------
+function zPoly(x, px, py, rx, ry, n = 11) { x.beginPath(); for (let k = 0; k < n; k++) { const a = k / n * 6.283, r = 0.55 + Math.random() * 0.6; k ? x.lineTo(px + Math.cos(a) * rx * r, py + Math.sin(a) * ry * r) : x.moveTo(px + Math.cos(a) * rx * r, py + Math.sin(a) * ry * r); } x.closePath(); }   // рваное пятно
+function fleshTex() {   // освежёванное мясо: волокна мышц, сухожилия, жир, корка запёкшейся крови, лоскуты уцелевшей кожи, влажные блики
+  return ztex('flesh', (x, S) => {
+    x.fillStyle = '#58150f'; x.fillRect(0, 0, S, S);
+    for (let i = 0; i < 30; i++) zBlob(x, Math.random() * S, Math.random() * S, 15 + Math.random() * 40, Math.random() < 0.5 ? 'rgba(150,40,30,0.35)' : 'rgba(30,4,4,0.35)');
+    for (let i = 0; i < 260; i++) {   // волокна
+      const px = Math.random() * S, py = Math.random() * S, L = 10 + Math.random() * 30; x.strokeStyle = Math.random() < 0.5 ? 'rgba(170,55,45,0.45)' : 'rgba(40,6,6,0.45)'; x.lineWidth = 1 + Math.random() * 1.5;
+      x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + (Math.random() - 0.5) * 8, py + L / 2, px + (Math.random() - 0.5) * 6, py + L); x.stroke(); }
+    x.strokeStyle = 'rgba(210,170,150,0.35)'; for (let i = 0; i < 6; i++) { x.lineWidth = 1 + Math.random() * 1.5; x.beginPath(); const px = Math.random() * S, py = Math.random() * S; x.moveTo(px, py); x.quadraticCurveTo(px + (Math.random() - 0.5) * 20, py + 30, px + (Math.random() - 0.5) * 10, py + 50 + Math.random() * 40); x.stroke(); }   // сухожилия
+    for (let i = 0; i < 10; i++) zBlob(x, Math.random() * S, Math.random() * S, 5 + Math.random() * 12, 'rgba(225,200,110,0.6)');   // жир
+    for (let i = 0; i < 9; i++) { x.fillStyle = 'rgba(25,6,4,0.7)'; zPoly(x, Math.random() * S, Math.random() * S, 8 + Math.random() * 16, 6 + Math.random() * 12); x.fill(); }   // корка
+    for (let i = 0; i < 6; i++) { x.fillStyle = pick(['rgba(185,160,120,0.92)', 'rgba(150,140,80,0.92)', 'rgba(200,180,140,0.9)']); zPoly(x, Math.random() * S, Math.random() * S, 12 + Math.random() * 22, 10 + Math.random() * 18, 14); x.fill(); x.strokeStyle = 'rgba(60,10,8,0.8)'; x.lineWidth = 2.5; x.stroke(); }   // лоскуты кожи
+    x.fillStyle = 'rgba(255,230,220,0.35)'; for (let i = 0; i < 160; i++) x.fillRect(Math.random() * S, Math.random() * S, 1, 1);   // влажный блеск
+  }, 256);
+}
+function decayTex(v) {   // плесневелая жёлто-зелёная кожа: пятна гнили, тёмно-зелёные вены, споры, красные язвы
+  return ztex('decay' + v, (x, S) => {
+    x.fillStyle = ['#8a8346', '#7b7c42', '#958a4e'][v]; x.fillRect(0, 0, S, S);
+    for (let i = 0; i < 45; i++) zBlob(x, Math.random() * S, Math.random() * S, 10 + Math.random() * 40, pick(['rgba(70,90,40,0.35)', 'rgba(150,140,60,0.3)', 'rgba(80,55,25,0.35)', 'rgba(40,70,60,0.3)']));
+    noiseDots(x, S, 3500, 0.1); zVeins(x, S, 10, 'rgba(30,55,35,0.5)', 1.8);
+    x.fillStyle = 'rgba(60,90,40,0.6)'; for (let i = 0; i < 400; i++) { x.beginPath(); x.arc(Math.random() * S, Math.random() * S, 0.6 + Math.random() * 1.6, 0, 7); x.fill(); }   // споры плесени
+    for (let i = 0; i < 6; i++) { const px = Math.random() * S, py = Math.random() * S, r = 6 + Math.random() * 14; zBlob(x, px, py, r * 1.6, 'rgba(140,40,25,0.35)'); zBlob(x, px, py, r * 0.8, 'rgba(110,20,15,0.85)'); }   // язвы
+    for (let i = 0; i < 5; i++) { const px = Math.random() * S, py = Math.random() * S * 0.5, L = 30 + Math.random() * 60, g = x.createLinearGradient(0, py, 0, py + L); g.addColorStop(0, 'rgba(80,20,10,0.7)'); g.addColorStop(1, 'rgba(80,20,10,0)'); x.fillStyle = g; x.fillRect(px, py, 3, L); }
+  }, 256);
+}
+function paleTex() {   // бледно-серая кожа с синяками и царапинами
+  return ztex('pale', (x, S) => {
+    x.fillStyle = '#c4b2a0'; x.fillRect(0, 0, S, S);
+    for (let i = 0; i < 30; i++) zBlob(x, Math.random() * S, Math.random() * S, 10 + Math.random() * 35, pick(['rgba(110,70,110,0.25)', 'rgba(150,90,80,0.25)', 'rgba(90,100,80,0.2)']));
+    noiseDots(x, S, 3000, 0.08); zVeins(x, S, 8, 'rgba(90,60,110,0.45)', 1.4);
+    x.strokeStyle = 'rgba(120,20,15,0.7)'; for (let i = 0; i < 12; i++) { x.lineWidth = 1 + Math.random(); const px = Math.random() * S, py = Math.random() * S; x.beginPath(); x.moveTo(px, py); x.lineTo(px + (Math.random() - 0.5) * 25, py + Math.random() * 30); x.stroke(); }
+  }, 256);
+}
+function shortsTex() {   // грязные белые трусы: пятна мочи, грязи и крови
+  return ztex('shorts', (x, S) => {
+    x.fillStyle = '#cfc7b2'; x.fillRect(0, 0, S, S); noiseDots(x, S, 2500, 0.07);
+    for (let i = 0; i < S; i += 3) { x.fillStyle = 'rgba(0,0,0,0.04)'; x.fillRect(i, 0, 1, S); }
+    for (let i = 0; i < 12; i++) zBlob(x, Math.random() * S, Math.random() * S, 12 + Math.random() * 35, pick(['rgba(150,120,50,0.3)', 'rgba(70,55,35,0.3)', 'rgba(110,20,15,0.4)']));
+  }, 256);
+}
+function greyJeansTex() {
+  return ztex('gjeans', (x, S) => {
+    x.fillStyle = '#5c5e5c'; x.fillRect(0, 0, S, S); noiseDots(x, S, 4000, 0.12);
+    for (let i = 0; i < S; i += 2) { x.fillStyle = 'rgba(255,255,255,0.05)'; x.fillRect(i, 0, 1, S); }
+    for (let i = 0; i < 12; i++) zBlob(x, Math.random() * S, Math.random() * S, 10 + Math.random() * 35, pick(['rgba(30,25,15,0.35)', 'rgba(90,10,8,0.45)']));
+    for (let i = 0; i < 5; i++) { x.fillStyle = 'rgba(160,130,115,0.95)'; zPoly(x, Math.random() * S, Math.random() * S, 10 + Math.random() * 16, 8 + Math.random() * 12); x.fill(); x.strokeStyle = 'rgba(210,205,195,0.7)'; x.lineWidth = 1.5; x.stroke(); }   // дыры с кожей и бахромой
+    const g = x.createLinearGradient(0, 0, 0, S); g.addColorStop(0.5, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(40,30,15,0.6)'); x.fillStyle = g; x.fillRect(0, 0, S, S);
+  }, 256);
+}
+const BLISTER_M = new THREE.MeshStandardMaterial({ color: 0x9fb89a, roughness: 0.25, metalness: 0.05, emissive: 0x0d1a12 });   // гнойные пузыри: сине-зелёные, влажные
+const BLISTER_M2 = new THREE.MeshStandardMaterial({ color: 0xc9b070, roughness: 0.3, emissive: 0x1a1505 });
+function blisters(add, par, x, y, zz, R, n, rr, head) {   // гроздь пузырей
+  for (let i = 0; i < n; i++) { const o = add(par, gsph(rnd(rr * 0.45, rr), 7, 5), Math.random() < 0.7 ? BLISTER_M : BLISTER_M2, x + rnd(-R, R), y + rnd(-R * 0.8, R * 0.8), zz + rnd(-R * 0.25, R * 0.25), head); o.scale.z = 0.7; }
+}
 const SKIN_TONES = ['#6f7a5c', '#8a8d7c', '#7c7653', '#5f6a6a', '#8b7a66'];   // серо-зелёная, бледная, жёлтая, синюшная, землистая
 const ARCH = [
   { w: 4, cloth: '#5d6256', pants: '#3f4244', helmet: 0.6, belt: true, pouches: true, boots: true, sleeves: 1 },                    // солдат вермахта
   { w: 1.2, cloth: '#2a2c30', pants: '#1f2022', cap: true, belt: true, boots: true, sleeves: 1 },                                  // офицер
   { w: 2.5, cloth: pick(['#6b5238', '#7d6b4c']), pants: '#4a3b2c', hair: true, sleeves: 0.5 },                                      // гражданский
   { w: 1.6, cloth: '#b2ad9c', pants: '#45474a', coat: true, hair: true, sleeves: 1 },                                              // врач/учёный
-  { w: 1.6, cloth: '#2f4258', pants: '#2f4258', hair: true, boots: true, sleeves: 1 }                                              // рабочий
+  { w: 1.6, cloth: '#2f4258', pants: '#2f4258', hair: true, boots: true, sleeves: 1 },                                             // рабочий
+  { w: 3.4, rot: 'flesh', bare: true, shorts: true, barefoot: true, sleeves: 0 },     // освежёванный: мясо, белые трусы
+  { w: 3.4, rot: 'decay', bare: true, shorts: true, barefoot: true, sleeves: 0 },     // плесневелый жёлто-зелёный
+  { w: 2.2, rot: 'pale', bare: true, jeans: true, barefoot: true, sleeves: 0, chest: true },   // бледный, развороченная грудь, рваные серые штаны
 ];
 // ---------- БОСС «ПЛЕВАКА»: огромный раздутый зомби с гнойными наростами, много здоровья, плюётся зелёной слизью ----------
 // Появляется на 5 волне (один), с 7 волны — в каждой волне понемногу (на поздних волнах больше). Плевок летит по дуге:
 // попадание — 35 урона и зелёная слизь на экране; на полу остаётся едкая лужа (жжёт, пока в ней стоишь).
 const BOSS_A = { w: 0, cloth: '#000', pants: '#000', sleeves: 0.4, boots: false };
-const BOSS_HP_K = 15, BOSS_SPEED = 1.45, BOSS_MELEE = 45, SPIT_DMG = 35, SPIT_SPEED = 13, PUDDLE_DPS = 9, PUDDLE_LIFE = 7;
+const BOSS_HP_K = 11, BOSS_SPEED = 1.45, BOSS_MELEE = 45, SPIT_DMG = 35, SPIT_SPEED = 13, PUDDLE_DPS = 9, PUDDLE_LIFE = 7;
 function bossCount(r) { return r === 5 ? 1 : r >= 7 ? Math.min(4, 1 + Math.floor((r - 7) / 3)) : 0; }   // 7–9: 1, 10–12: 2, 13–15: 3, дальше 4
 function bossSkinTex() {   // бледная воспалённая кожа: вены, мокнущие язвы, жёлто-зелёные гнойники
   return ztex('bossSkin', (x, S) => {
@@ -6859,27 +7002,208 @@ function updateSpits(dt) {
   if (slimeT > 0) { slimeT -= dt; slimeEl.style.opacity = Math.max(0, Math.min(1, slimeT / 1.2)); }
 }
 function clearSpits() { for (const s of spits) { scene.remove(s.m); s.tail.forEach(d => scene.remove(d)); } spits.length = 0; for (const u of puddles) scene.remove(u.m); puddles.length = 0; }
+function zGrowl(x, z) {   // рёв зомби: хриплый шум с дрожанием + низкий тон
+  if (!AC) return; const d = Math.hypot(x - PX, z - PZ), v = Math.max(0, 1 - d / 26); if (v < 0.03) return;
+  fearNoise ? fearNoise(0.9, 0.3 * v, 'bandpass', 520, 230, 3, fearPan(x, z), 0, 13 + Math.random() * 8) : noise(0.9, 0.3 * v, 'bandpass', 520, 230, 0, 3);
+  tone(95 + Math.random() * 30, 0.8, 'sawtooth', 0.09 * v, 60);
+}
 function bossSnd(k, x, z) {   // синтезированные звуки босса с затуханием по расстоянию
   const d = Math.hypot(x - PX, z - PZ), v = Math.max(0, 1 - d / 32); if (v <= 0.02) return;
   if (k === 'gurgle') { noise(0.9, 0.35 * v, 'bandpass', 220, 90, 0, 6); tone(70, 0.9, 'sawtooth', 0.12 * v, 45); noise(0.5, 0.25 * v, 'lowpass', 600, 200, 0.4, 2); }
   else if (k === 'splat') { noise(0.25, 0.5 * v, 'lowpass', 1400, 150, 0, 1.5); tone(120, 0.18, 'sine', 0.2 * v, 50); }
   else if (k === 'roar') { tone(55, 1.4, 'sawtooth', 0.25 * v, 35); noise(1.3, 0.3 * v, 'bandpass', 300, 120, 0, 3); }
 }
+// ---------- анатомическая модель «гнилого» зомби (6 видов по референсу) ----------
+// Тело из профилей вращения (LatheGeometry): узкий таз, впалый живот, рёбра, ключицы, позвонки, жилистые руки и ноги с икрами,
+// череп со впалыми щеками и отвисшей челюстью, кисти с длинными пальцами, босые ступни. Узлы (плечо/локоть/бедро/колено/голова) — те же,
+// что у старой модели, поэтому все анимации ходьбы, атаки, рёва и смерти работают без изменений.
+const ROT_GEO = {};
+function rlathe(key, prof, seg = 14) {   // профиль снизу вверх: [[r, y], ...]
+  return ROT_GEO[key] || (ROT_GEO[key] = new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(Math.max(0.001, p[0]), p[1])), seg));
+}
+function brainTex() {
+  return ztex('brain', (x, S) => {
+    x.fillStyle = '#b86a6a'; x.fillRect(0, 0, S, S);
+    x.strokeStyle = 'rgba(90,20,25,0.7)'; x.lineWidth = 3; x.lineCap = 'round';
+    for (let i = 0; i < 40; i++) { x.beginPath(); let px = Math.random() * S, py = Math.random() * S; x.moveTo(px, py); for (let k = 0; k < 6; k++) { px += (Math.random() - 0.5) * 30; py += (Math.random() - 0.5) * 30; x.lineTo(px, py); } x.stroke(); }
+    for (let i = 0; i < 12; i++) zBlob(x, Math.random() * S, Math.random() * S, 10 + Math.random() * 20, 'rgba(70,5,5,0.5)');
+  }, 128);
+}
+function mossClothTex() {   // лохмотья в плесени и мху
+  return ztex('moss', (x, S) => {
+    x.fillStyle = '#6d6a3c'; x.fillRect(0, 0, S, S);
+    for (let i = 0; i < S; i += 2) { x.fillStyle = `rgba(0,0,0,${0.05 + Math.random() * 0.05})`; x.fillRect(i, 0, 1, S); }
+    for (let i = 0; i < 50; i++) zBlob(x, Math.random() * S, Math.random() * S, 8 + Math.random() * 30, pick(['rgba(70,95,35,0.45)', 'rgba(150,140,60,0.35)', 'rgba(40,35,20,0.4)', 'rgba(110,30,20,0.3)']));
+    x.fillStyle = 'rgba(80,110,40,0.7)'; for (let i = 0; i < 700; i++) { x.beginPath(); x.arc(Math.random() * S, Math.random() * S, 0.5 + Math.random() * 1.8, 0, 7); x.fill(); }
+    for (let i = 0; i < 6; i++) { x.fillStyle = 'rgba(40,30,22,0.95)'; zPoly(x, Math.random() * S, Math.random() * S, 8 + Math.random() * 16, 6 + Math.random() * 14); x.fill(); }
+  }, 256);
+}
+function feldTex(officer) {   // полевая форма вермахта (фельдграу): сукно, карманы и пуговицы, рваные дыры с мясом внутри, кровь и грязь
+  return ztex(officer ? 'feldO' : 'feld', (x, S) => {
+    x.fillStyle = officer ? '#3e4139' : '#5a5f4e'; x.fillRect(0, 0, S, S);
+    for (let i = 0; i < S; i += 2) { x.fillStyle = `rgba(0,0,0,${0.04 + Math.random() * 0.05})`; x.fillRect(i, 0, 1, S); x.fillStyle = `rgba(255,255,255,${0.015 + Math.random() * 0.02})`; x.fillRect(0, i, S, 1); }
+    noiseDots(x, S, 3500, 0.08);
+    x.strokeStyle = 'rgba(20,22,16,0.55)'; x.lineWidth = 2; for (const px of [0.18, 0.62]) { x.strokeRect(px * S, 0.22 * S, 0.2 * S, 0.16 * S); x.beginPath(); x.moveTo(px * S, 0.27 * S); x.lineTo((px + 0.2) * S, 0.27 * S); x.stroke(); }   // нагрудные карманы
+    x.fillStyle = 'rgba(150,150,135,0.85)'; for (let k = 0; k < 5; k++) { x.beginPath(); x.arc(S * 0.5, S * (0.14 + k * 0.16), 3, 0, 7); x.fill(); }   // пуговицы
+    for (let i = 0; i < 14; i++) zBlob(x, Math.random() * S, Math.random() * S, 12 + Math.random() * 35, pick(['rgba(35,28,15,0.3)', 'rgba(90,12,8,0.45)', 'rgba(60,70,40,0.25)']));
+    for (let i = 0; i < 7; i++) {   // рваные дыры: тёмный край, бахрома, внутри мясо
+      const px = Math.random() * S, py = Math.random() * S, rx = 8 + Math.random() * 18, ry = 6 + Math.random() * 14;
+      x.fillStyle = 'rgba(15,12,8,0.9)'; zPoly(x, px, py, rx * 1.15, ry * 1.15); x.fill(); x.fillStyle = 'rgba(72,16,11,0.97)'; zPoly(x, px, py, rx, ry); x.fill(); zBlob(x, px, py, Math.min(rx, ry) * 0.8, 'rgba(25,4,3,0.7)'); zBlob(x, px + rx * 0.3, py - ry * 0.2, Math.min(rx, ry) * 0.35, 'rgba(170,140,80,0.35)');
+      x.strokeStyle = 'rgba(160,30,25,0.6)'; x.lineWidth = 1; for (let k = 0; k < 8; k++) { x.beginPath(); x.moveTo(px + (Math.random() - 0.5) * rx, py + (Math.random() - 0.5) * ry); x.lineTo(px + (Math.random() - 0.5) * rx * 1.6, py + (Math.random() - 0.5) * ry * 1.6); x.stroke(); }
+    }
+    const g = x.createLinearGradient(0, 0, 0, S); g.addColorStop(0.5, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(35,25,12,0.55)'); x.fillStyle = g; x.fillRect(0, 0, S, S);
+  }, 256);
+}
+const ROT_KINDS = ['flesh', 'blister', 'moss', 'pale', 'decay', 'bloody', 'wehr', 'wehrRot', 'officer'];
+const ROT_W = { flesh: 1, blister: 1, moss: 1, pale: 1, decay: 1, bloody: 1, wehr: 2, wehrRot: 1.6, officer: 0.8 };   // солдаты вермахта — около 40% орды
+function pickRotKind() { let r = Math.random() * ROT_KINDS.reduce((a, k) => a + ROT_W[k], 0); for (const k of ROT_KINDS) if ((r -= ROT_W[k]) <= 0) return k; return 'wehr'; }
+const EYE_GLOW_T = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'), g = x.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, 'rgba(255,200,120,1)'); g.addColorStop(0.3, 'rgba(255,110,20,0.6)'); g.addColorStop(1, 'rgba(255,60,0,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
+function makeRotZombie(kind) {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const uni = kind === 'wehr' || kind === 'wehrRot' || kind === 'officer';
+  const tint = rnd(0.85, 1.08), wet = kind === 'flesh' || kind === 'blister' || kind === 'bloody';
+  const M = (map, rough, bump = 0.02) => new THREE.MeshStandardMaterial({ map, bumpMap: map, bumpScale: bump, roughness: rough, color: new THREE.Color(0xffffff).multiplyScalar(tint) });
+  const flesh = () => M(fleshTex(), 0.45), decay = () => M(decayTex(Math.random() * 3 | 0), 0.8);
+  const skin = kind === 'pale' ? M(paleTex(), 0.75) : kind === 'moss' || kind === 'decay' ? decay() : kind === 'wehrRot' ? flesh() : uni ? pick([decay, () => M(paleTex(), 0.75), decay])() : flesh();
+  const skin2 = kind === 'blister' || kind === 'bloody' ? (Math.random() < 0.5 ? decay() : skin) : kind === 'decay' && Math.random() < 0.6 ? flesh() : kind === 'moss' ? flesh() : skin;   // вторая кожа: часть конечностей другая, как на референсе
+  const shorts = new THREE.MeshStandardMaterial({ map: shortsTex(), roughness: 0.95 }), jeans = new THREE.MeshStandardMaterial({ map: greyJeansTex(), roughness: 0.95 }), rag = new THREE.MeshStandardMaterial({ map: mossClothTex(), roughness: 1 });
+  const gore = new THREE.MeshStandardMaterial({ color: 0x4a0808, roughness: 0.35 }), bone = new THREE.MeshStandardMaterial({ color: 0xd2c6a2, roughness: 0.7 }), dark = new THREE.MeshStandardMaterial({ color: 0x0a0404, roughness: 1 });
+  const band = new THREE.MeshStandardMaterial({ color: pick([0x3f7a5c, 0x4a8a6a, 0x2f6a6a]), roughness: 0.8 });
+  const tunic = uni ? new THREE.MeshStandardMaterial({ map: feldTex(kind === 'officer'), bumpMap: null, roughness: 0.95 }) : null;
+  const trous = uni ? new THREE.MeshStandardMaterial({ map: feldTex(kind === 'officer'), roughness: 0.95, color: 0xd8d8d0 }) : null;
+  const leather = new THREE.MeshStandardMaterial({ color: 0x15120f, roughness: 0.55, metalness: 0.05 }), steel = new THREE.MeshStandardMaterial({ color: pick([0x4a5044, 0x3c4238, 0x55574d]), roughness: 0.65, metalness: 0.45 });
+  const z = { g, body, mats: [...new Set([skin, skin2, shorts, jeans, rag, gore, bone, dark, band, tunic, trous, leather, steel].filter(Boolean))], meshes: [], rot: kind };
+  const add = (par, geo, m, x, y, zz, head) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, zz); o.userData = { z, head: !!head }; par.add(o); z.meshes.push(o); return o; };
+  const thin = rnd(0.88, 1.05);
+  // --- туловище ---
+  const top = uni ? tunic : skin;
+  const torso = add(body, rlathe(uni ? 'tunic' : 'torso', [[0.0, 0.8], [0.15, 0.81], [0.175, 0.88], [0.165, 0.96], [0.138, 1.03], [0.142, 1.1], [0.172, 1.2], [0.194, 1.3], [0.205, 1.38], [0.198, 1.44], [0.16, 1.5], [0.09, 1.545], [0.055, 1.56]].map(p => uni ? [p[0] * 1.07 + 0.006, p[1] < 0.85 ? p[1] - 0.06 : p[1]] : p), 16), top, 0, 0, 0);   // у формы — полы кителя ниже пояса
+  torso.scale.set(thin, 1, 0.6 * thin);
+  for (const sx of [-1, 1]) {
+    add(body, gsph(0.085, 10, 8), top, sx * 0.085, 1.33, 0.075).scale.set(1.1, 0.75, 0.45);   // грудные мышцы
+    if (!uni) for (let k = 0; k < 5; k++) { const rb = add(body, new THREE.TorusGeometry(0.17 - k * 0.006, 0.0075, 4, 10, 1.15), skin, 0, 1.27 - k * 0.055, 0); rb.rotation.set(Math.PI / 2, 0, sx > 0 ? -0.15 : Math.PI - 1.0); rb.scale.set(thin, 0.62 * thin, 1); }   // рёбра проступают по бокам
+    const cl = add(body, gcyl(0.012, 0.01, 0.17, 5), top, sx * 0.09, 1.49, 0.07); cl.rotation.z = sx * (Math.PI / 2 - 0.25);   // ключицы
+    add(body, gsph(0.075, 8, 6), top, sx * 0.17, 1.5, -0.01).scale.set(1, 0.6, 0.9);   // трапеции / погоны
+  }
+  if (!uni) for (let k = 0; k < 8; k++) add(body, gsph(0.016, 5, 4), skin, 0, 0.98 + k * 0.065, -0.115);   // позвонки
+  if (!uni && Math.random() < 0.4) add(body, gsph(0.13, 10, 8), skin, 0, 1.0, 0.04).scale.set(1, 0.8, 0.7);   // вздутый живот
+  add(body, gcyl(0.05, 0.058, 0.13, 8), skin, 0, 1.6, 0.0);   // шея
+  // --- одежда ---
+  const wear = uni ? 'uniform' : kind === 'pale' ? 'jeans' : kind === 'moss' ? 'rags' : 'shorts';
+  if (uni) {   // снаряжение: ремень с пряжкой, Y-образные лямки, подсумки, воротник с петлицами, у «гнилого» солдата китель распахнут — видно мясо
+    add(body, gcyl(0.168, 0.168, 0.05, 16), leather, 0, 0.93, 0).scale.set(thin * 1.08, 1, 0.66 * thin);
+    add(body, gbox(0.055, 0.045, 0.012), steel, 0, 0.93, 0.118);
+    if (kind !== 'officer') { for (const sx of [-1, 1]) { const st = add(body, gbox(0.03, 0.48, 0.01), leather, sx * 0.075, 1.2, 0.128); st.rotation.z = sx * 0.12; add(body, gbox(0.075, 0.07, 0.04), leather, sx * 0.1, 0.96, 0.12); add(body, gbox(0.075, 0.07, 0.04), leather, sx * 0.17, 0.96, 0.08).rotation.y = sx * 0.5; } }
+    add(body, gcyl(0.068, 0.075, 0.05, 12), tunic, 0, 1.56, 0);   // стоячий воротник
+    for (const sx of [-1, 1]) add(body, gbox(0.025, 0.02, 0.005), kind === 'officer' ? new THREE.MeshStandardMaterial({ color: 0x8a8a7a, metalness: 0.6, roughness: 0.4 }) : dark, sx * 0.035, 1.56, 0.07);   // петлицы
+    if (kind === 'wehrRot') { add(body, gsph(0.12, 10, 8), skin, 0, 1.12, 0.1).scale.set(1, 1.6, 0.3); for (let k = 0; k < 3; k++) { const rb = add(body, gcyl(0.009, 0.009, 0.14, 5), bone, 0, 1.08 + k * 0.06, 0.13); rb.rotation.z = Math.PI / 2 + rnd(-0.15, 0.15); } add(body, gsph(0.05, 8, 6), gore, 0.02, 0.98, 0.12).scale.set(1, 2, 0.5); }   // распоротый живот
+  }
+  if (wear === 'shorts' || wear === 'jeans') { const pm = wear === 'jeans' ? jeans : shorts; add(body, rlathe('briefs', [[0.0, 0.78], [0.165, 0.79], [0.182, 0.86], [0.17, 0.95], [0.15, 0.97]], 16), pm, 0, 0, 0).scale.set(thin * 1.04, 1, 0.64 * thin);
+    if (wear === 'shorts') add(body, gcyl(0.153, 0.153, 0.03, 16), band, 0, 0.96, 0).scale.set(thin * 1.04, 1, 0.66 * thin); }
+  if (wear === 'rags') { add(body, rlathe('ragTop', [[0.17, 0.92], [0.17, 1.02], [0.18, 1.2], [0.2, 1.3], [0.212, 1.4], [0.205, 1.45], [0.165, 1.51], [0.07, 1.555]], 16), rag, 0, 0, 0).scale.set(thin * 1.05, 1, 0.64 * thin);
+    add(body, rlathe('briefs', [[0.0, 0.78], [0.165, 0.79], [0.182, 0.86], [0.17, 0.95], [0.15, 0.97]], 16), rag, 0, 0, 0).scale.set(thin * 1.05, 1, 0.66 * thin); }
+  // --- раны, пузыри, вскрытая грудь ---
+  if (kind === 'blister' || (kind === 'pale' && Math.random() < 0.7) || (!uni && Math.random() < 0.3)) blisters(add, body, rnd(-0.05, 0.05), rnd(1.18, 1.3), 0.115, kind === 'blister' ? 0.11 : 0.06, kind === 'blister' ? 26 : 9, kind === 'blister' ? 0.036 : 0.028);
+  if (kind === 'blister') { blisters(add, body, -0.12, 1.05, 0.1, 0.06, 10, 0.03); blisters(add, body, 0.15, 1.42, 0.05, 0.05, 8, 0.03); }
+  if (kind === 'pale' || (!uni && Math.random() < 0.25)) { add(body, gsph(0.11, 10, 8), gore, rnd(-0.05, 0.05), 1.2, 0.09).scale.set(1, 1.2, 0.35); for (let k = 0; k < 3; k++) { const rb = add(body, gcyl(0.009, 0.009, 0.13, 5), bone, 0, 1.13 + k * 0.06, 0.125); rb.rotation.z = Math.PI / 2 + rnd(-0.15, 0.15); } }
+  // --- голова: череп, впалые щёки, надбровья, глазницы, нос-провал, зубы, отвисшая челюсть ---
+  z.head = new THREE.Group(); z.head.position.set(0, 1.7, 0.02); body.add(z.head);
+  const skull = add(z.head, gsph(0.118, 14, 12), kind === 'bloody' ? skin2 : skin, 0, 0.03, -0.01, true); skull.scale.set(0.9, 1.08, 1.05);
+  if (kind === 'bloody' || Math.random() < 0.15) { const br = add(z.head, gsph(0.1, 12, 8, 0, 6.29, 0, 1.3), new THREE.MeshStandardMaterial({ map: brainTex(), roughness: 0.3 }), 0, 0.06, -0.01, true); br.scale.set(0.95, 0.9, 1.05); }   // мозг наружу
+  add(z.head, gsph(0.075, 10, 8), skin, 0, -0.04, 0.035, true).scale.set(1.05, 0.95, 1);   // скулы/середина лица
+  add(z.head, gbox(0.17, 0.025, 0.05), skin, 0, 0.055, 0.075, true);   // надбровная дуга
+  for (const sx of [-1, 1]) {
+    const so = add(z.head, gsph(0.03, 8, 6), dark, sx * 0.042, 0.022, 0.085, true); so.scale.set(1, 0.85, 0.6);
+    add(z.head, gsph(0.011, 6, 5), eyeMat, sx * 0.042, 0.022, 0.1, true);
+    add(z.head, gsph(0.03, 6, 5), skin, sx * 0.105, 0.0, -0.005, true).scale.set(0.3, 0.9, 0.7);   // уши
+    add(z.head, gsph(0.028, 6, 5), dark, sx * 0.06, -0.045, 0.07, true).scale.set(0.6, 1, 0.5);   // впалые щёки (тень)
+  }
+  add(z.head, gbox(0.03, 0.035, 0.02), dark, 0, -0.015, 0.108, true);   // провал носа
+  for (let k = -3; k <= 3; k++) add(z.head, gbox(0.011, 0.018, 0.008), bone, k * 0.012, -0.06, 0.1, true);   // верхние зубы
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.055, -0.01); z.head.add(jaw); z.jaw = jaw;
+  add(jaw, gbox(0.1, 0.035, 0.1), skin, 0, -0.035, 0.05, true).scale.set(1, 1, 1);
+  for (let k = -3; k <= 3; k++) add(jaw, gbox(0.01, 0.016, 0.008), bone, k * 0.011, -0.014, 0.095, true);
+  add(jaw, gbox(0.075, 0.02, 0.06), gore, 0, -0.02, 0.05, true);   // язык/рот
+  z.eyes = z.meshes.filter(m => m.material === eyeMat);
+  z.glow = [];   // светящиеся глаза — видно в темноте издалека
+  for (const sx of [-1, 1]) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: EYE_GLOW_T, color: 0xffffff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.setScalar(0.075); sp.position.set(sx * 0.042, 0.022, 0.11); z.head.add(sp); z.glow.push(sp); }
+  for (let k = 0; k < 3; k++) { const L = rnd(0.06, 0.18), d = add(jaw, gcyl(0.0045, 0.002, L, 4), gore, rnd(-0.03, 0.03), -0.04 - L / 2, 0.09, true); d.rotation.x = rnd(-0.15, 0.1); }   // кровавая слюна
+  if (uni) {
+    if (kind === 'officer') { add(z.head, gcyl(0.122, 0.13, 0.06, 16), tunic, 0, 0.11, -0.01, true); add(z.head, gcyl(0.145, 0.13, 0.03, 16), tunic, 0, 0.15, 0.0, true).scale.z = 1.08;
+      add(z.head, gbox(0.17, 0.008, 0.07), leather, 0, 0.085, 0.1, true).rotation.x = 0.25; add(z.head, gcyl(0.124, 0.124, 0.015, 16), leather, 0, 0.09, -0.01, true); }   // фуражка
+    else if (Math.random() < 0.8) {   // стальной шлем M35: купол, расширяющиеся поля, назатыльник
+      const hm = add(z.head, rlathe('stahl', [[0.15, -0.045], [0.142, -0.02], [0.13, 0.0], [0.132, 0.04], [0.125, 0.09], [0.1, 0.135], [0.06, 0.16], [0.001, 0.168]], 18), steel, 0, 0.03, -0.012, true);
+      hm.scale.set(1, 1, 1.1); hm.rotation.x = rnd(-0.12, 0.05); hm.rotation.z = rnd(-0.12, 0.12);
+      if (Math.random() < 0.4) add(z.head, gsph(0.02, 6, 5), dark, rnd(-0.06, 0.06), 0.15, 0.04, true);   // пробоина
+    }
+  }
+  // --- руки ---
+  const arm = sx => {
+    const pv = new THREE.Group(); pv.position.set(sx * 0.215, 1.45, 0); body.add(pv);
+    const m1 = uni ? (kind === 'wehrRot' && Math.random() < 0.35 ? skin2 : tunic) : Math.random() < 0.3 ? skin2 : skin, m2 = uni && Math.random() < 0.55 ? tunic : Math.random() < 0.4 ? skin2 : skin;   // у формы рукава, местами оторваны
+    add(pv, gsph(0.062, 10, 8), m1, 0, -0.01, 0).scale.set(1, 1.05, 1);   // дельта
+    add(pv, rlathe('uarm', [[0.038, -0.31], [0.044, -0.24], [0.05, -0.15], [0.052, -0.07], [0.05, 0]], 10), m1, 0, 0, 0);
+    if (wear === 'rags' && Math.random() < 0.6) add(pv, rlathe('sleeve', [[0.05, -0.2], [0.058, -0.1], [0.06, 0.02]], 10), rag, 0, 0, 0);
+    const el = new THREE.Group(); el.position.set(0, -0.31, 0); el.rotation.x = -0.25 - Math.random() * 0.2; pv.add(el);
+    add(el, gsph(0.04, 8, 6), m2, 0, 0, 0);
+    add(el, rlathe('farm', [[0.026, -0.28], [0.032, -0.2], [0.042, -0.09], [0.04, 0]], 10), m2, 0, 0, 0);
+    const hm2 = m2 === tunic ? skin : m2;
+    const hand = add(el, gbox(0.055, 0.075, 0.022), hm2, 0, -0.32, 0); hand.rotation.x = 0.1;
+    for (let k = 0; k < 4; k++) { const fx = -0.02 + k * 0.0135, f1 = add(el, gcyl(0.0075, 0.0065, 0.05, 5), m2, fx, -0.38, 0.006); f1.rotation.x = -0.35;
+      const f2 = add(el, gcyl(0.006, 0.003, 0.045, 5), hm2, fx, -0.42, 0.026); f2.rotation.x = -0.9; add(el, gbox(0.006, 0.014, 0.004), bone, fx, -0.44, 0.04).rotation.x = -1.1; }   // пальцы и ногти-когти
+    const th = add(el, gcyl(0.008, 0.006, 0.05, 5), hm2, sx * -0.032, -0.33, 0.018); th.rotation.z = sx * 0.7;
+    if (Math.random() < 0.3) blisters(add, pv, 0.02 * sx, -0.08, 0.03, 0.03, 4, 0.022);
+    pv.el = el; return pv;
+  };
+  z.lArm = arm(-1); z.rArm = arm(1);
+  // --- ноги ---
+  const leg = sx => {
+    const pv = new THREE.Group(); pv.position.set(sx * 0.1, 0.84, 0); body.add(pv);
+    const m = Math.random() < 0.35 ? skin2 : skin, bareBone = kind === 'bloody' && Math.random() < 0.4;
+    if (uni) { add(pv, rlathe('uthigh', [[0.07, -0.43], [0.085, -0.3], [0.1, -0.15], [0.104, -0.03], [0.098, 0.04]], 12), trous, 0, 0, 0);   // галифе
+      const kn = new THREE.Group(); kn.position.set(0, -0.42, 0); pv.add(kn); add(kn, gsph(0.064, 8, 6), trous, 0, 0, 0.005);
+      add(kn, rlathe('jboot', [[0.05, -0.39], [0.056, -0.3], [0.062, -0.15], [0.068, -0.03], [0.07, 0.0]], 12), leather, 0, -0.02, 0);   // сапоги
+      add(kn, gbox(0.085, 0.06, 0.22), leather, 0, -0.405, 0.045); add(kn, gbox(0.087, 0.018, 0.23), dark, 0, -0.44, 0.045);
+      pv.kn = kn; return pv; }
+    add(pv, rlathe('thigh', [[0.058, -0.42], [0.066, -0.33], [0.08, -0.2], [0.09, -0.08], [0.088, 0.02]], 12), m, 0, 0, 0);
+    if (wear === 'jeans') add(pv, rlathe('jthigh', [[0.072, -0.43], [0.084, -0.2], [0.098, -0.05], [0.096, 0.04]], 12), jeans, 0, 0, 0);
+    else if (wear === 'shorts' || wear === 'rags') add(pv, rlathe('sthigh', [[0.088, -0.17], [0.095, -0.06], [0.094, 0.03]], 12), wear === 'rags' ? rag : shorts, 0, 0, 0);
+    const kn = new THREE.Group(); kn.position.set(0, -0.42, 0); pv.add(kn);
+    add(kn, gsph(0.052, 8, 6), m, 0, 0, 0.01);   // колено
+    if (bareBone) { add(kn, gcyl(0.02, 0.016, 0.38, 6), bone, 0, -0.19, 0); add(kn, gsph(0.04, 8, 6), gore, 0, -0.08, -0.01).scale.set(1, 1.6, 1); }   // мясо сорвано до кости
+    else add(kn, rlathe('shin', [[0.03, -0.37], [0.036, -0.3], [0.05, -0.2], [0.062, -0.1], [0.055, -0.02], [0.05, 0]], 12), m, 0, 0, 0);
+    const jeansLeg = wear === 'jeans' && !(sx > 0 && Math.random() < 0.5);   // одна штанина бывает оторвана
+    if (jeansLeg) add(kn, rlathe('jshin', [[0.06, -0.38], [0.066, -0.2], [0.07, -0.05], [0.074, 0.02]], 12), jeans, 0, 0, 0);
+    add(kn, gsph(0.034, 6, 5), m, 0, -0.38, -0.005);   // лодыжка
+    const ft = add(kn, gbox(0.075, 0.045, 0.19), m, 0, -0.405, 0.05); ft.scale.set(1, 1, 1);
+    for (let k = -2; k <= 2; k++) add(kn, gsph(0.013, 5, 4), m, k * 0.015, -0.415, 0.15);   // пальцы ног
+    pv.kn = kn; return pv;
+  };
+  z.lLeg = leg(-1); z.rLeg = leg(1);
+  const h = rnd(0.95, 1.07); g.scale.set(rnd(0.94, 1.06), h, rnd(0.94, 1.06));
+  return z;
+}
 function makeZombie(boss) {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   let r = Math.random() * ARCH.reduce((s, a) => s + a.w, 0), A = ARCH[0];
   for (const a of ARCH) { if ((r -= a.w) <= 0) { A = a; break; } }
   if (boss) A = BOSS_A;
+  else return makeRotZombie(pickRotKind());   // 1.18: вся орда — новые анатомические модели шести видов (старые архетипы остаются только для босса)
   const tone = pick(SKIN_TONES), tint = rnd(0.8, 1.1);
   const mk = (map, col) => new THREE.MeshStandardMaterial({ map, bumpMap: map, bumpScale: 0.012, color: new THREE.Color(col || 0xffffff).multiplyScalar(tint), roughness: 0.92 });   // рельеф из той же текстуры: складки, раны, вены
-  const skin = boss ? new THREE.MeshStandardMaterial({ map: bossSkinTex(), color: 0xd8e0b0, roughness: 0.55, metalness: 0.02 }) : mk(skinTex(tone));
-  const shirt = boss ? skin : mk(clothTex(A.cloth, 'a')), pants = boss ? new THREE.MeshStandardMaterial({ map: denimTex(), roughness: 0.95 }) : mk(clothTex(A.pants, 'p'));
+  const rotMap = A.rot === 'flesh' ? fleshTex() : A.rot === 'decay' ? decayTex(Math.random() * 3 | 0) : A.rot === 'pale' ? paleTex() : null;
+  const skin = boss ? new THREE.MeshStandardMaterial({ map: bossSkinTex(), color: 0xd8e0b0, roughness: 0.55, metalness: 0.02 })
+    : rotMap ? new THREE.MeshStandardMaterial({ map: rotMap, bumpMap: rotMap, bumpScale: 0.02, color: new THREE.Color(0xffffff).multiplyScalar(tint), roughness: A.rot === 'flesh' ? 0.5 : 0.8 }) : mk(skinTex(tone));
+  // у «гнилых» части тела то мясо, то плесень: вторая кожа для конечностей
+  const skin2 = A.rot === 'flesh' && Math.random() < 0.6 ? new THREE.MeshStandardMaterial({ map: decayTex(Math.random() * 3 | 0), roughness: 0.8 }) : A.rot === 'decay' && Math.random() < 0.5 ? new THREE.MeshStandardMaterial({ map: fleshTex(), roughness: 0.5 }) : skin;
+  const shirt = boss || A.bare ? skin : mk(clothTex(A.cloth, 'a'));
+  const pants = boss ? new THREE.MeshStandardMaterial({ map: denimTex(), roughness: 0.95 }) : A.shorts ? new THREE.MeshStandardMaterial({ map: shortsTex(), roughness: 0.95 }) : A.jeans ? new THREE.MeshStandardMaterial({ map: greyJeansTex(), roughness: 0.95 }) : mk(clothTex(A.pants, 'p'));
   const leather = new THREE.MeshStandardMaterial({ color: 0x1b1713, roughness: 0.8 });
   const gear = new THREE.MeshStandardMaterial({ color: A.helmet ? pick([0x4a5044, 0x3c4238, 0x55574d]) : (A.cap ? 0x2c2e30 : pick([0x1a1410, 0x3a2e22, 0x56524a, 0x6a5a40])), roughness: 0.7, metalness: A.helmet ? 0.3 : 0 });
   const gore = new THREE.MeshStandardMaterial({ color: 0x5c0c0c, roughness: 0.5 });
   const bone = new THREE.MeshStandardMaterial({ color: 0xcfc3a2, roughness: 0.8 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x0a0505, roughness: 1 });
-  const z = { g, body, mats: [skin, shirt, pants, leather, gear, gore, bone, dark], meshes: [] };
+  const z = { g, body, mats: [...new Set([skin, skin2, shirt, pants, leather, gear, gore, bone, dark])], meshes: [], rot: A.rot };
   const add = (par, geo, m, x, y, zz, head) => {
     const o = new THREE.Mesh(geo, m); o.position.set(x, y, zz); o.userData = { z, head: !!head };
     par.add(o); z.meshes.push(o); return o;
@@ -6891,6 +7215,13 @@ function makeZombie(boss) {
   add(body, gcyl(0.055, 0.065, 0.14, 8), skin, 0, 1.5, 0.01);   // шея
   if (A.coat) add(body, gcyl(0.2, 0.27, 0.34, 12), shirt, 0, 0.74, 0).scale.z = 0.75;   // полы халата
   if (A.belt) { add(body, gcyl(0.192, 0.192, 0.05, 12), leather, 0, 0.9, 0).scale.z = 0.66; add(body, gbox(0.05, 0.045, 0.02), bone, 0, 0.9, 0.135); }
+  if (A.shorts) add(body, gcyl(0.19, 0.19, 0.035, 12), new THREE.MeshStandardMaterial({ color: pick([0x3f7a5c, 0x4a8a6a, 0x2f5f6a]), roughness: 0.8 }), 0, 0.93, 0).scale.z = 0.7;   // резинка трусов
+  if (A.rot) {   // гроздья пузырей на груди/плечах, у бледных — развороченная грудная клетка с рёбрами
+    if (A.chest || Math.random() < 0.5) { const gx = rnd(-0.06, 0.06); add(body, gsph(0.13, 10, 8), gore, gx, 1.22, 0.1).scale.set(1, 1.15, 0.35);
+      for (let k = 0; k < 4; k++) { const rb = add(body, gcyl(0.009, 0.009, 0.15, 5), bone, gx, 1.12 + k * 0.055, 0.14); rb.rotation.z = Math.PI / 2 + rnd(-0.15, 0.15); } }
+    if (Math.random() < 0.8) blisters(add, body, rnd(-0.1, 0.1), rnd(1.15, 1.35), 0.14, 0.08, 8 + (Math.random() * 8 | 0), 0.03);
+    if (Math.random() < 0.6) blisters(add, body, pick([-0.22, 0.22]), 1.42, 0.02, 0.05, 6, 0.028);
+  }
   if (A.pouches) { add(body, gbox(0.07, 0.07, 0.04), leather, -0.1, 0.92, 0.14); add(body, gbox(0.07, 0.07, 0.04), leather, 0.1, 0.92, 0.14); }
   if (A.coat || A.sleeves === 0.5) { add(body, gbox(0.03, 0.5, 0.012), leather, -0.09, 1.2, 0.135); add(body, gbox(0.03, 0.5, 0.012), leather, 0.09, 1.2, 0.135); }   // подтяжки / лацканы
   // голова
@@ -6918,7 +7249,7 @@ function makeZombie(boss) {
     add(z.head, gcyl(0.15, 0.16, 0.07, 14), gear, 0, 0.12, 0, true);
     add(z.head, gcyl(0.175, 0.175, 0.025, 14), gear, 0, 0.08, 0, true);
     add(z.head, gbox(0.2, 0.012, 0.09), leather, 0, 0.075, 0.15, true);
-  } else if (A.hair || !A.helmet) {   // клочья волос, часть — лысые
+  } else if (!A.rot && (A.hair || !A.helmet)) {   // клочья волос, часть — лысые (у «гнилых» — голый череп)
     if (Math.random() < 0.75) { const h = add(z.head, gsph(0.15, 10, 7, rnd(0, 6), rnd(3.5, 5.5), 0, Math.PI * 0.5), gear, 0, 0.04, -0.01, true); h.scale.set(0.95, 1.03, 1.0); h.rotation.y = rnd(0, 6); }
   }
   // раны: вырванные куски мяса и торчащие рёбра
@@ -6936,7 +7267,8 @@ function makeZombie(boss) {
     const el = new THREE.Group(); el.position.set(0, -0.32, 0); el.rotation.x = -0.25 - Math.random() * 0.2; pv.add(el);
     add(el, gsph(0.052, 8, 6), A.sleeves < 1 && Math.random() < 0.6 ? skin : shirt, 0, 0, 0);
     const bare = A.sleeves < 1 || Math.random() < 0.35;
-    add(el, gcyl(0.05, 0.036, 0.3, 8), bare ? skin : shirt, 0, -0.15, 0);
+    add(el, gcyl(0.05, 0.036, 0.3, 8), bare ? (A.rot && Math.random() < 0.5 ? skin2 : skin) : shirt, 0, -0.15, 0);
+    if (A.rot && Math.random() < 0.35) blisters(add, el, 0, -0.12, 0.03, 0.04, 4, 0.022);
     const hand = add(el, gsph(0.045, 8, 6), skin, 0, -0.34, 0); hand.scale.set(0.9, 1.3, 0.55);
     for (let k = -1; k <= 1; k++) { const f = add(el, gcyl(0.008, 0.005, 0.07, 4), skin, k * 0.02, -0.42, 0.005); f.rotation.x = -0.3; }   // скрюченные пальцы
     pv.el = el; return pv;
@@ -6945,12 +7277,17 @@ function makeZombie(boss) {
   // ноги: бедро + голень + ботинок
   const leg = (sx) => {
     const pv = new THREE.Group(); pv.position.set(sx * 0.115, 0.8, 0); body.add(pv);
-    add(pv, gcyl(0.1, 0.075, 0.42, 9), pants, 0, -0.21, 0);
+    const legSkin = A.rot && Math.random() < 0.5 ? skin2 : skin;
+    if (A.shorts) { add(pv, gcyl(0.105, 0.09, 0.2, 9), pants, 0, -0.1, 0); add(pv, gcyl(0.085, 0.072, 0.24, 9), legSkin, 0, -0.3, 0); }   // трусы до середины бедра, ниже — голая нога
+    else add(pv, gcyl(0.1, 0.075, 0.42, 9), pants, 0, -0.21, 0);
     const kn = new THREE.Group(); kn.position.set(0, -0.42, 0); pv.add(kn);
-    add(kn, gsph(0.075, 8, 6), pants, 0, 0, 0);
-    add(kn, gcyl(0.072, 0.052, 0.36, 9), pants, 0, -0.19, 0);
-    const bt = add(kn, gcyl(0.062, 0.066, 0.13, 9), A.boots ? leather : shirt, 0, -0.34, 0);
-    const ft = add(kn, gbox(0.1, 0.07, 0.2), A.boots ? leather : shirt, 0, -0.37, 0.05);
+    const shin = A.shorts || (A.jeans && sx > 0 && Math.random() < 0.5) ? legSkin : pants;   // у джинсов иногда одна штанина оторвана
+    add(kn, gsph(0.075, 8, 6), A.shorts ? legSkin : pants, 0, 0, 0);
+    add(kn, gcyl(0.072, 0.052, 0.36, 9), shin, 0, -0.19, 0);
+    const footM = A.barefoot ? legSkin : A.boots ? leather : shirt;
+    const bt = add(kn, gcyl(0.058, 0.06, 0.13, 9), footM, 0, -0.34, 0);
+    const ft = add(kn, gbox(0.1, 0.06, 0.21), footM, 0, -0.375, 0.05);
+    if (A.barefoot) for (let k = -2; k <= 2; k++) add(kn, gsph(0.014, 5, 4), footM, k * 0.018, -0.39, 0.16);   // пальцы
     pv.kn = kn; return pv;
   };
   z.lLeg = leg(-1); z.rLeg = leg(1);
@@ -7004,13 +7341,13 @@ function hitZombie(z, head, dmg, fx) {
     if (head) { crossEl.classList.add('hs'); clearTimeout(hsTO); hsTO = setTimeout(() => crossEl.classList.remove('hs'), 50); }
     return;
   }
-  const wp = WEAPONS[cur]; z.hp -= (dmg != null ? dmg : (head ? wp.head : wp.body)) * (doubleTap ? 2 : 1); z.flash = 1; z.stagger = fx && fx.stagger != null ? fx.stagger : 0.25; sfx('hit');   // fx — только у пуль (Ray Gun без изменений)
+  const wp = WEAPONS[cur]; z.hp -= (dmg != null ? dmg : (head ? wp.head : wp.body)) * (doubleTap ? 2 : 1); z.flash = 1; z.stagger = fx && fx.stagger != null ? fx.stagger : 0.25; z.flinch = 0.3; z.flDir = Math.random() < 0.5 ? -1 : 1; sfx('hit');   // fx — только у пуль (Ray Gun без изменений)
   crossEl.classList.add('hit'); setTimeout(() => crossEl.classList.remove('hit'), 110);
   if (head) { crossEl.classList.add('hs'); clearTimeout(hsTO); hsTO = setTimeout(() => crossEl.classList.remove('hs'), 50); }   // крестик на 0.05 c
   if (z.hp <= 0) { z.state = 'dying'; z.dt = 0; z.eyes.forEach(e => e.visible = false); startRagdoll(z, head, dmg != null ? dmg : (head ? wp.head : wp.body)); kills++; maybeDropMaxAmmo(z);
-    if (fx && fx.knife) addPoints(120, 'kill'); else if (head) addPoints(100, 'head', 'HEADSHOT'); else addPoints(60, 'kill');
+    if (fx && fx.knife) addPoints(90, 'kill'); else if (head) addPoints(75, 'head', 'HEADSHOT'); else addPoints(45, 'kill');   // 1.19: меньше очков (было 120/100/60)
     if (z.boss) addPoints(500, 'kill', 'ПЛЕВАКА'); }
-  else addPoints(10);
+  else addPoints(5);   // попадание без убийства (было 10)
 }
 function hurtPlayer(d) {
   if (downed || dead) return;
@@ -7119,6 +7456,7 @@ function gaitMul(z) {   // нелинейная скорость: хромота
 // перестаёт считаться, исключается из попаданий и через RAGDOLL_LINGER секунд исчезает.
 const RAGDOLL_LINGER = 0.5, RD_HP = Math.PI / 2;
 function startRagdoll(z, head, dmg) {
+  if (z.glow) z.glow.forEach(sp => sp.visible = false);   // глаза гаснут
   const p = z.g.position, b = z.body;
   let nx = p.x - PX, nz = p.z - PZ; const nd = Math.hypot(nx, nz) || 1; nx /= nd; nz /= nd;
   const yaw = z.g.rotation.y, kf = nx * Math.sin(yaw) + nz * Math.cos(yaw), kr = nx * Math.cos(yaw) - nz * Math.sin(yaw);
@@ -7243,13 +7581,13 @@ function updateZombie(z, dt) {
       const bb = as.o, gx = bb.sg * 4.6, gz = Math.sin(z.seed * 7) * 1.3, d = steer(z, gx, gz, spd, dt);
       if (d < 0.7 || Math.abs(p.x) > Math.abs(gx) - 0.25) {
         turn(z, bb.sg, 0, dt); z.atkCd -= dt;
-        if (z.atkCd <= 0) { z.atkCd = 0.6; z.atkT = 0.4; z.atkKind = Math.random() * 4 | 0; damageBar(bb, BAR_HIT); }
+        if (z.atkCd <= 0) { z.atkCd = 0.6; z.atkT = z.atkLen = 0.4; z.atkKind = Math.random() * 4 | 0; damageBar(bb, BAR_HIT); }
       }
     } else {
       const W = as.o, X = W.ax === 'x', gx = W.stand.x + (X ? tj : 0), gz = W.stand.z + (X ? 0 : tj), d = steer(z, gx, gz, spd, dt);
       if (d < 0.7) {
         turn(z, -W.dir.x, -W.dir.z, dt);
-        if (W.hp > 0) { z.atkCd -= dt; if (z.atkCd <= 0) { z.atkCd = 0.6; z.atkT = 0.4; z.atkKind = Math.random() * 4 | 0; damageWin(W, VKW_HIT); } }
+        if (W.hp > 0) { z.atkCd -= dt; if (z.atkCd <= 0) { z.atkCd = 0.6; z.atkT = z.atkLen = 0.4; z.atkKind = Math.random() * 4 | 0; damageWin(W, VKW_HIT); } }
         else {   // окно сломано — залезает
           const bd = X ? Math.abs(p.z - W.fixed) : Math.abs(p.x - W.fixed), L = bd + 1.1;
           z.w = W; z.state = 'vault'; z.vt = 0; z.vdur = Math.max(0.8, 1.5 - sp0 * 0.12); z.vx0 = p.x; z.vz0 = p.z; z.vx1 = p.x - W.dir.x * L; z.vz1 = p.z - W.dir.z * L; z.vault = true; z.asg = null;
@@ -7259,12 +7597,14 @@ function updateZombie(z, dt) {
   } else { // chase
     const dp = Math.hypot(target.x - p.x, target.z - p.z), fy = p.y;
     z.planT -= dt; if (z.planT <= 0) { plan(z, target.x, target.z, target.floor, target.visible); z.planT = 0.35 + Math.random() * 0.2; }
-    if (z.boss && bossSpitTick(z, target, dp, dt)) { z.atkCd = Math.max(z.atkCd, 0.25); }
+    if (!z.roared) { z.roared = true; if (!z.boss && dp < 16 && Math.random() < 0.45 && los(p.x, p.z, target.x, target.z, fy)) { z.roarT = 0.95; zGrowl(p.x, p.z); } }   // заметил игрока — рёв
+    if (z.roarT > 0) { z.roarT -= dt; turn(z, target.x - p.x, target.z - p.z, dt); }
+    else if (z.boss && bossSpitTick(z, target, dp, dt)) { z.atkCd = Math.max(z.atkCd, 0.25); }
     else if (dp < (z.boss ? 1.75 : 1.3) + (inFountain(target.x, target.z) && !inFountain(p.x, p.z) ? 1.9 : 0) && Math.abs(target.floor - fy) < 1.6 && los(p.x, p.z, target.x, target.z, inFountain(target.x, target.z) ? fy + 0.45 : fy)) {   // у фонтана тянутся через бортик
       turn(z, target.x - p.x, target.z - p.z, dt);
       z.atkCd -= dt;
       if (z.atkCd <= 0) {
-        z.atkCd = 0.55; z.atkT = 0.4; z.atkKind = Math.random() * 4 | 0;
+        z.atkCd = 0.4; z.atkT = z.atkLen = 0.36; z.atkKind = Math.random() * 4 | 0;   // бьёт чаще (было раз в 0,55 с)
         if (window.MP && MP.active && MP.isAuthority && target.id && target.id !== MP.selfId) {
           MP.requestPlayerHit(target.id, z.mpId);
         } else {
@@ -7273,13 +7613,13 @@ function updateZombie(z, dt) {
         }
       }
     } else {
-      z.atkCd = Math.max(z.atkCd, 0.25);
+      z.atkCd = Math.max(z.atkCd, 0.15);   // подошёл вплотную — первый удар почти сразу
       if (z.nT > 0) { z.nT -= dt; zMove(z, z.nx * spd * dt, z.nz * spd * dt); }
       else if (z.wp || dp > 0.9) steer(z, z.wp ? z.wp.x : target.x, z.wp ? z.wp.z : target.z, spd, dt);
     }
   }
   if (z.state === 'chase' && !z.as) { // защита от застревания
-    const busy = z.atkT > 0 || (z.boss && z.spitT > 0) || Math.hypot(target.x - p.x, target.z - p.z) < 1.9;   // бьёт, плюётся или стоит вплотную — это не застревание
+    const busy = z.atkT > 0 || z.roarT > 0 || (z.boss && z.spitT > 0) || Math.hypot(target.x - p.x, target.z - p.z) < 1.9;   // бьёт, плюётся или стоит вплотную — это не застревание
     if (!frozen && !busy && z.moved < spd * dt * 0.25) { z.stuck += dt; z.stuckTot += dt; } else { z.stuck = Math.max(0, z.stuck - dt); if (z.moved > spd * dt * 0.5) z.stuckTot = Math.max(0, z.stuckTot - dt * 0.5); }
     if (z.stuck > 2) { const a = Math.random() * 6.28; z.nx = Math.cos(a); z.nz = Math.sin(a); z.nT = 0.6; z.stuck = 0; }
     if (z.stuckTot > 12) {   // совсем застрял: переносим на ближайший узел навигации своего этажа (а не к окну через всю карту)
@@ -7338,20 +7678,42 @@ function updateZombie(z, dt) {
     else if (z.tearKind === 1) { const k = Math.abs(Math.sin(z.t * 7)) * 0.9; al = ar = -1.4 - k; lean = 0.2 + k * 0.2; }
     else { const k = Math.max(0, Math.sin(z.t * 5)); al = -2.5 + k * 1.2; ar = -2.3 + k * 1.2; lean = 0.1 + k * 0.4; eL = eR = -0.5; }
   }
-  if (z.atkT > 0) {   // четыре вида атаки
-    z.atkT -= dt; const u = 1 - z.atkT / 0.4, k = Math.sin(u * Math.PI);
-    if (z.atkKind === 0) { al -= k * 0.5; ar -= k * 0.5; lean += k * 0.3; }
-    else if (z.atkKind === 1) { const q = u < 0.35 ? -1.45 - 1.2 * (u / 0.35) : -2.65 + 2.3 * ((u - 0.35) / 0.65); al = ar = q; lean = 0.1 + (u > 0.35 ? 0.5 * k : 0); }
-    else if (z.atkKind === 2) { al = -1.45 - 0.9 * k; ar = -1.0 + 0.8 * k; lean += k * 0.2; roll = (z.t % 2 < 1 ? 1 : -1) * k * 0.2; }
-    else { al = ar = -1.7; lean = 0.15 + 0.7 * k; z.lLeg.rotation.x = -0.5 * k; }
+  let azL = null, azR = null, atkYaw = 0, eLx = null, eRx = null;
+  if (z.atkT > 0) {   // удары руками (корпус почти не наклоняется): замах — удар — возврат
+    z.atkT -= dt; const u = 1 - z.atkT / (z.atkLen || 0.4), sm = x => x * x * (3 - 2 * x);
+    const wind = Math.min(1, u / 0.4), hit = u < 0.4 ? 0 : Math.min(1, (u - 0.4) / 0.25), back = u < 0.65 ? 0 : (u - 0.65) / 0.35;
+    const K = z.atkKind;
+    if (K === 0 || K === 1) {   // размашистый удар когтями сбоку: рука заносится назад-вверх и рубит по диагонали через себя
+      const s1 = K === 0 ? 1 : -1, sw = sm(wind) * (1 - sm(hit)), st = sm(hit) * (1 - sm(back));
+      const ax = -1.4 - 1.2 * sw + 0.9 * st, az = s1 * (0.9 * sw - 0.55 * st);
+      if (K === 0) { ar = ax; azR = az; eRx = -1.2 * sw - 0.15; al = -1.1; eLx = -0.5; } else { al = ax; azL = az; eLx = -1.2 * sw - 0.15; ar = -1.1; eRx = -0.5; }
+      atkYaw = s1 * (0.35 * sw - 0.5 * st); lean = 0.12 + 0.08 * st;
+    } else if (K === 2) {   // двойной удар сверху обеими руками
+      const up = sm(wind) * (1 - sm(hit)), dn = sm(hit) * (1 - sm(back));
+      al = ar = -1.3 - 1.5 * up + 0.7 * dn; eL = eR = -0.9 * up - 0.2; eLx = eRx = eL; azL = -0.25 * up; azR = 0.25 * up; lean = 0.08 + 0.12 * dn;
+    } else {   // хватает и рвёт: обе руки вперёд-в стороны, затем резко сводит
+      const op = sm(wind) * (1 - sm(hit)), cl = sm(hit) * (1 - sm(back));
+      al = ar = -1.55 - 0.25 * op; azL = -0.7 * op + 0.25 * cl; azR = 0.7 * op - 0.25 * cl; eLx = eRx = -0.25 - 0.9 * cl; lean = 0.1 + 0.1 * cl; atkYaw = Math.sin(u * 20) * 0.05 * cl;
+    }
   }
   if (z.stagger > 0) lean = -0.4 * (z.stagger / 0.25);
-  z.lArm.rotation.x = al; z.rArm.rotation.x = ar; z.lArm.el.rotation.x = eL; z.rArm.el.rotation.x = eR;
+  let spread = 0;
+  if (z.roarT > 0) {   // рёв: руки в стороны, голова запрокинута, грудь вперёд
+    const u = 1 - z.roarT / 0.95, k = Math.sin(Math.min(1, u * 1.25) * Math.PI); al = ar = -0.9 - 0.6 * k; eL = eR = -0.6 * k; lean = 0.15 - 0.4 * k; spread = 0.95 * k;
+  }
+  z.lArm.rotation.z += (-spread - z.lArm.rotation.z) * Math.min(1, dt * 12); z.rArm.rotation.z += (spread - z.rArm.rotation.z) * Math.min(1, dt * 12);
+  if (azL != null) z.lArm.rotation.z = azL; if (azR != null) z.rArm.rotation.z = azR;
+  if (z.flinch > 0) { z.flinch -= dt; } const fk = Math.max(0, z.flinch || 0) / 0.3;
+  b.rotation.y = (z.flDir || 1) * 0.5 * fk * fk + atkYaw;   // вздрагивает от попадания, корпус доворачивается за ударом
+  z.lArm.rotation.x = al; z.rArm.rotation.x = ar; z.lArm.el.rotation.x = eLx != null ? eLx : eL; z.rArm.el.rotation.x = eRx != null ? eRx : eR;
   b.rotation.x = lean; b.rotation.z = roll * mvv; b.position.y = dip * mvv;
   // голова: наклон, опущена или вскинута, у «дёрганых» — резкие повороты
   if (z.t > z.twT) { z.twT = z.t + 0.3 + Math.random() * 0.9; z.twY = (Math.random() - 0.5) * (z.gait === 'lurch' ? 1.0 : 0.5); }
   z.head.rotation.y += (z.twY - z.head.rotation.y) * Math.min(1, dt * (z.gait === 'lurch' ? 28 : 5));
-  z.head.rotation.z = z.headTilt + Math.sin(z.t * 1.4 + z.phase * 0.2) * 0.1; z.head.rotation.x = z.headDrop;
+  z.head.rotation.z = z.headTilt + Math.sin(z.t * 1.4 + z.phase * 0.2) * 0.1 + (z.flDir || 1) * 0.6 * fk; z.head.rotation.x = z.headDrop;
+  if (z.glow) { const f = 0.55 + 0.35 * Math.sin(z.t * 6 + z.phase) + (Math.random() < 0.03 ? -0.4 : 0); z.glow[0].material.opacity = z.glow[1].material.opacity = Math.max(0.1, f); }   // глаза тлеют и мигают
+  if (z.jaw) z.jaw.rotation.x = 0.18 + 0.12 * Math.abs(Math.sin(z.t * 2.3 + z.phase)) + (z.roarT > 0 ? 0.55 : 0) + (z.atkT > 0 ? 0.45 * Math.sin((1 - z.atkT / (z.atkLen || 0.4)) * Math.PI) : 0) + (Math.random() < 0.02 ? 0.2 : 0);   // челюсть: жуёт воздух, раскрывается при рёве и укусе
+  if (z.roarT > 0) { const u = 1 - z.roarT / 0.95; z.head.rotation.x = -0.75 * Math.sin(Math.min(1, u * 1.25) * Math.PI) + Math.sin(z.t * 40) * 0.04; }   // голова назад, трясётся от крика
   if (z.boss) bossPose(z, dt);
 }
 
@@ -7413,7 +7775,7 @@ function updateNetworkZombieVisual(z, dt) {
 
 // ---------- раунды ----------
 function startRound() {
-  round++; nades = NADE_PER_ROUND; roundActive = true; toSpawn = Math.round(6 + 3 * (round - 1) + 0.2 * (round - 1) * (round - 1)); spawnTimer = 0;
+  round++; nades = NADE_PER_ROUND; roundActive = true; toSpawn = Math.round((6 + 3 * (round - 1) + 0.2 * (round - 1) * (round - 1)) * 1.3);   // 1.19: на 30% больше зомби за волну spawnTimer = 0;
   bossLeft = bossCount(round); bossTotal = toSpawn;
   roundEl.textContent = round; annEl.textContent = 'ROUND ' + round;
   annEl.classList.remove('go'); void annEl.offsetWidth; annEl.classList.add('go');
@@ -7473,7 +7835,7 @@ function updateGame(dt) {
       interEl.textContent = '';
       const alive = zombies.filter(z => z.state !== 'dying').length;
       spawnTimer -= dt;
-      if (toSpawn > 0 && alive < Math.min(24, 8 + 2 * round) && spawnTimer <= 0) { const bz = bossLeft > 0 && (toSpawn <= bossLeft || (toSpawn < bossTotal * 0.75 && Math.random() < 0.15)); if (bz) bossLeft--; spawnZombie(null, false, bz); toSpawn--; spawnTimer = Math.max(0.7, 2 - 0.12 * round); }
+      if (toSpawn > 0 && alive < Math.min(28, 10 + 2 * round) && spawnTimer <= 0) { const bz = bossLeft > 0 && (toSpawn <= bossLeft || (toSpawn < bossTotal * 0.75 && Math.random() < 0.15)); if (bz) bossLeft--; spawnZombie(null, false, bz); toSpawn--; spawnTimer = Math.max(0.5, 1.6 - 0.1 * round); }   // выходят чаще
       if (toSpawn === 0 && alive === 0) { roundActive = false; nextRoundAt = gtime + 10; }
     } else {
       interEl.textContent = `ROUND ${round + 1} IN ${Math.max(0, Math.ceil(nextRoundAt - gtime))}`;
@@ -7657,6 +8019,37 @@ addEventListener('resize', () => {
   weaponCam.aspect = camera.aspect; weaponCam.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
+// ---------- прогрев: заранее собираем все шейдеры и загружаем текстуры, пока открыто меню ----------
+// Раньше при первом открытии двери/ящика всплывали спрятанные модели (оружие в ящике, руки с новым оружием, зомби новых видов),
+// и видеокарта на несколько секунд останавливалась, компилируя под них шейдеры. Теперь всё это делается один раз при загрузке.
+function warmupGPU() {
+  const t0 = performance.now(), hidden = [], temp = [];
+  const show = sc => sc.traverse(o => { if (o.visible === false) { hidden.push(o); o.visible = true; } });
+  try {
+    for (const k of ROT_KINDS) { const z = makeRotZombie(k); z.g.position.set(PX, -50, PZ); scene.add(z.g); temp.push(z.g); const zf = makeRotZombie(k); zf.mats.forEach(m => { m.transparent = true; }); zf.g.position.set(PX, -50, PZ); scene.add(zf.g); temp.push(zf.g); }   // в т.ч. «тающие» трупы
+    try { const b = makeZombie(true); b.g.position.set(PX, -50, PZ); scene.add(b.g); temp.push(b.g); } catch (e) {}
+    show(scene); show(weaponScene);
+    renderer.compile(scene, camera); renderer.compile(weaponScene, weaponCam);
+    // один кадр в крошечную текстуру с камерой, смотрящей во все стороны: так загружаются и сами текстуры
+    const rt = new THREE.WebGLRenderTarget(64, 64), cam = new THREE.PerspectiveCamera(170, 1, 0.05, 200); cam.position.copy(camera.position);
+    renderer.setRenderTarget(rt);
+    for (const [x, y, zz] of [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0]]) { cam.lookAt(cam.position.x + x, cam.position.y + y, cam.position.z + zz); renderer.render(scene, cam); }
+    renderer.render(weaponScene, weaponCam); renderer.setRenderTarget(null); rt.dispose();
+  } catch (e) { console.warn('warmup', e); }
+  for (const o of hidden) o.visible = false;
+  for (const g of temp) scene.remove(g);
+  console.log('warmup', Math.round(performance.now() - t0), 'ms');
+}
+// резкие скачки мыши: некоторые браузеры/драйверы в режиме захвата курсора изредка присылают огромный рывок — камеру «телепортирует»
+const MSE = { avg: 0, lockT: 0 };
+document.addEventListener('pointerlockchange', () => { MSE.lockT = performance.now(); MSE.avg = 0; });
+window.addEventListener('mousemove', e => {
+  if (!document.pointerLockElement) return;
+  const m = Math.abs(e.movementX) + Math.abs(e.movementY);
+  if (performance.now() - MSE.lockT < 120 || (m > 220 && m > MSE.avg * 6 + 60)) { e.stopImmediatePropagation(); return; }   // первые события после захвата и одиночные рывки — выбрасываем
+  MSE.avg = MSE.avg * 0.85 + m * 0.15;
+}, true);
+try { warmupGPU(); } catch (e) {}
 loop();
 </script>
 <!-- Мультиплеер: подключаем ПОСЛЕ основного скрипта игры -->

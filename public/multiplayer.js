@@ -381,6 +381,11 @@
       w.mag = w.magSize; w.reserve = w.maxReserve - w.magSize;
       if (!w.own) equip(1); else updateHUD();
       sfx('buy');
+    } else if (own && event.kind === 'mp40') {
+      const w = WEAPONS[9];
+      w.mag = w.magSize; w.reserve = w.maxReserve - w.magSize;
+      if (!w.own) equip(9); else updateHUD();
+      sfx('buy');
     } else if (own && event.kind === 'shotgun') {
       const w = WEAPONS[2];
       w.mag = w.magSize; w.reserve = w.maxReserve - w.magSize;
