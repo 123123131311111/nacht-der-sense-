@@ -29,7 +29,7 @@ const WEAPONS = [
   { body: 60, head: 120, interval: 850, pellets: 8 },
   { body: 150, head: 300, interval: 550, pellets: 1 },
   { body: 250, head: 500, interval: 280, pellets: 1 },
-  { body: 861, head: 861, interval: 850, pellets: 24 },   // Ray Gun (1.14: 555 / 850 мс; 1.8: 746 / 650; изначально 865 / 420)
+  { body: 564, head: 564, interval: 850, pellets: 24 },   // Ray Gun (1.14: 555 / 850 мс; 1.8: 746 / 650; изначально 865 / 420)
   { body: 110, head: 220, interval: 100, pellets: 1 },
   { body: 95, head: 190, interval: 90, pellets: 1 },   // M16A1 (только Mystery Box)
   { body: 55, head: 110, interval: 140, pellets: 2 },  // двойные пистолеты (только Mystery Box): 2 пули за выстрел
@@ -147,8 +147,8 @@ function gamePayload(room) {
     windowBoards: game.windowBoards,
     // Keep the network snapshot gameplay-only. Animation and model variation
     // are generated independently by each client.
-    zombies: game.zombies.map(({ id, x, y, z, vx, vy, vz, speed, yaw, moving, attacking, attackKind, hp, state, boss }) => ({
-      id, x, y, z, vx, vy, vz, speed, yaw, moving, attacking, attackKind, hp, state, boss,
+    zombies: game.zombies.map(({ id, x, y, z, vx, vy, vz, speed, yaw, moving, attacking, attackKind, hp, state, boss, kind }) => ({
+      id, x, y, z, vx, vy, vz, speed, yaw, moving, attacking, attackKind, hp, state, boss, kind,
     })),
     revision: game.revision,
     players: Object.values(room.players).map(p => ({
@@ -293,6 +293,23 @@ io.on('connection', socket => {
     });
   });
 
+  socket.on('necroEvt', (d = {}) => {   // некромант: надгробия (хост → все), попадания по надгробиям (любой → все, решает хост)
+    const ctx = roomAndPlayer(socket);
+    if (!ctx || !ctx.room.game.started || !d || typeof d.t !== 'string' || typeof (d.id || d.zid || '') !== 'string') return;
+    const host = ctx.room.hostId === socket.id;
+    if ((d.t === 'grave' || d.t === 'gone' || d.t === 'cast' || d.t === 'brute') && !host) return;
+    if (!['grave', 'gone', 'cast', 'hit', 'brute'].includes(d.t)) return;
+    const now = Date.now(); ctx.player.lastNecroAt = ctx.player.lastNecroAt || 0;
+    if (d.t === 'hit' && now - ctx.player.lastNecroAt < 60) return; ctx.player.lastNecroAt = now;
+    const out = { t: d.t, id: typeof d.id === 'string' ? d.id.slice(0, 80) : '', zid: typeof d.zid === 'string' ? d.zid.slice(0, 80) : '' };
+    if (d.t === 'grave') { if (![d.x, d.z].every(Number.isFinite)) return; out.x = clamp(d.x, -120, 120); out.z = clamp(d.z, -120, 120); out.y = clamp(Number(d.y) || 0, -5, 20); }
+    if (d.t === 'brute') {   // Джаггернаут (1.25): удар по земле, камень, вонючка, поедание — только эффекты
+      if (!['slam', 'rock', 'stink', 'eat', 'aslam', 'athrow', 'astink'].includes(d.a)) return; out.a = d.a;
+      for (const k of ['x', 'y', 'z', 'vx', 'vy', 'vz']) if (d[k] !== undefined) { if (!Number.isFinite(d[k])) return; out[k] = clamp(d[k], -150, 150); }
+    }
+    if (d.t === 'hit') { out.sid = socket.id + ':' + String(d.sid || '').slice(0, 40); out.n = Math.min(2, Math.max(1, Number(d.n) || 1)); }
+    socket.to(ctx.room.code).emit('necroEvt', out);
+  });
   socket.on('bossSpit', ({ zid, x, y, z, vx, vy, vz } = {}) => {   // плевок босса: хост → остальные
     const ctx = roomAndPlayer(socket);
     if (!ctx || ctx.room.hostId !== socket.id || !ctx.room.game.started || ![x, y, z, vx, vy, vz].every(Number.isFinite)) return;
@@ -338,7 +355,7 @@ io.on('connection', socket => {
     zombie.hp = Math.max(0, zombie.hp - damage);
     const killed = zombie.hp <= 0;
     if (killed) zombie.state = 'dying';
-    const reward = ((killed ? (shot.weapon === -1 ? 90 : (head ? 75 : 45)) : 5) + (killed && zombie.boss ? 500 : 0)) * ((room.game.dpUntil || 0) > Date.now() ? 2 : 1);   // босс «Плевака»: +500 за убийство   // Double Points действует на всю комнату
+    const reward = ((killed ? (shot.weapon === -1 ? 90 : (head ? 75 : 45)) : 5) + (killed && zombie.boss ? 500 : 0) + (killed && zombie.kind === 'necro' ? 1500 : 0) + (killed && zombie.kind === 'brute' ? 3000 : 0)) * ((room.game.dpUntil || 0) > Date.now() ? 2 : 1);   // босс «Плевака»: +500 за убийство   // Double Points действует на всю комнату
     player.points += reward;
     let drop = null;
     if (killed) {
@@ -386,7 +403,7 @@ io.on('connection', socket => {
         Math.hypot(target.x - zombie.x, target.z - zombie.z) > (zombie.boss ? 2.3 : 1.8) + (room.map === 'verruckt' && Math.hypot(target.x, target.z) < 3.0 ? 1.9 : 0) ||   // в фонтане зомби тянутся через бортик
         Math.abs((target.y - 1.7) - zombie.y) > 1.8) return;
     zombie.lastAttackAt = now;
-    io.to(playerId).emit('playerHurt', { playerId, zombieId, damage: zombie.boss ? 45 : 25 });
+    io.to(playerId).emit('playerHurt', { playerId, zombieId, damage: zombie.kind === 'brute' ? 50 : zombie.boss ? 45 : zombie.kind === 'necro' ? 40 : 25 });
   });
 
   // ---- повален / поднятие союзником (3 с) ----
@@ -623,7 +640,7 @@ io.on('connection', socket => {
         attackKind: Number.isInteger(z.attackKind) && z.attackKind >= 0 && z.attackKind <= 3
           ? z.attackKind : (previous ? previous.attackKind : 0),
         speed: clamp(finite(z.speed, previous ? previous.speed : 1), 0, 10),
-        hp: clamp(z.hp, 0, 5000000), state: z.state, boss: z.boss === true,
+        hp: clamp(z.hp, 0, 5000000), state: z.state, boss: z.boss === true, kind: typeof z.kind === 'string' ? z.kind.slice(0, 12) : '',
         updatedAt: now,
         lastAttackAt: previous ? previous.lastAttackAt || 0 : 0,
       };
